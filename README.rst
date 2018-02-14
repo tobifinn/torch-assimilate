@@ -32,7 +32,7 @@ At the moment, this package is not uploaded via pypi or conda and this package
 needs to be cloned and installed manually.
 
 This package is programmed in python 3.6 and should be working with all `python
-versions > 3.3`. Additional requirements are tensorflow [1]_ and xarray [2]_.
+versions > 3.3`. Additional requirements are tensorflow and xarray.
 
 via conda (recommended):
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -55,8 +55,7 @@ via pip:
 
 Authors
 -------
-* **Tobias Finn** - *Initial creator* -
-`tobifinn <gitlab.com/tobifinn>`_
+* **Tobias Finn** - *Initial creator* - `tobifinn <gitlab.com/tobifinn>`_
 
 License
 -------
