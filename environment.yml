@@ -1,0 +1,11 @@
+name: tfassim
+channels:
+- conda-forge
+dependencies:
+- python=3.6
+- pip
+- setuptools
+- xarray
+- numpy
+- scipy
+- tensorflow
