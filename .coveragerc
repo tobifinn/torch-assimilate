@@ -1,0 +1,22 @@
+[report]
+exclude_lines =
+    pragma: no cover
+    @abstract
+    @abc.abtractmethod
+    (abc.ABC):
+    def __repr__
+    raise AssertionError
+    except AttributeError:
+    raise NotImplementedError
+    if __name__ == "__main__":
+    if __name__ == '__main__':
+    def __str__
+    pass
+    logging.info
+    logging.warning
+    logging.debug
+    logging.error
+    logger.info
+    logger.debug
+    logger.warning
+    logger.error
