@@ -14,12 +14,7 @@ from tfassim import __version__
 
 BASE = path.abspath(path.dirname(__file__))
 
-try:
-    import pypandoc
-    long_description = pypandoc.convert(path.join(BASE, 'README.md'), 'rst')
-except(IOError, ImportError):
-    long_description = open(
-        path.join(BASE, 'README.md'), encoding='utf-8').read()
+long_description = open(path.join(BASE, 'README.rst'), encoding='utf-8').read()
 
 
 setup(
