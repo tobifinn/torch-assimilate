@@ -39,6 +39,4 @@ setup(
     packages=find_packages(exclude=['contrib', 'docs', 'tests.*', 'test']),
 
     test_suite='tests',
-
-    scripts=glob.glob("bin/tfassim*"),
 )
