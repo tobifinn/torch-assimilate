@@ -10,7 +10,9 @@ import glob
 # External modules
 
 # Internal modules
-from tfassim import __version__
+
+
+__version__ = "0.0.1"
 
 BASE = path.abspath(path.dirname(__file__))
 
