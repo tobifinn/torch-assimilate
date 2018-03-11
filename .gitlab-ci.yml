@@ -59,3 +59,21 @@ sphinx:
         paths:
             - $SPHINX_DOC_DIR
         expire_in: 1 week
+
+pages:
+    before_script: []
+    stage: deploy
+    dependencies:
+        - sphinx
+        - coverage
+    script:
+        - rm -rf $PAGES_DIR/ # make sure there is not pages dir
+        - mv $SPHINX_DOC_DIR $PAGES_DIR/ # sphinx doc is index page
+        - mv $COVERAGE_STATIC_DIR $PAGES_DIR/ # put coverage report inside
+    artifacts:
+        paths:
+            - $PAGES_DIR/
+    only:
+        - dev
+    only:
+        - tags
