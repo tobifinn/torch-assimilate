@@ -6,6 +6,24 @@ tf-assimilate
     :stub-columns: 1
     :widths: 15 85
 
+    * - pipeline
+        |pipeline|
+    * - coverage
+        |coverage|
+    * - docs
+      - |docs|
+
+.. |pipeline| image:: https://gitlab.com/tobifinn/tf-assimilate/badges/dev/pipeline.svg
+                    :target: https://gitlab.com/tobifinn/tf-assimilate/commits/dev
+                    :alt: Pipeline status
+.. |coverage| image:: https://gitlab.com/tobifinn/tf-assimilate/badges/dev/coverage.svg
+                    :target: https://gitlab.com/tobifinn/tf-assimilate/commits/dev
+                    :alt: Coverage report
+.. |docs| image:: https://img.shields.io/badge/docs-sphinx-brightgreen.svg
+                :target: https://tobifinn.gitlab.io/tf-assimilate/
+                :alt: Documentation Status
+
+
 data assimilation based on tensorflow
 -------------------------------------
 
