@@ -60,6 +60,16 @@ sphinx:
             - $SPHINX_DOC_DIR
         expire_in: 1 week
 
+dist:
+    stage: package
+    dependencies: []
+    script:
+        - make dist
+    artifacts:
+        paths:
+            - dist/*
+        expire_in: 1 week
+
 pages:
     before_script: []
     stage: deploy
