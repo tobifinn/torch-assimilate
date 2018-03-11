@@ -33,3 +33,16 @@ coverage:
             - $COVERAGE_STATIC_DIR
         expire_in: 1 week
 
+codequality:
+    image: docker:latest
+    before_script:
+        - echo $PWD
+    variables:
+        DOCKER_DRIVER: overlay
+    services:
+        - docker:dind
+    script:
+        - docker pull codeclimate/codeclimate:0.69.0
+        - docker run --env CODECLIMATE_CODE="$PWD" --volume "$PWD":/tfassim --volume /var/run/docker.sock:/var/run/docker.sock --volume /tmp/cc:/tmp/cc codeclimate/codeclimate:0.69.0 analyze -f json > codeclimate.json || true
+    artifacts:
+        paths: [codeclimate.json]
