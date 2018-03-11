@@ -87,3 +87,18 @@ pages:
         - dev
     only:
         - tags
+
+pypi-upload:
+    stage: deploy
+    environment:
+        name: production
+        url: https://pypi.python.org
+    script:
+        - pip install twine
+        - twine upload -u "$PYPI_USERNAME" -p "$PYPI_PASSWORD" dist/*
+    dependencies:
+        - dist
+    only:
+        - master
+    only:
+        - tags
