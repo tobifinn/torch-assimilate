@@ -10,16 +10,13 @@ import glob
 # External modules
 
 # Internal modules
-from tfassim import __version__
+
+
+__version__ = "0.0.1"
 
 BASE = path.abspath(path.dirname(__file__))
 
-try:
-    import pypandoc
-    long_description = pypandoc.convert(path.join(BASE, 'README.md'), 'rst')
-except(IOError, ImportError):
-    long_description = open(
-        path.join(BASE, 'README.md'), encoding='utf-8').read()
+long_description = open(path.join(BASE, 'README.rst'), encoding='utf-8').read()
 
 
 setup(
@@ -44,6 +41,4 @@ setup(
     packages=find_packages(exclude=['contrib', 'docs', 'tests.*', 'test']),
 
     test_suite='tests',
-
-    scripts=glob.glob("bin/tfassim*"),
 )
