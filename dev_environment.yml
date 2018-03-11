@@ -6,10 +6,10 @@ dependencies:
     - setuptools
     - coverage
     - sphinx
+    - sphinx_rtd_theme
     - xarray
     - numpy
     - scipy
     - tensorflow
-    - pip
     - pip:
-        twine
+        - twine
