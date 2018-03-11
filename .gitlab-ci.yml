@@ -99,8 +99,6 @@ pypi-upload:
         - dist
     only:
         - master
-    only:
-        - tags
 
 pypi-test-upload:
     stage: deploy
@@ -109,11 +107,13 @@ pypi-test-upload:
         url: https://test.pypi.org
     script:
         - >
-            twine upload -u "maestrotf" -p "L1nwtnPYPIp!"
+            twine upload -u "$PYPI_USERNAME" -p "$PYPI_PASSWORD!"
             --repository-url https://test.pypi.org/legacy/ dist/*
     dependencies:
         - dist
     only:
         - dev
+    only:
+        - master
     only:
         - tags
