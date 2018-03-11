@@ -105,7 +105,7 @@ pypi-test-upload:
         url: https://test.pypi.org
     script:
         - >
-            twine upload -u "$PYPI_USERNAME" -p "$PYPI_PASSWORD!"
+            twine upload -u "$PYPI_USERNAME" -p "$PYPI_PASSWORD"
             --repository-url https://test.pypi.org/legacy/ dist/*
     dependencies:
         - dist
