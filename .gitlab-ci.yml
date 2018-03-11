@@ -4,11 +4,12 @@ variables:
     SPHINX_DOC_DIR: sphinx-doc
     COVERAGE_STATIC_DIR: coverage-report
     PAGES_DIR: public
-    DIST_DIR: radar_software/dist
+    DIST_DIR: dist
 
 stages:
     - install
     - test
+    - package
     - deploy
 
 before_script:
@@ -34,9 +35,9 @@ coverage:
         expire_in: 1 week
 
 codequality:
+    stage: test
     image: docker:latest
-    before_script:
-        - echo $PWD
+    before_script: []
     variables:
         DOCKER_DRIVER: overlay
     services:
@@ -45,4 +46,16 @@ codequality:
         - docker pull codeclimate/codeclimate:0.69.0
         - docker run --env CODECLIMATE_CODE="$PWD" --volume "$PWD":/tfassim --volume /var/run/docker.sock:/var/run/docker.sock --volume /tmp/cc:/tmp/cc codeclimate/codeclimate:0.69.0 analyze -f json > codeclimate.json || true
     artifacts:
-        paths: [codeclimate.json]
+        paths:
+            - codeclimate.json
+        expire_in: 1 week
+
+sphinx:
+    stage: package
+    script:
+        - make docs
+        - mv docs/build/html $SPHINX_DOC_DIR
+    artifacts:
+        paths:
+            - $SPHINX_DOC_DIR
+        expire_in: 1 week
