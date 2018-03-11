@@ -11,6 +11,5 @@ dependencies:
     - numpy
     - scipy
     - tensorflow
-    - pip
     - pip:
         - twine
