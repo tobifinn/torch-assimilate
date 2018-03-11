@@ -21,15 +21,15 @@ docs: $(PYTHON_SOURCES) $(RST_SOURCES)
 	cd $(DOCS_FOLDER) && make html
 
 .PHONY: build
-build: locale
+build:
 	$(SETUP.PY) build
 
 .PHONY: dist
-dist: locale
+dist:
 	$(SETUP.PY) sdist
 
 .PHONY: wheel
-wheel: locale
+wheel:
 	$(SETUP.PY) sdist bdist_wheel
 
 .PHONY: upload
