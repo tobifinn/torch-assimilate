@@ -1,13 +1,15 @@
 name: tfassim-dev
 channels:
-- conda-forge
+    - conda-forge
 dependencies:
-- python=3.6
-- pip
-- setuptools
-- coverage
-- sphinx
-- xarray
-- numpy
-- scipy
-- tensorflow
+    - python=3.6
+    - setuptools
+    - coverage
+    - sphinx
+    - xarray
+    - numpy
+    - scipy
+    - tensorflow
+    - pip
+    - pip:
+        twine
