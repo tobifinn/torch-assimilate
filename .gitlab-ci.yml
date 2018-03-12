@@ -90,7 +90,7 @@ pypi-upload:
     stage: deploy
     environment:
         name: production
-        url: https://pypi.python.org
+        url: https://pypi.org/project/tf-assimilate/
     script:
         - twine upload -u "$PYPI_USERNAME" -p "$PYPI_PASSWORD" dist/*
     dependencies:
@@ -102,7 +102,7 @@ pypi-test-upload:
     stage: deploy
     environment:
         name: testing
-        url: https://test.pypi.org
+        url: https://test.pypi.org/project/tf-assimilate/
     script:
         - >
             twine upload -u "$PYPI_USERNAME" -p "$PYPI_PASSWORD"
