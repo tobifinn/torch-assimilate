@@ -5,6 +5,8 @@ variables:
     COVERAGE_STATIC_DIR: coverage-report
     PAGES_DIR: public
     DIST_DIR: dist
+    DEV_ENV_TEST: tfassim-dev-test
+    ENV_TEST: tfassim-test
 
 stages:
     - install
@@ -15,6 +17,17 @@ stages:
 before_script:
     - source activate tfassim-dev
 
+check-envs:
+    stage: install
+    before_script:
+        - "conda remove --name $ENV_TEST --all || :"
+        - "conda remove --name $DEV_ENV_TEST --all || :"
+    after_script:
+        - "conda remove --name $ENV_TEST --all || :"
+        - "conda remove --name $DEV_ENV_TEST --all || :"
+    script:
+        - conda env create -f environment.yml --name $ENV_TEST
+        - conda env create -f dev_environment.yml --name $DEV_ENV_TEST
 
 install-tfassim:
     stage: install
