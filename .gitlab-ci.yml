@@ -110,4 +110,4 @@ pypi-test-upload:
     dependencies:
         - dist
     only:
-        - dev
+        - tag
