@@ -26,8 +26,10 @@ check-envs:
         - "conda remove --name $ENV_TEST --all || :"
         - "conda remove --name $DEV_ENV_TEST --all || :"
     script:
-        - conda env create -f /tf-assimilate/environment.yml --name $ENV_TEST
-        - conda env create -f /tf-assimilate/dev_environment.yml --name $DEV_ENV_TEST
+        - echo ${pwd}
+        - ls -al
+        - conda env create -f environment.yml --name $ENV_TEST
+        - conda env create -f dev_environment.yml --name $DEV_ENV_TEST
 
 install-tfassim:
     stage: install
