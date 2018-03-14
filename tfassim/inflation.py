@@ -35,10 +35,7 @@ import abc
 logger = logging.getLogger(__name__)
 
 
-class BaseAssimilation(object):
-    def __init__(self, pre_infl=None, post_infl=None, localization=None):
-        pass
-
+class BaseInflation(object):
     @abc.abstractmethod
-    def assimilate(self):
+    def inflate(self):
         pass
