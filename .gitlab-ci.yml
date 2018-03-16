@@ -20,6 +20,10 @@ before_script:
 build-docker:
     stage: install
     image: docker:latest
+    variables:
+        DOCKER_DRIVER: overlay
+    services:
+        - docker:dind
     before_script: []
     script:
         - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN $DOCKER_REGISTRY
