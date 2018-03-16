@@ -20,10 +20,12 @@ package Inflation {
     }
 }
 
+
 package Localization {
     abstract class BaseLocalization {
     }
 }
+
 class ModelState << xarray.DataArray >> {
     + valid : bool
     + split_mean_pert(in dim, out mean, out pert)
