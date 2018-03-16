@@ -1,0 +1,37 @@
+@startuml
+
+package "Assimilation" {
+    abstract class BaseAssimilation {
+        + pre_inflation : Inflation
+        + post_inflation : Inflation
+        + localization : Localization
+        + {abstract} assimilate(out analysis)
+    }
+
+    abstract class BaseVariational
+    abstract class BaseFilter
+
+    BaseAssimilation <|-- BaseVariational
+    BaseAssimilation <|-- BaseFilter
+}
+
+package Inflation {
+    abstract class BaseInflation {
+    }
+}
+
+package Localization {
+    abstract class BaseLocalization {
+    }
+}
+class ModelState << xarray.DataArray >> {
+    + valid : bool
+    + split_mean_pert(in dim, out mean, out pert)
+}
+
+class Observation << xarray.Dataset >> {
+    + valid : bool
+    + {abstract} operator(in state, out pseudo_obs)
+}
+
+@enduml
