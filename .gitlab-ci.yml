@@ -26,7 +26,7 @@ build-docker:
         - docker:dind
     before_script: []
     script:
-        - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN $DOCKER_REGISTRY
+        - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $DOCKER_REGISTRY
         - docker build -t $DOCKER_REGISTRY/<PROJECT-GROUP>/<PROJECT-NAME> .
         - docker push $DOCKER_REGISTRY/<PROJECT-GROUP>/<PROJECT-NAME>
     when: manual
