@@ -5,6 +5,8 @@ variables:
     COVERAGE_STATIC_DIR: coverage-report
     PAGES_DIR: public
     DIST_DIR: dist
+    DEV_ENV_TEST: tfassim-dev-test
+    ENV_TEST: tfassim-test
 
 stages:
     - install
@@ -15,6 +17,19 @@ stages:
 before_script:
     - source activate tfassim-dev
 
+check-envs:
+    stage: install
+    before_script:
+        - "conda remove --name $ENV_TEST --all || :"
+        - "conda remove --name $DEV_ENV_TEST --all || :"
+    after_script:
+        - "conda remove --name $ENV_TEST --all || :"
+        - "conda remove --name $DEV_ENV_TEST --all || :"
+    script:
+        - echo ${pwd}
+        - ls -al
+        - conda env create -f environment.yml --name $ENV_TEST
+        - conda env create -f dev_environment.yml --name $DEV_ENV_TEST
 
 install-tfassim:
     stage: install
@@ -90,7 +105,7 @@ pypi-upload:
     stage: deploy
     environment:
         name: production
-        url: https://pypi.python.org
+        url: https://pypi.org/project/tf-assimilate/
     script:
         - twine upload -u "$PYPI_USERNAME" -p "$PYPI_PASSWORD" dist/*
     dependencies:
@@ -102,7 +117,7 @@ pypi-test-upload:
     stage: deploy
     environment:
         name: testing
-        url: https://test.pypi.org
+        url: https://test.pypi.org/project/tf-assimilate/
     script:
         - >
             twine upload -u "$PYPI_USERNAME" -p "$PYPI_PASSWORD"
@@ -110,4 +125,4 @@ pypi-test-upload:
     dependencies:
         - dist
     only:
-        - dev
+        - tag

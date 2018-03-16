@@ -18,7 +18,7 @@ all: wheel docs
 
 .PHONY: docs
 docs: $(PYTHON_SOURCES) $(RST_SOURCES)
-	cd $(DOCS_FOLDER) && make html
+	cd $(DOCS_FOLDER) && make convert-dia && make html
 
 .PHONY: build
 build:
