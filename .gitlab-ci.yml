@@ -7,6 +7,7 @@ variables:
     DIST_DIR: dist
     DEV_ENV_TEST: tfassim-dev-test
     ENV_TEST: tfassim-test
+    DOCKER_REGISTRY: registry.gitlab.com
 
 stages:
     - install
@@ -26,7 +27,7 @@ build-docker:
         - docker:dind
     before_script: []
     script:
-        - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN $DOCKER_REGISTRY
+        - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $DOCKER_REGISTRY
         - docker build -t $DOCKER_REGISTRY/<PROJECT-GROUP>/<PROJECT-NAME> .
         - docker push $DOCKER_REGISTRY/<PROJECT-GROUP>/<PROJECT-NAME>
     when: manual
