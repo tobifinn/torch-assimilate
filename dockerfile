@@ -7,7 +7,7 @@ RUN apt-get update -q -y && \
 RUN TEMP_DEB="$(mktemp)" && \
     wget -O "$TEMP_DEB" 'http://ftp.br.debian.org/debian/pool/main/p/plantuml/plantuml_1.2017.15-1_all.deb' && \
     dpkg -i "$TEMP_DEB" || : && \
-    apt-get install -f && \
+    apt-get install -f -y && \
     dpkg -i "$TEMP_DEB" && \
     rm -f "$TEMP_DEB"
 
