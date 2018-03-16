@@ -17,6 +17,16 @@ stages:
 before_script:
     - source activate tfassim-dev
 
+build-docker:
+    stage: install
+    image: docker:latest
+    before_script: []
+    script:
+        - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN $DOCKER_REGISTRY
+        - docker build -t $DOCKER_REGISTRY/<PROJECT-GROUP>/<PROJECT-NAME> .
+        - docker push $DOCKER_REGISTRY/<PROJECT-GROUP>/<PROJECT-NAME>
+    when: manual
+
 check-envs:
     stage: install
     before_script:
