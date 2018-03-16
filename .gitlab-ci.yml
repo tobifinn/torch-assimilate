@@ -28,8 +28,8 @@ build-docker:
     before_script: []
     script:
         - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $DOCKER_REGISTRY
-        - docker build -t $DOCKER_REGISTRY/<PROJECT-GROUP>/<PROJECT-NAME> .
-        - docker push $DOCKER_REGISTRY/<PROJECT-GROUP>/<PROJECT-NAME>
+        - docker build -t $DOCKER_REGISTRY/tobifinn/tf-assimilate .
+        - docker push $DOCKER_REGISTRY/tobifinn/tf-assimilate
     when: manual
 
 check-envs:
