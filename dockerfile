@@ -1,7 +1,7 @@
 FROM continuumio/miniconda3
 
 RUN apt-get update -q -y && \
-    apt-get install -y build-essential git dia
+    apt-get install -y build-essential git plantuml
 
 RUN conda update -n base conda
 
