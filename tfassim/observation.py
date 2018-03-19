@@ -38,8 +38,40 @@ logger = logging.getLogger(__name__)
 
 @register_dataset_accessor('obs')
 class Observation(object):
+    """
+    This class represents an observation subset. Within an observation subset,
+    the observations can be spatial correlated. Different observation subsets
+    are per definition uncorrelated. This class is registered under
+    :py:attr:`xarray.Dataset.obs`, where the here defined attributes and methods
+    can be accessed. The assimilation algorithms will use the abstract method
+    :py:meth:`xarray.Dataset.obs.operator` to convert the given model field into
+    an observation equivalent. Thus, the `operator` method needs to be
+    overwritten for every observation subset independently.
+
+    Arguments
+    ---------
+    xr_ds : :py:class:`~xarray.Dataset`
+        This :py:class:`~xarray.Dataset` is used for the observation operator.
+        The dataset needs two variables:
+
+            observations
+                (time, obs_grid_1), the actual observations
+
+            covariance
+                (obs_grid_1, obs_grid_2), the covariance between different
+                observations
+
+        `obs_grid_1` and `obs_grid_2` are the same, but due to internals of
+        xarray they are saved under different coordinates. It is possible to
+        define different observation times within the `time` coordinate of the
+        given :py:class:`~xarray.Dataset`.
+    """
     def __init__(self, xr_ds):
         self.ds = xr_ds
+
+    @property
+    def valid(self):
+        pass
 
     @abc.abstractmethod
     def operator(self, state):
