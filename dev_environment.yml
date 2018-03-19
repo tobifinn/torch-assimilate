@@ -13,3 +13,4 @@ dependencies:
     - tensorflow
     - pip:
         - twine
+        - sphinxcontrib-plantuml

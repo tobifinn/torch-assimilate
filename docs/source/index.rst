@@ -40,9 +40,14 @@ be added.
 This package is developed for a PhD-thesis about nonlinear methods in data
 assimilation at the "Universität Hamburg".
 
+Documentation
+-------------
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
+
+   content/structure
+
 
 
 
