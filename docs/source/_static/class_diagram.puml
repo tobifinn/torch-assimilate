@@ -1,0 +1,68 @@
+@startuml
+
+package "Assimilation" {
+    abstract class BaseAssimilation {
+        + pre_inflation : Inflation
+        + post_inflation : Inflation
+        + localization : Localization
+        + {abstract} assimilate(out analysis)
+    }
+
+    abstract class BaseVariational
+    abstract class BaseFilter
+
+    class ETKF
+    class EnKF
+
+    class Var3D
+
+    BaseAssimilation <|-- BaseVariational
+    BaseVariational <|-- Var3D
+    BaseVariational <|-- Var4D
+
+    BaseAssimilation <|-- BaseFilter
+    BaseFilter <|-- ETKF
+    BaseFilter <|-- EnKF
+}
+
+package Inflation {
+    abstract class BaseInflation {
+    + {abstract} inflate()
+    }
+
+    class AddInflation {
+    }
+    class MultInflation {
+    }
+
+    BaseInflation <|-- AddInflation
+    BaseInflation <|-- MultInflation
+
+}
+
+
+package Localization {
+    abstract class BaseLocalization {
+    + {abstract} localize()
+    }
+
+    class ObsLocalization {
+    }
+    class CovarianceLocalization{
+    }
+
+    BaseLocalization <|-- ObsLocalization
+    BaseLocalization <|-- CovarianceLocalization
+}
+
+class ModelState << xarray.DataArray >> {
+    + valid : bool
+    + split_mean_pert(in dim, out mean, out pert)
+}
+
+class Observation << xarray.Dataset >> {
+    + valid : bool
+    + {abstract} operator(in state, out pseudo_obs)
+}
+
+@enduml
