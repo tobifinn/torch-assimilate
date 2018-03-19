@@ -38,6 +38,9 @@ logger = logging.getLogger(__name__)
 
 @register_dataset_accessor('obs')
 class Observation(object):
+    def __init__(self, xr_ds):
+        self.ds = xr_ds
+
     @abc.abstractmethod
     def operator(self, state):
         pass
