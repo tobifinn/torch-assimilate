@@ -69,8 +69,7 @@ class Observation(object):
     def __init__(self, xr_ds):
         self.ds = xr_ds
 
-    @property
-    def valid(self):
+    def _check_dims(self):
         necessary_dims = (
             'time', 'obs_grid_1', 'obs_grid_2'
         )
@@ -78,6 +77,11 @@ class Observation(object):
             True if d in tuple(self.ds.dims.keys()) else False
             for d in necessary_dims
         )
+        return keys_avail
+
+    @property
+    def valid(self):
+        keys_avail = self._check_dims()
         if keys_avail:
             return True
         else:
