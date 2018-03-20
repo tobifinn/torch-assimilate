@@ -65,6 +65,11 @@ class Observation(object):
         xarray they are saved under different coordinates. It is possible to
         define different observation times within the `time` coordinate of the
         given :py:class:`~xarray.Dataset`.
+
+    Warnings
+    --------
+    **To use this observation subset, you need to overwrite the observation
+    operator**
     """
     def __init__(self, xr_ds):
         self.ds = xr_ds
@@ -166,4 +171,23 @@ class Observation(object):
 
     @abc.abstractmethod
     def operator(self, state):
+        """
+        This method is used as observation operator within the assimilation
+        algorithms. **If you overwrite this method, please take care of the
+        in- and output!**
+
+        Parameters
+        ----------
+        state : :py:class:`~xarray.DataArray`
+            The pseudo observations are created based on this state. The given
+            state needs to be valid.
+
+        Returns
+        -------
+        pseudo_obs : :py:class:`~xarray.DataArray`
+            The created pseudo observations based on the given state and this
+            observation operator. The last two dimensions are the same
+            dimensions as the ``observations`` :py:class:`~xarray.DataArray`
+            in set observation subset.
+        """
         pass
