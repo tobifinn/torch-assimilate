@@ -66,6 +66,26 @@ class TestObsSubset(unittest.TestCase):
     def test_xr_dataset_has_accessor(self):
         self.assertTrue(hasattr(self.obs_ds, 'obs'))
 
+    def test_xr_ds_is_the_same_as_given_ds(self):
+        xr.testing.assert_identical(self.obs_ds, self.obs_ds.obs.ds)
+
+    def test_valid_is_bool_property(self):
+        self.assertIsInstance(self.obs_ds.obs.valid, bool)
+
+    def test_valid_checks_if_time_is_given(self):
+        self.assertTrue(self.obs_ds.obs.valid)
+        self.assertFalse(self.obs_ds.squeeze().obs.valid)
+
+    def test_valid_checks_if_grid_points_1_exists(self):
+        self.assertTrue(self.obs_ds.obs.valid)
+        self.obs_ds = self.obs_ds.rename({'obs_grid_1': 'test_1'})
+        self.assertFalse(self.obs_ds.obs.valid)
+
+    def test_valid_checks_if_grid_points_2_exists(self):
+        self.assertTrue(self.obs_ds.obs.valid)
+        self.obs_ds = self.obs_ds.rename({'obs_grid_2': 'test_1'})
+        self.assertFalse(self.obs_ds.obs.valid)
+
 
 if __name__ == '__main__':
     unittest.main()

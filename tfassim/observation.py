@@ -71,7 +71,17 @@ class Observation(object):
 
     @property
     def valid(self):
-        pass
+        necessary_dims = (
+            'time', 'obs_grid_1', 'obs_grid_2'
+        )
+        keys_avail = all(
+            True if d in tuple(self.ds.dims.keys()) else False
+            for d in necessary_dims
+        )
+        if keys_avail:
+            return True
+        else:
+            return False
 
     @abc.abstractmethod
     def operator(self, state):
