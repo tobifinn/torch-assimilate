@@ -122,9 +122,12 @@ class Observation(object):
         valid_shape = (obs_grid_len, obs_grid_len)
         checked_shape = valid_shape == self.ds['covariance'].shape
 
-        checked_coord_values = self.ds['obs_grid_1'].to_index().equals(
-            self.ds['obs_grid_2'].to_index()
-        )
+        try:
+            checked_coord_values = self.ds['obs_grid_1'].to_index().equals(
+                self.ds['obs_grid_2'].to_index()
+            )
+        except KeyError:
+            checked_coord_values = False
 
         valid_cov = checked_dims and checked_shape and checked_coord_values
         return valid_cov
