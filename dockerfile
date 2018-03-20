@@ -2,7 +2,7 @@ FROM continuumio/miniconda3
 MAINTAINER Tobias Sebastian Finn <tobias.sebastian.finn@uni-hamburg.de
 
 RUN apt-get update -q -y && \
-    apt-get install -y build-essential git
+    apt-get install -y build-essential git graphviz
 
 RUN TEMP_DEB="$(mktemp)" && \
     wget -O "$TEMP_DEB" 'http://ftp.br.debian.org/debian/pool/main/p/plantuml/plantuml_1.2017.15-1_all.deb' && \
