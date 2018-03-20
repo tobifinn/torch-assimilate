@@ -61,7 +61,7 @@ class Observation(object):
                 (obs_grid_1, obs_grid_2), the covariance between different
                 observations
 
-        `obs_grid_1` and `obs_grid_2` are the same, but due to internals of
+        ``obs_grid_1`` and ``obs_grid_2`` are the same, but due to internals of
         xarray they are saved under different coordinates. It is possible to
         define different observation times within the `time` coordinate of the
         given :py:class:`~xarray.Dataset`.
@@ -69,7 +69,17 @@ class Observation(object):
     def __init__(self, xr_ds):
         self.ds = xr_ds
 
-    def _check_dims(self):
+    @property
+    def _valid_dims(self):
+        """
+        Checks if ``time``, ``obs_grid_1`` and ``obs_grid_2`` are available
+        within the :py:class:`~xarray.Dataset`.
+
+        Returns
+        -------
+        keys_avail : bool
+            If the dimensions are available.
+        """
         necessary_dims = (
             'time', 'obs_grid_1', 'obs_grid_2'
         )
@@ -80,12 +90,76 @@ class Observation(object):
         return keys_avail
 
     @property
+    def _valid_obs(self):
+        """
+        Checks if dimensions of the ``observation``
+        :py:class:`~xarray.DataArray` within the set dataset are valid.
+
+        Returns
+        -------
+        valid_obs : bool
+            If the ``observation`` :py:class:`~xarray.DataArray` is valid.
+        """
+        valid_dims = ('time', 'obs_grid_1')
+        valid_obs = valid_dims == self.ds['observations'].dims[-2:]
+        return valid_obs
+
+    @property
+    def _valid_cov(self):
+        """
+        Checks if shape and dimensions of the ``covariance``
+        :py:class:`~xarray.DataArray` within the set dataset are valid.
+
+        Returns
+        -------
+        valid_cov : bool
+            If the ``covariance`` :py:class:`~xarray.DataArray` is valid.
+        """
+        dim_order = ('obs_grid_1', 'obs_grid_2')
+        checked_dims = dim_order == self.ds['covariance'].dims[-2:]
+
+        obs_grid_len = self.ds['observations'].shape[-1]
+        valid_shape = (obs_grid_len, obs_grid_len)
+        checked_shape = valid_shape == self.ds['covariance'].shape
+
+        checked_coord_values = self.ds['obs_grid_1'].to_index().equals(
+            self.ds['obs_grid_2'].to_index()
+        )
+
+        valid_cov = checked_dims and checked_shape and checked_coord_values
+        return valid_cov
+
+    @property
+    def _valid_arrays(self):
+        """
+        Checks if ``observations`` and ``covariance``
+        :py:class:`~xarray.DataArray`s within the set dataset are valid.
+
+        Returns
+        -------
+        valid_arrays : bool
+            If the two :py:class:`~xarray.DataArray`s are valid.
+        """
+        try:
+            valid_array = self._valid_obs and self._valid_cov
+        except KeyError:
+            valid_array = False
+        return valid_array
+
+    @property
     def valid(self):
-        keys_avail = self._check_dims()
-        if keys_avail:
-            return True
-        else:
-            return False
+        """
+        Checks if set :py:class:`~xarray.Dataset` is valid.
+
+        Returns
+        -------
+        valid_ds : bool
+            If set :py:class:`~xarray.Dataset` is valid.
+        """
+        valid_ds = False
+        if self._valid_dims and self._valid_arrays:
+            valid_ds = True
+        return valid_ds
 
     @abc.abstractmethod
     def operator(self, state):

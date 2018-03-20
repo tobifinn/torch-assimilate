@@ -86,6 +86,58 @@ class TestObsSubset(unittest.TestCase):
         self.obs_ds = self.obs_ds.rename({'obs_grid_2': 'test_1'})
         self.assertFalse(self.obs_ds.obs.valid)
 
+    def test_valid_obs_checks_the_last_two_dims_of_obs_array(self):
+        self.assertTrue(self.obs_ds.obs._valid_obs)
+        obs_ds = self.obs_ds.rename({'obs_grid_1': 'test_1'})
+        self.assertFalse(obs_ds.obs._valid_obs)
+        self.obs_ds['observations'] = self.obs_ds['observations'].T
+        self.assertFalse(self.obs_ds.obs._valid_obs)
+
+    def test_valid_cov_checks_last_two_dims_of_cov_array(self):
+        self.assertTrue(self.obs_ds.obs._valid_cov)
+        obs_ds = self.obs_ds.rename({'obs_grid_1': 'test_1'})
+        self.assertFalse(obs_ds.obs._valid_cov)
+        self.obs_ds['covariance'] = self.obs_ds['covariance'].T
+        self.assertFalse(self.obs_ds.obs._valid_cov)
+
+    def test_valid_cov_checks_last_shape_of_dims(self):
+        self.assertTrue(self.obs_ds.obs._valid_cov)
+        obs_ds = self.obs_ds.copy()
+        obs_ds = obs_ds.isel(obs_grid_2=slice(0, 2))
+        self.assertFalse(obs_ds.obs._valid_cov)
+        obs_ds = self.obs_ds.copy()
+        obs_ds = obs_ds.isel(obs_grid_1=slice(0, 2))
+        self.assertFalse(obs_ds.obs._valid_cov)
+
+    def test_valid_cov_checks_grid_dim_values(self):
+        self.assertTrue(self.obs_ds.obs._valid_cov)
+        obs_ds = self.obs_ds.copy()
+        obs_ds['obs_grid_2'] = obs_ds['obs_grid_2'] + 10
+        self.assertFalse(obs_ds.obs._valid_cov)
+
+    def test_valid_arrays_checks_if_arrays_available(self):
+        self.assertTrue(self.obs_ds.obs._valid_arrays)
+        obs_ds = self.obs_ds.copy()
+        del obs_ds['covariance']
+        self.assertFalse(obs_ds.obs._valid_arrays)
+        obs_ds = self.obs_ds.copy()
+        del obs_ds['observations']
+        self.assertFalse(obs_ds.obs._valid_arrays)
+
+    def test_valid_arrays_checks_dims(self):
+        self.assertTrue(self.obs_ds.obs._valid_arrays)
+        obs_ds = self.obs_ds.copy()
+        obs_ds = obs_ds.isel(obs_grid_1=slice(0, 2))
+        self.assertFalse(obs_ds.obs._valid_arrays)
+        obs_ds = self.obs_ds.copy()
+        obs_ds = obs_ds.isel(obs_grid_2=slice(0, 2))
+        self.assertFalse(obs_ds.obs._valid_arrays)
+
+    def test_valid_checks_if_vars_are_available(self):
+        self.assertTrue(self.obs_ds.obs.valid)
+        del self.obs_ds['covariance']
+        self.assertFalse(self.obs_ds.obs.valid)
+
 
 if __name__ == '__main__':
     unittest.main()
