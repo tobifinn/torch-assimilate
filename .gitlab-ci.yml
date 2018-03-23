@@ -76,6 +76,7 @@ codequality:
         - docker pull codeclimate/codeclimate:0.69.0
         - docker run --env CODECLIMATE_CODE="$PWD" --volume "$PWD":/tfassim --volume /var/run/docker.sock:/var/run/docker.sock --volume /tmp/cc:/tmp/cc codeclimate/codeclimate:0.69.0 analyze -f json > codeclimate.json || true
         - docker run --env CODECLIMATE_CODE="$PWD" --volume "$PWD":/tfassim --volume /var/run/docker.sock:/var/run/docker.sock --volume /tmp/cc:/tmp/cc codeclimate/codeclimate:0.69.0 analyze -f html > codeclimate.html || true
+        - ls
         - mv codeclimate.html $COVERAGE_STATIC_DIR/codeclimate.html
     artifacts:
         paths:
