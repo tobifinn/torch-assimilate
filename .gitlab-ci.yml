@@ -75,9 +75,11 @@ codequality:
     script:
         - docker pull codeclimate/codeclimate:0.69.0
         - docker run --env CODECLIMATE_CODE="$PWD" --volume "$PWD":/tfassim --volume /var/run/docker.sock:/var/run/docker.sock --volume /tmp/cc:/tmp/cc codeclimate/codeclimate:0.69.0 analyze -f json > codeclimate.json || true
+        - docker run --env CODECLIMATE_CODE="$PWD" --volume "$PWD":/tfassim --volume /var/run/docker.sock:/var/run/docker.sock --volume /tmp/cc:/tmp/cc codeclimate/codeclimate:0.69.0 analyze -f html > codeclimate.html || true
     artifacts:
         paths:
             - codeclimate.json
+            - codeclimate.html
         expire_in: 1 week
 
 sphinx:
@@ -106,10 +108,12 @@ pages:
     dependencies:
         - sphinx
         - coverage
+        - codequality
     script:
         - rm -rf $PAGES_DIR/ # make sure there is not pages dir
         - mv $SPHINX_DOC_DIR $PAGES_DIR/ # sphinx doc is index page
         - mv $COVERAGE_STATIC_DIR $PAGES_DIR/ # put coverage report inside
+        - mv codeclimate.html $PAGES_DIR/$COVERAGE_STATIC_DIR/ # put codeclimate report to coverage
     artifacts:
         paths:
             - $PAGES_DIR/
