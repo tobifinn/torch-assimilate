@@ -46,14 +46,14 @@ rnd = np.random.RandomState(42)
 
 class TestState(unittest.TestCase):
     def setUp(self):
-        self.values = rnd.normal(size=(1, 1, 1, 100))
+        self.values = rnd.normal(size=(2, 1, 5, 100))
         self.dims = ('variable', 'time', 'ensemble', 'grid')
         self.state_da = xr.DataArray(
             data=self.values,
             coords={
-                'variable': ['T', ],
+                'variable': ['T', 'RH', ],
                 'time': [dt.datetime(year=1992, month=12, day=25), ],
-                'ensemble': [0, ],
+                'ensemble': np.arange(5),
                 'grid': np.arange(100)
             },
             dims=self.dims
@@ -61,6 +61,71 @@ class TestState(unittest.TestCase):
     
     def test_array_has_state_accessor(self):
         self.assertTrue(hasattr(self.state_da, 'state'))
+
+    def test_array_split_mean_perts_returns_two_dataarrays(self):
+        mean, pert = self.state_da.state.split_mean_perts()
+        self.assertIsInstance(mean, xr.DataArray)
+        self.assertIsInstance(pert, xr.DataArray)
+
+    def test_array_split_returns_mean_of_ensemble(self):
+        right_mean = self.state_da.mean(dim='ensemble')
+        returned_mean, _ = self.state_da.state.split_mean_perts()
+        xr.testing.assert_identical(right_mean, returned_mean)
+
+    def test_array_split_mean_uses_dim(self):
+        for var in self.dims:
+            right_mean = self.state_da.mean(dim=var)
+            returned_mean, _ = self.state_da.state.split_mean_perts(var)
+            xr.testing.assert_identical(right_mean, returned_mean)
+
+    def test_array_split_mean_uses_axis(self):
+        for k, _ in enumerate(self.dims):
+            right_mean = self.state_da.mean(axis=k)
+            returned_mean, _ = self.state_da.state.split_mean_perts(
+                dim=None, axis=k
+            )
+            xr.testing.assert_identical(right_mean, returned_mean)
+
+    def test_array_split_mean_raises_value_error_if_both_given(self):
+        with self.assertRaises(ValueError):
+            _ = self.state_da.state.split_mean_perts(dim='ensemble', axis=0)
+
+    def test_array_split_mean_takes_sequence(self):
+        right_mean = self.state_da.mean(dim=('ensemble', 'grid'))
+        returned_mean, _ = self.state_da.state.split_mean_perts(
+            dim=('ensemble', 'grid')
+        )
+        xr.testing.assert_identical(right_mean, returned_mean)
+
+    def test_array_split_returns_perts_as_second(self):
+        mean = self.state_da.mean('ensemble')
+        right_perts = self.state_da - mean
+        _, returned_perts = self.state_da.state.split_mean_perts()
+        xr.testing.assert_identical(right_perts, returned_perts)
+
+    def test_array_split_mean_pert_are_corresponding(self):
+        right_mean = self.state_da.mean('ensemble')
+        right_perts = self.state_da - right_mean
+        mean, perts = self.state_da.state.split_mean_perts()
+        xr.testing.assert_identical(right_mean, mean)
+        xr.testing.assert_identical(right_perts, perts)
+
+    def test_array_split_kwargs_are_passed_mean(self):
+        self.state_da.attrs['unit'] = 'degC'
+        right_mean = self.state_da.mean('ensemble', keep_attrs=True)
+        returned_mean, _ = self.state_da.state.split_mean_perts(keep_attrs=True)
+        xr.testing.assert_identical(right_mean, right_mean)
+        self.assertDictEqual(right_mean.attrs, returned_mean.attrs)
+
+    def test_array_split_kwargs_are_passed_perts(self):
+        self.state_da.attrs['unit'] = 'degC'
+        mean = self.state_da.mean('ensemble', keep_attrs=True)
+        right_perts = self.state_da - mean
+        _, returned_perts = self.state_da.state.split_mean_perts(
+            keep_attrs=True
+        )
+        xr.testing.assert_identical(right_perts, returned_perts)
+        self.assertDictEqual(right_perts.attrs, returned_perts.attrs)
 
 
 if __name__ == '__main__':

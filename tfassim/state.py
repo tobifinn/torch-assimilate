@@ -82,5 +82,32 @@ class ModelState(object):
     def valid(self):
         pass
 
-    def split_mean_perts(self, dims='ensemble'):
-        pass
+    def split_mean_perts(self, dim='ensemble', axis=None, **kwargs):
+        """
+        Split this :py:class:`~xarray.DataArray` into a mean array and a
+        perturbations array by given dimension.
+
+        Parameters
+        ----------
+        dim : str or sequence of str, optional
+            The array is split over this dimension(s). Default is `'ensemble'`.
+        axis : int or sequence of int, optional
+            The array is split over this axis/axes. Only ``dim`` or ``axis`` can
+            be supplied. Default is None.
+        **kwargs : dict
+            These additional keyword arguments are passed onto
+            :py:meth:`~xarray.DataArray.mean` method of set array.
+
+        Returns
+        -------
+        mean : :py:class:`~xarray.DataArray`
+            Newly created array with averaged values. This array has the same
+            coordinates as the original array.
+        perts : :py:class:`~xarray.DataArray`
+            Newly created array with perturbations as values. The perturbations
+            are the difference of ``original array - mean``.
+            This array has the same coordinates as the original array.
+        """
+        mean = self.array.mean(dim=dim, axis=axis, **kwargs)
+        perts = self.array - mean
+        return mean, perts
