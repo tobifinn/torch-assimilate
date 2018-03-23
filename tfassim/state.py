@@ -42,6 +42,9 @@ class ModelState(object):
     state property is used as utility class for an easier processing of model
     states for data assimilation purpose.
     """
+    def __init__(self, xr_da):
+        self.array = xr_da
+
     @property
     def valid(self):
         pass
