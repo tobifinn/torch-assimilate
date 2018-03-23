@@ -28,6 +28,7 @@ import logging
 
 # External modules
 from xarray import register_dataarray_accessor
+import numpy as np
 
 # Internal modules
 
@@ -47,8 +48,9 @@ class ModelState(object):
     xr_da : :py:class:`xarray.DataArray`
         This model state accessor is registered to this array. The array should
         have (``variable``, ``time``, ``ensemble``, ``grid``) as coordinates,
-        which are explained below:
+        which are explained below. The values of the array have to be float.
 
+        Coordinate explanation:
             ``variable`` – str
                 This coordinate allows to concatenate multiple variables into
                 one single array. The coordinate should have :py:class:`str` as
@@ -95,12 +97,44 @@ class ModelState(object):
         return valid_dims
 
     @property
+    def _valid_coord_type(self):
+        """
+        Checks if the coordinates have the right type as specified within the
+        documentation.
+
+        Returns
+        -------
+        valid_type : bool
+            If the coordinates have the right type.
+        """
+        types = {
+            'variable': np.str_,
+            'time': np.datetime64,
+            'ensemble': np.int64
+        }
+        valid_type = []
+        for coord, v in types.items():
+            array_dtype = self.array[coord].dtype.type
+            same_type = array_dtype == v
+            valid_type.append(same_type)
+        return all(valid_type)
+
+    @property
     def valid(self):
-        pass
+        """
+        Checks if the array has the right form, coordinates and dimensions.
+
+        Returns
+        -------
+        valid_array : bool
+            If the given array is valid.
+        """
+        valid_array = self._valid_dims and self._valid_coord_type
+        return valid_array
 
     def split_mean_perts(self, dim='ensemble', axis=None, **kwargs):
         """
-        Split this :py:class:`~xarray.DataArray` into a mean array and a
+        Splits this :py:class:`~xarray.DataArray` into a mean array and a
         perturbations array by given dimension.
 
         Parameters

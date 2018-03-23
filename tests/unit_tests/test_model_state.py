@@ -136,6 +136,21 @@ class TestState(unittest.TestCase):
         )
         self.assertFalse(state_da.state._valid_dims)
 
+    def test_valid_type_checks_dtype_of_coords(self):
+        self.assertTrue(self.state_da.state._valid_coord_type)
+        self.state_da['ensemble'] = ['det', 1, 2, 3, 4]
+        self.assertFalse(self.state_da.state._valid_coord_type)
+
+    def test_valid_checks_dim_names(self):
+        self.assertTrue(self.state_da.state.valid)
+        state_da = self.state_da.rename({'ensemble': 'test'})
+        self.assertFalse(state_da.state.valid)
+
+    def test_valid_checks_coord_dtype(self):
+        self.assertTrue(self.state_da.state.valid)
+        self.state_da['ensemble'] = ['det', 1, 2, 3, 4]
+        self.assertFalse(self.state_da.state.valid)
+
 
 if __name__ == '__main__':
     unittest.main()
