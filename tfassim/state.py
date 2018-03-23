@@ -79,6 +79,22 @@ class ModelState(object):
         self.array = xr_da
 
     @property
+    def _valid_dims(self):
+        """
+        Checks if the dimension of this array are valid. The dimensions need
+        to be in right order and have the right names as specified in
+        documentation.
+
+        Returns
+        -------
+        valid_dims : bool
+            If the dimensions of this array have the right name and right order.
+        """
+        correct_dims = ('variable', 'time', 'ensemble', 'grid')
+        valid_dims = correct_dims == self.array.dims
+        return valid_dims
+
+    @property
     def valid(self):
         pass
 

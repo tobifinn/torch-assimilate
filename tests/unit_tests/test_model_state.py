@@ -127,6 +127,15 @@ class TestState(unittest.TestCase):
         xr.testing.assert_identical(right_perts, returned_perts)
         self.assertDictEqual(right_perts.attrs, returned_perts.attrs)
 
+    def test_valid_dims_checks_dim_names_order(self):
+        self.assertTrue(self.state_da.state._valid_dims)
+        state_da = self.state_da.rename({'ensemble': 'test'})
+        self.assertFalse(state_da.state._valid_dims)
+        state_da = self.state_da.transpose(
+            'grid', 'ensemble', 'time', 'variable'
+        )
+        self.assertFalse(state_da.state._valid_dims)
+
 
 if __name__ == '__main__':
     unittest.main()
