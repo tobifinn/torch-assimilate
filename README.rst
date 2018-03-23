@@ -7,25 +7,38 @@ tf-assimilate
     :stub-columns: 1
     :widths: 15 85
 
+    * - docs
+      - |docs|
     * - pipeline
       - |pipeline|
     * - coverage
       - |coverage|
-    * - docs
-      - |docs|
+    * - quality
+      - |quality|
+    * - package
+      - |pypi-test| |pypi| |conda|
 
 .. |pipeline| image:: https://gitlab.com/tobifinn/tf-assimilate/badges/dev/pipeline.svg
-    :target: https://gitlab.com/tobifinn/tf-assimilate/commits/dev
+    :target: https://gitlab.com/tobifinn/tf-assimilate/pipelines
     :alt: Pipeline status
 .. |coverage| image:: https://gitlab.com/tobifinn/tf-assimilate/badges/dev/coverage.svg
-    :target: https://gitlab.com/tobifinn/tf-assimilate/commits/dev
+    :target: https://tobifinn.gitlab.io/tf-assimilate/coverage-report/
     :alt: Coverage report
 .. |docs| image:: https://img.shields.io/badge/docs-sphinx-brightgreen.svg
     :target: https://tobifinn.gitlab.io/tf-assimilate/
     :alt: Documentation Status
+.. |quality| image:: https://img.shields.io/badge/quality-codeclimate-brightgreen.svg
+    :target: https://tobifinn.gitlab.io/tf-assimilate/coverage-report/codeclimate.html
+.. |pypi| image:: https://img.shields.io/badge/pypi-unavailable-lightgrey.svg
+    :target: https://pypi.org/project/tf-assimilate/
+.. |pypi-test| image:: https://img.shields.io/badge/pypi_test-online-brightgreen.svg
+    :target: https://test.pypi.org/project/tf-assimilate/
+.. |conda| image:: https://img.shields.io/badge/conda-unavailable-lightgrey.svg
+    :target: https://anaconda.org/tobifinn/tf-assimilate
+
 .. end_badges
 
-data assimilation based on tensorflow
+Data assimilation based on tensorflow
 -------------------------------------
 
 tf-assimilate is a python package for data assimilation of meteorological
@@ -47,8 +60,7 @@ Installation
 ------------
 We highly recommend to create a virtual environment for this package to prevent
 package collisions.
-At the moment, this package is not uploaded via pypi or conda and this package
-needs to be cloned and installed manually.
+At the moment this package is only available at pypi-test.
 
 This package is programmed in python 3.6 and should be working with all `python
 versions > 3.3`. Additional requirements are tensorflow and xarray.
@@ -63,14 +75,11 @@ via conda (recommended):
     source activate tf-assimilate
     pip install .
 
-via pip:
+via pip (latest pypi-test):
 ^^^^^^^^
 .. code:: sh
 
-    git clone git@gitlab.com:tobifinn/tf-assimilate.git
-    cd tf-assimilate
-    pip install -r requirements.txt
-    pip install .
+    pip install --index-url https://test.pypi.org/simple/ tf-assimilate
 
 Authors
 -------
