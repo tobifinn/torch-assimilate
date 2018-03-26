@@ -3,8 +3,6 @@ tf-assimilate package
 
 .. automodule:: tfassim
     :members:
-    :undoc-members:
-    :show-inheritance:
 
 Observation subset
 ------------------
@@ -25,3 +23,11 @@ A :py:class:`xarray.DataArray` accessor, accessible with
     :members:
     :undoc-members:
     :show-inheritance:
+
+Assimilation algorithms
+-----------------------
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
+
+   assimilation
