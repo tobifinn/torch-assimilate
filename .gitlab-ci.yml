@@ -44,10 +44,14 @@ check-envs:
         - conda env create -f environment.yml --name $ENV_TEST
         - conda env create -f dev_environment.yml --name $DEV_ENV_TEST
 
-install-tfassim:
+install-pytorch:
     stage: install
     script:
         - conda install -y pytorch-cpu torchvision-cpu -c pytorch
+
+install-tfassim:
+    stage: install
+    script:
         - python setup.py install
 
 coverage:
