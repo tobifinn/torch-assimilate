@@ -92,12 +92,12 @@ class BaseIntegrator(object):
 
         Parameters
         ----------
-        state : :py:class:``numpy.ndarray``
+        state : any
             This state is used to estimate the increment.
 
         Returns
         -------
-        est_inc : :py:class:``numpy.ndarray``
+        est_inc : any
             This increment is estimated by this integration object.
         """
         pass
@@ -109,13 +109,13 @@ class BaseIntegrator(object):
 
         Parameters
         ----------
-        state : :py:class:``numpy.ndarray``
+        state : any
             This state is used as initial state for the integration. This state
             is passed to set model.
 
         Returns
         -------
-        int_state : :py:class:``numpy.ndarray``
+        int_state : any
             This state is integrated by given model. The integrated state is the
             initial state plus an increment estimated based on this integrator
             and set model.

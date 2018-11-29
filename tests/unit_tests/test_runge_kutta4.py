@@ -29,6 +29,8 @@ import os
 
 # External modules
 import numpy as np
+import torch
+
 
 # Internal modules
 from tfassim.model.integration.rk4 import RK4Integrator
@@ -46,7 +48,7 @@ def dummy_model(state):
 class TestRK4Integrator(unittest.TestCase):
     def setUp(self):
         self.integrator = RK4Integrator(model=dummy_model)
-        self.state = np.array([1, ])
+        self.state = np.array([1., ])
 
     def test_estimate_slopes_returns_averaged_slope(self):
         right_slopes = [2, 2.2, 2.22, 2.444]
@@ -59,6 +61,12 @@ class TestRK4Integrator(unittest.TestCase):
         right_increment = returned_slope * self.integrator.dt
         returned_increment = self.integrator._calc_increment(self.state)
         np.testing.assert_equal(returned_increment, right_increment)
+
+    def test_rk4_can_be_used_with_pytorch(self):
+        torch_state = torch.ones((1, ))
+        torch_increment = self.integrator._calc_increment(torch_state)
+        right_increment = self.integrator._calc_increment(self.state)
+        np.testing.assert_almost_equal(torch_increment.numpy(), right_increment)
 
 
 if __name__ == '__main__':

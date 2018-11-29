@@ -68,12 +68,12 @@ class RK4Integrator(BaseIntegrator):
 
         Parameters
         ----------
-        state : :py:class:``numpy.ndarray``
+        state : any
             This state is used to estimate the slope.
 
         Returns
         -------
-        est_inc : :py:class:``numpy.ndarray``
+        est_inc : any
             This increment is estimated by multiplying estimated slope with
             set time step.
         """
@@ -87,17 +87,17 @@ class RK4Integrator(BaseIntegrator):
 
         Parameters
         ----------
-        state : :py:class:``np.ndarray``
+        state : any
             This state is used as initial state to estimates the slopes.
 
         Returns
         -------
-        averaged_slope : :py:class:``np.ndarray``
+        averaged_slope : any
             This slope is averaged based on estimated slopes. These slopes are
             calculated based on given state.
         """
-        averaged_slope = 0
-        curr_slope = 0
+        averaged_slope = state * 0
+        curr_slope = state * 0
         for k, ts in enumerate(self.steps):
             model_state = state + curr_slope * ts
             curr_slope = self.model(model_state)
