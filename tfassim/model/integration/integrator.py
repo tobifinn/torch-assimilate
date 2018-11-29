@@ -44,13 +44,15 @@ class BaseIntegrator(object):
     ---------
     model : func
         This model function takes a state and returns a new estimated state. The
-        returned state should have the same shape as the input state.
+        returned state should have the same shape as the input state. The model
+        should be a time derivative such that it can be integrated.
     dt : float, optional
         This is the integration time step. This time step is unitless and
         depends on model's time unit. A positive time step indicates forward
         integration, while a negative shows a backward integration, which might
         be complicated for given model. Default is 0.1.
     """
+
     def __init__(self, model, dt=0.1):
         self._model = None
         self._dt = None
@@ -83,6 +85,20 @@ class BaseIntegrator(object):
 
     @abc.abstractmethod
     def _calc_increment(self, state):
+        """
+        This method estimates the increment based on given state, set model and
+        time step.
+
+        Parameters
+        ----------
+        state : :py:class:``numpy.ndarray``
+            This state is used to estimate the increment.
+
+        Returns
+        -------
+        est_inc : :py:class:``numpy.ndarray``
+            This increment is estimated by this integration object.
+        """
         pass
 
     def integrate(self, state):
@@ -92,13 +108,17 @@ class BaseIntegrator(object):
 
         Parameters
         ----------
-        state : any
+        state : :py:class:``numpy.ndarray``
             This state is used as initial state for the integration. This state
-            is passed to model.
+            is passed to set model.
 
         Returns
         -------
-        integrated_state : any
-            This state is integrated by given model.
+        int_state : :py:class:``numpy.ndarray``
+            This state is integrated by given model. The integrated state is the
+            initial state plus an increment estimated based on this integrator
+            and set model.
         """
-        pass
+        estimated_inc = self._calc_increment(state)
+        int_state = state + estimated_inc
+        return int_state

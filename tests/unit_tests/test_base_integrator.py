@@ -24,10 +24,12 @@ Created for torch-assimilate
 """
 # System modules
 import unittest
+from unittest.mock import patch
 import logging
 import os
 
 # External modules
+import numpy as np
 
 # Internal modules
 from tfassim.model.integration.integrator import BaseIntegrator
@@ -39,7 +41,7 @@ BASE_PATH = os.path.dirname(os.path.realpath(__file__))
 
 
 def dummy_model(state):
-    return state
+    return None
 
 
 class TestBaseIntegrator(unittest.TestCase):
@@ -81,6 +83,20 @@ class TestBaseIntegrator(unittest.TestCase):
             self.integrator.model = 'test'
         with self.assertRaises(TypeError):
             self.integrator.model = BaseIntegrator(dummy_model)
+
+    @patch('tfassim.model.integration.integrator.BaseIntegrator.'
+           '_calc_increment', return_value=np.array([1]))
+    def test_integrate_passes_state_to_calc_increment(self, inc_patch):
+        curr_state = np.array([5, ])
+        _ = self.integrator.integrate(curr_state)
+        inc_patch.assert_called_once_with(curr_state)
+
+    @patch('tfassim.model.integration.integrator.BaseIntegrator.'
+           '_calc_increment', return_value=np.array([1]))
+    def test_integrate_returns_updated_state(self, inc_patch):
+        curr_state = np.array([5, ])
+        returned_state = self.integrator.integrate(curr_state)
+        np.testing.assert_equal(returned_state, np.array([6,]))
 
 
 if __name__ == '__main__':
