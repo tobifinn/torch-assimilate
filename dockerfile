@@ -17,8 +17,6 @@ RUN git clone https://gitlab.com/tobifinn/tf-assimilate.git
 
 RUN conda env create -f /tf-assimilate/dev_environment.yml
 
-RUN ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh
-
 RUN conda activate
 
 RUN conda activate tfassim-dev
