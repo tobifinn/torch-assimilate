@@ -41,10 +41,13 @@ check-envs:
         - "conda remove --name $ENV_TEST --all || :"
         - "conda remove --name $DEV_ENV_TEST --all || :"
     script:
-        - echo ${pwd}
-        - ls -al
         - conda env create -f environment.yml --name $ENV_TEST
         - conda env create -f dev_environment.yml --name $DEV_ENV_TEST
+
+install-pytorch:
+    stage: install
+    script:
+        - conda install -y pytorch-cpu torchvision-cpu -c pytorch
 
 install-tfassim:
     stage: install
