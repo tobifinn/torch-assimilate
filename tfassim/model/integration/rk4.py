@@ -25,20 +25,21 @@
 
 # System modules
 import logging
-import abc
 
 # External modules
 
 # Internal modules
+from .integrator import BaseIntegrator
 
 
 logger = logging.getLogger(__name__)
 
 
-class BaseIntegrator(object):
+class RK4Integrator(BaseIntegrator):
     """
-    This is a base class for integrators. An integrators integrates given model
-    function forward or backward in time, depending on given timestep.
+    RK4Integrator uses a Runge-Kutta fourth-order method to integrate given
+    model function in time. This method calculates four different states, which
+    are then averaged to one single state increment.
 
     Arguments
     ---------
@@ -53,73 +54,52 @@ class BaseIntegrator(object):
         integration, while a negative shows a backward integration, which might
         be complicated for given model. Default is 0.1.
     """
-
     def __init__(self, model, dt=0.1):
-        self._model = None
-        self._dt = None
-        self.model = model
-        self.dt = dt
+        super().__init__(model=model, dt=dt)
+        self.steps = [0, self.dt / 2, self.dt / 2, self.dt]
+        self.weights = [1, 2, 2, 1]
+        self._weights_sum = sum(self.weights)
+        self._weights = [w / self._weights_sum for w in self.weights]
 
-    @property
-    def model(self):
-        return self._model
-
-    @model.setter
-    def model(self, new_model):
-        if callable(new_model):
-            self._model = new_model
-        else:
-            raise TypeError('Given model is not callable!')
-
-    @property
-    def dt(self):
-        return self._dt
-
-    @dt.setter
-    def dt(self, new_dt):
-        if not isinstance(new_dt, (float, int)):
-            raise TypeError('Given time step is not a float!')
-        elif new_dt == 0:
-            raise ValueError('Given time step is zero!')
-        else:
-            self._dt = new_dt
-
-    @abc.abstractmethod
     def _calc_increment(self, state):
         """
-        This method estimates the increment based on given state, set model and
-        time step.
+        This method estimates the increment based estimated slope and set time
+        step.
 
         Parameters
         ----------
         state : :py:class:``numpy.ndarray``
-            This state is used to estimate the increment.
+            This state is used to estimate the slope.
 
         Returns
         -------
         est_inc : :py:class:``numpy.ndarray``
-            This increment is estimated by this integration object.
+            This increment is estimated by multiplying estimated slope with
+            set time step.
         """
-        pass
+        est_inc = self._estimate_slope(state) * self.dt
+        return est_inc
 
-    def integrate(self, state):
+    def _estimate_slope(self, state):
         """
-        This method integrates given model by set time step. Given state is used
-        as initial state and passed to model.
+        This method estimates the slope based on given state. This slope is
+        used to calculate the increment.
 
         Parameters
         ----------
-        state : :py:class:``numpy.ndarray``
-            This state is used as initial state for the integration. This state
-            is passed to set model.
+        state : :py:class:``np.ndarray``
+            This state is used as initial state to estimates the slopes.
 
         Returns
         -------
-        int_state : :py:class:``numpy.ndarray``
-            This state is integrated by given model. The integrated state is the
-            initial state plus an increment estimated based on this integrator
-            and set model.
+        averaged_slope : :py:class:``np.ndarray``
+            This slope is averaged based on estimated slopes. These slopes are
+            calculated based on given state.
         """
-        estimated_inc = self._calc_increment(state)
-        int_state = state + estimated_inc
-        return int_state
+        averaged_slope = 0
+        curr_slope = 0
+        for k, ts in enumerate(self.steps):
+            model_state = state + curr_slope * ts
+            curr_slope = self.model(model_state)
+            averaged_slope += self._weights[k] * curr_slope
+        return averaged_slope
