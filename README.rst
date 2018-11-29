@@ -1,5 +1,5 @@
-tf-assimilate
-=============
+torch-assimilate
+================
 
 .. start_badges
 
@@ -38,19 +38,19 @@ tf-assimilate
 
 .. end_badges
 
-Data assimilation based on tensorflow
+Data assimilation based on PyTorch
 -------------------------------------
 
-tf-assimilate is a python package for data assimilation of meteorological
+torch-assimilate is a python package for data assimilation of meteorological
 observations into numerical weather model data.
 
 This package is constructed for efficient and parallelized data assimilation in
 python. The central entity of this package are the data assimilation methods
-optimized in tensorflow [1]_. For data in- and output xarray [2]_ is used.
+optimized in PyTorch [1]_. For data in- and output xarray [2]_ is used.
 Originally. this package can be used for offline data assimilation.
 
 In the future, different data assimilation methods, like
-ensemble Kalman filters, particle filters and variational data assimilation will
+ensemble Kalman filters, particle filters, variational data assimilation and neural assimilation will
 be added.
 
 This package is developed for a PhD-thesis about nonlinear methods in data
@@ -63,7 +63,9 @@ package collisions.
 At the moment this package is only available at pypi-test.
 
 This package is programmed in python 3.6 and should be working with all `python
-versions > 3.3`. Additional requirements are tensorflow and xarray.
+versions > 3.3`. Additional requirements are pytorch and xarray.
+
+PyTorch needs to be additionally installed because of different possible versions. In following CPU-based installation for linux is shown.
 
 via conda (recommended):
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -73,6 +75,7 @@ via conda (recommended):
     cd tf-assimilate
     conda env create -f environment.yml
     source activate tf-assimilate
+    conda install pytorch-cpu torchvision-cpu -c pytorch
     pip install .
 
 via pip (latest pypi-test):
@@ -80,6 +83,8 @@ via pip (latest pypi-test):
 .. code:: sh
 
     pip install --index-url https://test.pypi.org/simple/ tf-assimilate
+    pip3 install http://download.pytorch.org/whl/cpu/torch-0.4.1-cp36-cp36m-linux_x86_64.whl
+    pip3 install torchvision
 
 Authors
 -------
@@ -93,5 +98,5 @@ This project is licensed under the GPL3 License - see the
 
 References
 ----------
-.. [1] Tensorflow, https://www.tensorflow.org/
+.. [1] PyTorch, https://pytorch.org
 .. [2] xarray, http://xarray.pydata.org
