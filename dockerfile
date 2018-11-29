@@ -17,4 +17,4 @@ RUN git clone https://gitlab.com/tobifinn/tf-assimilate.git
 
 RUN conda env create -f /tf-assimilate/dev_environment.yml
 
-RUN source activate tfassim-dev && conda install -y pytorch-cpu torchvision-cpu -c pytorc
+RUN conda activate tfassim-dev && conda install -y pytorch-cpu torchvision-cpu -c pytorc
