@@ -10,7 +10,6 @@ variables:
     DOCKER_REGISTRY: registry.gitlab.com
 
 stages:
-    - docker
     - install
     - test
     - package
@@ -20,7 +19,7 @@ before_script:
     - source activate tfassim-dev
 
 build-docker:
-    stage: docker
+    stage: install
     image: docker:latest
     variables:
         DOCKER_DRIVER: overlay
