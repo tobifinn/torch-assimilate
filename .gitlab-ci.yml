@@ -30,7 +30,6 @@ build-docker:
         - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $DOCKER_REGISTRY
         - docker build -t $DOCKER_REGISTRY/tobifinn/tf-assimilate .
         - docker push $DOCKER_REGISTRY/tobifinn/tf-assimilate
-    when: manual
 
 check-envs:
     stage: install
@@ -43,11 +42,6 @@ check-envs:
     script:
         - conda env create -f environment.yml --name $ENV_TEST
         - conda env create -f dev_environment.yml --name $DEV_ENV_TEST
-
-install-pytorch:
-    stage: install
-    script:
-        - conda install -y pytorch-cpu torchvision-cpu -c pytorch
 
 install-tfassim:
     stage: install
