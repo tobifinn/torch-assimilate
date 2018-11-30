@@ -10,6 +10,7 @@ variables:
     DOCKER_REGISTRY: registry.gitlab.com
 
 stages:
+    - docker
     - install
     - test
     - package
@@ -19,7 +20,7 @@ before_script:
     - source activate tfassim-dev
 
 build-docker:
-    stage: install
+    stage: docker
     image: docker:latest
     variables:
         DOCKER_DRIVER: overlay
@@ -30,7 +31,6 @@ build-docker:
         - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $DOCKER_REGISTRY
         - docker build -t $DOCKER_REGISTRY/tobifinn/tf-assimilate .
         - docker push $DOCKER_REGISTRY/tobifinn/tf-assimilate
-    when: manual
 
 check-envs:
     stage: install
