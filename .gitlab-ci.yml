@@ -30,6 +30,7 @@ build-docker:
         - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $DOCKER_REGISTRY
         - docker build -t $DOCKER_REGISTRY/tobifinn/tf-assimilate .
         - docker push $DOCKER_REGISTRY/tobifinn/tf-assimilate
+    when: manual
 
 check-envs:
     stage: install
