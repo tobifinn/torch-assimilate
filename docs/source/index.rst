@@ -1,5 +1,5 @@
-Tensorflow based data assimilation package
-==========================================
+PyTorch based data assimilation package
+=======================================
 
 .. start_badges
 
@@ -18,36 +18,36 @@ Tensorflow based data assimilation package
     * - package
       - |pypi-test| |pypi| |conda|
 
-.. |pipeline| image:: https://gitlab.com/tobifinn/tf-assimilate/badges/dev/pipeline.svg
-    :target: https://gitlab.com/tobifinn/tf-assimilate/pipelines
+.. |pipeline| image:: https://gitlab.com/tobifinn/torch-assimilate/badges/dev/pipeline.svg
+    :target: https://gitlab.com/tobifinn/torch-assimilate/pipelines
     :alt: Pipeline status
-.. |coverage| image:: https://gitlab.com/tobifinn/tf-assimilate/badges/dev/coverage.svg
-    :target: https://tobifinn.gitlab.io/tf-assimilate/coverage-report/
+.. |coverage| image:: https://gitlab.com/tobifinn/torch-assimilate/badges/dev/coverage.svg
+    :target: https://tobifinn.gitlab.io/torch-assimilate/coverage-report/
     :alt: Coverage report
 .. |docs| image:: https://img.shields.io/badge/docs-sphinx-brightgreen.svg
-    :target: https://tobifinn.gitlab.io/tf-assimilate/
+    :target: https://tobifinn.gitlab.io/torch-assimilate/
     :alt: Documentation Status
 .. |quality| image:: https://img.shields.io/badge/quality-codeclimate-brightgreen.svg
-    :target: https://tobifinn.gitlab.io/tf-assimilate/coverage-report/codeclimate.html
+    :target: https://tobifinn.gitlab.io/torch-assimilate/coverage-report/codeclimate.html
 .. |pypi| image:: https://img.shields.io/badge/pypi-unavailable-lightgrey.svg
-    :target: https://pypi.org/project/tf-assimilate/
+    :target: https://pypi.org/project/torch-assimilate/
 .. |pypi-test| image:: https://img.shields.io/badge/pypi_test-online-brightgreen.svg
-    :target: https://test.pypi.org/project/tf-assimilate/
+    :target: https://test.pypi.org/project/torch-assimilate/
 .. |conda| image:: https://img.shields.io/badge/conda-unavailable-lightgrey.svg
-    :target: https://anaconda.org/tobifinn/tf-assimilate
+    :target: https://anaconda.org/tobifinn/torch-assimilate
 
 .. end_badges
 
-tf-assimilate is a python package for data assimilation of meteorological
+torch-assimilate is a python package for data assimilation of meteorological
 observations into numerical weather model data.
 
 This package is constructed for efficient and parallelized data assimilation in
 python. The central entity of this package are the data assimilation methods
-optimized in tensorflow [1]_. For data in- and output xarray [2]_ is used.
+optimized in PyTorch [1]_. For data in- and output xarray [2]_ is used.
 Originally. this package can be used for offline data assimilation.
 
 In the future, different data assimilation methods, like
-ensemble Kalman filters, particle filters and variational data assimilation will
+ensemble Kalman filters, particle filters, variational data assimilation and neural assimilation will
 be added.
 
 This package is developed for a PhD-thesis about nonlinear methods in data
@@ -60,10 +60,10 @@ Documentation
    :caption: Contents:
 
    content/structure
-   api/tfassim
+   api/pytassim
 
 
 References
 ----------
-.. [1] Tensorflow, https://www.tensorflow.org/
+.. [1] PyTorch, https://pytorch.org
 .. [2] xarray, http://xarray.pydata.org
