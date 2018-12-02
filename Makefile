@@ -11,7 +11,7 @@ INIT.PY = $(shell find $(PACKAGE_FOLDER) -maxdepth 1 -type f -name '__init__.py'
 RST_SOURCES = $(shell find $(DOCS_FOLDER) -type f -iname '*.rst')
 PYTHON_SOURCES = $(shell find $(PACKAGE_FOLDER) -type f -iname '*.py')
 
-VERSION = $(shell python -c "import tfassim;import sys;sys.stdout.write(tfassim.__version__)")
+VERSION = $(shell python -c "import pytassimm;import sys;sys.stdout.write(pytassim.__version__)")
 
 .PHONY: all
 all: wheel docs
