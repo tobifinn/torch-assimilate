@@ -27,11 +27,33 @@
 import logging
 
 # External modules
+import torch
 
 # Internal modules
 
 
 logger = logging.getLogger(__name__)
+
+
+def torch_roll(x, shift=1):
+    """
+    Roll :py:class:``torch.Tensor`` along first axis by `shift`-steps.
+
+    Parameters
+    ----------
+    x : :py:class:``torch.Tensor``
+        This tensor is rolled.
+    shift : int, optional
+        The tensor is rolled by this number of steps. Normally it is rolled to
+        the right side, a negative value will roll the tensor to the left side.
+
+    Returns
+    -------
+    rolled_tensor : :py:class:`torch.Tensor``
+        This tensor was rolled on first axis by ``shift``-steps.
+    """
+    rolled_tensor = torch.cat((x[-shift:], x[:-shift]))
+    return rolled_tensor
 
 
 class Lorenz96(object):
@@ -67,7 +89,8 @@ class Lorenz96(object):
         point are connected. The default value is 40 grid points as in [2]_.
     """
     def __init__(self, forcing=8, nr_points=40,):
-        pass
+        self.forcing = forcing
+        self.nr_points = nr_points
 
     def __call__(self, state):
         pass
