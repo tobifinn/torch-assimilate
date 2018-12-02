@@ -1,4 +1,4 @@
-name: tfassim-dev
+name: pytassim-dev
 channels:
     - conda-forge
 dependencies:
