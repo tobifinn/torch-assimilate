@@ -51,10 +51,10 @@ class BaseIntegrator(object):
         This is the integration time step. This time step is unitless and
         depends on model's time unit. A positive time step indicates forward
         integration, while a negative shows a backward integration, which might
-        be complicated for given model. Default is 0.1.
+        be complicated for given model. Default is 0.05.
     """
 
-    def __init__(self, model, dt=0.1):
+    def __init__(self, model, dt=0.05):
         self._model = None
         self._dt = None
         self.model = model
