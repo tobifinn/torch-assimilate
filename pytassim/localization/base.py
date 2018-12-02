@@ -3,7 +3,7 @@
 #
 # Created on 14.03.18
 #
-# Created for tf-assimilate
+# Created for torch-assimilate
 #
 # @author: Tobias Sebastian Finn, tobias.sebastian.finn@uni-hamburg.de
 #

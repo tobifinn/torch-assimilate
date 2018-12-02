@@ -32,7 +32,7 @@ import os
 import numpy as np
 
 # Internal modules
-from tfassim.model.integration.integrator import BaseIntegrator
+from pytassim.model.integration.integrator import BaseIntegrator
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -84,14 +84,14 @@ class TestBaseIntegrator(unittest.TestCase):
         with self.assertRaises(TypeError):
             self.integrator.model = BaseIntegrator(dummy_model)
 
-    @patch('tfassim.model.integration.integrator.BaseIntegrator.'
+    @patch('pytassim.model.integration.integrator.BaseIntegrator.'
            '_calc_increment', return_value=np.array([1]))
     def test_integrate_passes_state_to_calc_increment(self, inc_patch):
         curr_state = np.array([5, ])
         _ = self.integrator.integrate(curr_state)
         inc_patch.assert_called_once_with(curr_state)
 
-    @patch('tfassim.model.integration.integrator.BaseIntegrator.'
+    @patch('pytassim.model.integration.integrator.BaseIntegrator.'
            '_calc_increment', return_value=np.array([1]))
     def test_integrate_returns_updated_state(self, inc_patch):
         curr_state = np.array([5, ])

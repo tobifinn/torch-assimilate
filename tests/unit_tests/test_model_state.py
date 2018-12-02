@@ -3,7 +3,7 @@
 """
 Created on 3/23/18
 
-Created for tf-assimilate
+Created for torch-assimilate
 
 @author: Tobias Sebastian Finn, tobias.sebastian.finn@uni-hamburg.de
 
@@ -33,7 +33,7 @@ import numpy as np
 import xarray as xr
 
 # Internal modules
-from tfassim.state import ModelState
+from pytassim.state import ModelState
 
 
 logging.basicConfig(level=logging.DEBUG)
