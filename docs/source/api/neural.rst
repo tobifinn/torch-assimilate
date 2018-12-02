@@ -8,7 +8,7 @@ Neural class
 All neural network based data assimilation algorithms are inherited from this
 based class.
 
-.. automodule:: tfassim.assimilation.neural.neural
+.. automodule:: pytassim.assimilation.neural.neural
     :members:
     :undoc-members:
     :show-inheritance:

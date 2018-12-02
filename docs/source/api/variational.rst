@@ -8,7 +8,7 @@ Variational class
 All variational based data assimilation algorithms are inherited from this based
 class.
 
-.. automodule:: tfassim.assimilation.variational.variational
+.. automodule:: pytassim.assimilation.variational.variational
     :members:
     :undoc-members:
     :show-inheritance:

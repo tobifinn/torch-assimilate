@@ -7,7 +7,7 @@ Base class
 A base algorithm class from which all data assimilation algorithms are
 inherited.
 
-.. automodule:: tfassim.assimilation.base
+.. automodule:: pytassim.assimilation.base
     :members:
     :undoc-members:
     :show-inheritance:
