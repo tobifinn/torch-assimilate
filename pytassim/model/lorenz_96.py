@@ -37,11 +37,11 @@ logger = logging.getLogger(__name__)
 
 def torch_roll(x, shift=1):
     """
-    Roll :py:class:``torch.Tensor`` along first axis by `shift`-steps.
+    Roll :py:class:`torch.Tensor` along first axis by `shift`-steps.
 
     Parameters
     ----------
-    x : :py:class:``torch.Tensor``
+    x : :py:class:`torch.Tensor`
         This tensor is rolled.
     shift : int, optional
         The tensor is rolled by this number of steps. Normally it is rolled to
@@ -49,7 +49,7 @@ def torch_roll(x, shift=1):
 
     Returns
     -------
-    rolled_tensor : :py:class:`torch.Tensor``
+    rolled_tensor : :py:class:`torch.Tensor`
         This tensor was rolled on first axis by ``shift``-steps.
     """
     rolled_tensor = torch.cat((x[-shift:], x[:-shift]))
@@ -74,7 +74,7 @@ class Lorenz96(object):
 
     .. [L96] Lorenz, E. N. (1996, September). Predictability: A problem partly
            solved. In Proc. Seminar on predictability (Vol. 1, No. 1).
-    .. [2] Lorenz, E. N., & Emanuel, K. A. (1998). Optimal sites for
+    .. [L98] Lorenz, E. N., & Emanuel, K. A. (1998). Optimal sites for
            supplementary weather observations: Simulation with a small model.
            Journal of the Atmospheric Sciences, 55(3), 399-414.
 
@@ -86,7 +86,7 @@ class Lorenz96(object):
     nr_points : int, optional
         The number of grid points of this model. The whole model spans an
         atmospheric corridor around the world such that the first and last grid
-        point are connected. The default value is 40 grid points as in [2]_.
+        point are connected. The default value is 40 grid points as in [L98]_.
     """
     def __init__(self, forcing=8, nr_points=40,):
         self.forcing = forcing

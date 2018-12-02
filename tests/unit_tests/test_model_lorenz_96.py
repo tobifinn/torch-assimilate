@@ -28,8 +28,8 @@ import unittest
 import logging
 
 # External modules
-import numpy as np
 import torch
+import numpy as np
 
 # Internal modules
 from pytassim.model.lorenz_96 import torch_roll
