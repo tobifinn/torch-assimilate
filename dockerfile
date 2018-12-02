@@ -13,8 +13,8 @@ RUN TEMP_DEB="$(mktemp)" && \
 
 RUN conda update -n base conda
 
-RUN git clone https://gitlab.com/tobifinn/tf-assimilate.git
-RUN conda env create -f /tf-assimilate/dev_environment.yml
+RUN git clone https://gitlab.com/tobifinn/torch-assimilate.git
+RUN conda env create -f /torch-assimilate/dev_environment.yml
 SHELL ["/bin/bash", "-c"]
-RUN source activate tfassim-dev && echo "Curr env: $CONDA_DEFAULT_ENV" && conda install -y pytorch-cpu torchvision-cpu -c pytorch
+RUN source activate pytassim-dev && echo "Curr env: $CONDA_DEFAULT_ENV" && conda install -y pytorch-cpu torchvision-cpu -c pytorch
 

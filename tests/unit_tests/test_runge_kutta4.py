@@ -33,7 +33,7 @@ import torch
 
 
 # Internal modules
-from tfassim.model.integration.rk4 import RK4Integrator
+from pytassim.model.integration.rk4 import RK4Integrator
 
 
 logging.basicConfig(level=logging.DEBUG)

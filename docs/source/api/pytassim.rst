@@ -1,7 +1,7 @@
-tf-assimilate package
-=====================
+torch-assimilate package
+=======)================
 
-.. automodule:: tfassim
+.. automodule:: pytassim
     :members:
 
 Observation subset
@@ -9,7 +9,7 @@ Observation subset
 A :py:class:`xarray.Dataset` accessor, accessible with
 :py:attr:`xarray.Dataset.obs`.
 
-.. automodule:: tfassim.observation
+.. automodule:: pytassim.observation
     :members:
     :undoc-members:
     :show-inheritance:
@@ -19,7 +19,7 @@ Model state
 A :py:class:`xarray.DataArray` accessor, accessible with
 :py:attr:`xarray.DataArray.state`.
 
-.. automodule:: tfassim.state
+.. automodule:: pytassim.state
     :members:
     :undoc-members:
     :show-inheritance:

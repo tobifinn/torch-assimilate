@@ -1,9 +1,9 @@
 #!/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Created on 26.03.18
+# Created on 14.03.18
 #
-# Created for tf-assimilate
+# Created for torch-assimilate
 #
 # @author: Tobias Sebastian Finn, tobias.sebastian.finn@uni-hamburg.de
 #
@@ -25,21 +25,20 @@
 
 # System modules
 import logging
+import abc
 
 # External modules
 
 # Internal modules
-from ..base import BaseAssimilation
 
 
 logger = logging.getLogger(__name__)
 
 
-class VarAssimilation(BaseAssimilation):
-    """
-    VarAssimilation is a base class for assimilation with a variational
-    approach,like ``3DVar`` or ``4DVar``. These algorithms are fitted to
-    trajectories of a weather model (especially 4DVar) such that they need
-    different algorithms than the filtering approach.
-    """
-    pass
+class BaseAssimilation(object):
+    def __init__(self, pre_infl=None, post_infl=None, localization=None):
+        pass
+
+    @abc.abstractmethod
+    def assimilate(self):
+        pass

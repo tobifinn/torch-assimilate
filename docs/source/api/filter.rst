@@ -8,7 +8,7 @@ Filter class
 All filtering based data assimilation algorithms are inherited from this based
 class.
 
-.. automodule:: tfassim.assimilation.filter.filter
+.. automodule:: pytassim.assimilation.filter.filter
     :members:
     :undoc-members:
     :show-inheritance:

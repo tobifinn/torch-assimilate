@@ -1,6 +1,6 @@
-name: tfassim-dev
+name: pytassim-dev
 channels:
-    - conda-forge
+    - defaults
 dependencies:
     - python=3.6
     - setuptools

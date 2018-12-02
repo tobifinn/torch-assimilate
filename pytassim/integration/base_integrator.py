@@ -1,9 +1,9 @@
 #!/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Created on 14.03.18
+# Created on 23.11.18
 #
-# Created for tf-assimilate
+# Created for torch-assim
 #
 # @author: Tobias Sebastian Finn, tobias.sebastian.finn@uni-hamburg.de
 #
@@ -35,7 +35,24 @@ import abc
 logger = logging.getLogger(__name__)
 
 
-class BaseLocalization(object):
+class BaseIntegrator(object):
+    def __init__(self, model, dt):
+        self._dt = None
+        self._model = None
+        self.model = model
+        self.dt = dt
+
+    @property
+    def dt(self):
+        return self._dt
+
+    @dt.setter
+    def dt(self, new_dt):
+        self._dt = new_dt
+
     @abc.abstractmethod
-    def localize(self):
+    def _calc_inc(self, state):
+        pass
+
+    def integrate(self, state):
         pass

@@ -1,9 +1,9 @@
 #!/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Created on 14.03.18
+# Created on 26.03.18
 #
-# Created for tf-assimilate
+# Created for torch-assimilate
 #
 # @author: Tobias Sebastian Finn, tobias.sebastian.finn@uni-hamburg.de
 #
@@ -25,20 +25,21 @@
 
 # System modules
 import logging
-import abc
 
 # External modules
 
 # Internal modules
+from ..base import BaseAssimilation
 
 
 logger = logging.getLogger(__name__)
 
 
-class BaseAssimilation(object):
-    def __init__(self, pre_infl=None, post_infl=None, localization=None):
-        pass
-
-    @abc.abstractmethod
-    def assimilate(self):
-        pass
+class FilterAssimilation(BaseAssimilation):
+    """
+    FilterAssimilation is a base class for all assimilation algorithms, which
+    are based on a filtering approach e.g. Ensemble Kalman filters or particle
+    filters. This class extends ``BaseAssimilation`` with different methods and
+    attributes for a simplified filtering approach.
+    """
+    pass

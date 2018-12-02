@@ -3,7 +3,7 @@
 #
 # Created on 26.03.18
 #
-# Created for tf-assimilate
+# Created for torch-assimilate
 #
 # @author: Tobias Sebastian Finn, tobias.sebastian.finn@uni-hamburg.de
 #
@@ -35,11 +35,11 @@ from ..base import BaseAssimilation
 logger = logging.getLogger(__name__)
 
 
-class FilterAssimilation(BaseAssimilation):
+class VarAssimilation(BaseAssimilation):
     """
-    FilterAssimilation is a base class for all assimilation algorithms, which
-    are based on a filtering approach e.g. Ensemble Kalman filters or particle
-    filters. This class extends ``BaseAssimilation`` with different methods and
-    attributes for a simplified filtering approach.
+    VarAssimilation is a base class for assimilation with a variational
+    approach,like ``3DVar`` or ``4DVar``. These algorithms are fitted to
+    trajectories of a weather model (especially 4DVar) such that they need
+    different algorithms than the filtering approach.
     """
     pass

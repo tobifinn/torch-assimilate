@@ -3,7 +3,7 @@
 #
 # Created on 14.03.18
 #
-# Created for tf-assimilate
+# Created for torch-assimilate
 #
 # @author: Tobias Sebastian Finn, tobias.sebastian.finn@uni-hamburg.de
 #
@@ -35,7 +35,7 @@ import abc
 logger = logging.getLogger(__name__)
 
 
-class BaseInflation(object):
+class BaseLocalization(object):
     @abc.abstractmethod
-    def inflate(self):
+    def localize(self):
         pass
