@@ -51,10 +51,15 @@ class TestRK4Integrator(unittest.TestCase):
         self.state = np.array([1., ])
 
     def test_estimate_slopes_returns_averaged_slope(self):
-        right_slopes = [2, 2.2, 2.22, 2.444]
-        averaged_slope = np.array(right_slopes).dot(self.integrator._weights)
-        slope = self.integrator._estimate_slope(self.state)
-        np.testing.assert_equal(slope, averaged_slope)
+        k1 = dummy_model(self.state)
+        k2 = dummy_model(self.state + k1 * self.integrator.dt / 2)
+        k3 = dummy_model(self.state + k2 * self.integrator.dt / 2)
+        k4 = dummy_model(self.state + k3 * self.integrator.dt)
+
+        averaged_slope = (k1 + 2 * k2 + 2*k3 + k4) / 6
+
+        returned_slope = self.integrator._estimate_slope(self.state)
+        np.testing.assert_equal(returned_slope, averaged_slope)
 
     def test_calc_increment_is_slope_dt(self):
         returned_slope = self.integrator._estimate_slope(self.state)
