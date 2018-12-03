@@ -1,5 +1,5 @@
-Models to test code and algorithms
-==================================
+Models and Integration
+======================
 This submodule includes different models and integration solutions, and can be
 used to test the efficiency of different data assimilation algorithms.
 
