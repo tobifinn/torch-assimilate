@@ -87,8 +87,31 @@ class Lorenz96(object):
     def __init__(self, forcing=8):
         self.forcing = forcing
 
-    def _calc_advection(self, state):
-        pass
+    @staticmethod
+    def _calc_advection(state):
+        """
+        This method calculates the advection term of the Lorenz '96 model. This
+        term is given by
+
+        .. math::
+
+           (x_{i+1}-x_{i-2})\\,x_{i-1}.
+
+        Parameters
+        ----------
+        state : :py:class:`torch.Tensor`
+            This state is used to calculate the advection term of the Lorenz
+            model. The last axis should be the grid axis.
+
+        Returns
+        -------
+        advection : :py:class:`torch.Tensor`
+            The calculated advection based on given state. The advection has the
+            same shape as the state.
+        """
+        diff = torch_roll(state, shift=-1) - torch_roll(state, shift=2)
+        advection = diff * torch_roll(state, shift=1)
+        return advection
 
     def _calc_dissipation(self, state):
         pass

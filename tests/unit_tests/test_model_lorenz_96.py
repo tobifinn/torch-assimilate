@@ -1,11 +1,11 @@
 #!/bin/env python
 # -*- coding: utf-8 -*-
 #
-#Created on 02.12.18
+# Created on 02.12.18
 #
-#Created for torch-assim
+# Created for torch-assim
 #
-#@author: Tobias Sebastian Finn, tobias.sebastian.finn@uni-hamburg.de
+# @author: Tobias Sebastian Finn, tobias.sebastian.finn@uni-hamburg.de
 #
 #    Copyright (C) {2018}  {Tobias Sebastian Finn}
 #
@@ -63,8 +63,11 @@ class TestLorenz96(unittest.TestCase):
         returned_forcing = self.model._calc_forcing(self.state)
         self.assertEqual(returned_forcing, self.model.forcing)
 
-    def test_estimate_advection_returns_advection_term(self):
-        pass
+    def test_calc_advection_returns_advection_term(self):
+        diff = np.roll(self.state, -1) - np.roll(self.state, 2)
+        right_advection = diff * np.roll(self.state, 1)
+        returned_advection = self.model._calc_advection(self.torch_state)
+        np.testing.assert_equal(right_advection, returned_advection.numpy())
 
 
 if __name__ == '__main__':
