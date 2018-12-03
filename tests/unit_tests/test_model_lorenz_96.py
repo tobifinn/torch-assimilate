@@ -57,10 +57,10 @@ class TestLorenz96(unittest.TestCase):
         np.testing.assert_equal(returned_array, rolled_array)
 
     def test_calc_forcing_returns_forcing(self):
-        returned_forcing = self.model._calc_forcing(self.state)
+        returned_forcing = self.model._calc_forcing(self.torch_state)
         self.assertEqual(returned_forcing, self.model.forcing)
         self.model.forcing = 2
-        returned_forcing = self.model._calc_forcing(self.state)
+        returned_forcing = self.model._calc_forcing(self.torch_state)
         self.assertEqual(returned_forcing, self.model.forcing)
 
     def test_calc_advection_returns_advection_term(self):
@@ -73,6 +73,15 @@ class TestLorenz96(unittest.TestCase):
         dissipation = -self.state
         returned_dissipation = self.model._calc_dissipation(self.torch_state)
         np.testing.assert_equal(dissipation, returned_dissipation.numpy())
+
+    def test_call_returns_state_update(self):
+        state_update = self.model._calc_advection(self.torch_state)
+        state_update += self.model._calc_dissipation(self.torch_state)
+        state_update += self.model._calc_forcing(self.torch_state)
+
+        returned_update = self.model(self.torch_state)
+
+        torch.testing.assert_allclose(state_update, returned_update)
 
 
 if __name__ == '__main__':
