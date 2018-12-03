@@ -56,6 +56,16 @@ class TestLorenz96(unittest.TestCase):
         returned_array = torch_roll(self.torch_state, shift=-4).numpy().copy()
         np.testing.assert_equal(returned_array, rolled_array)
 
+    def test_torch_roll_axis(self):
+        state = rnd.normal(size=(20, 40, 20))
+        torch_state = torch.tensor(state)
+        rolled_array = np.roll(state, shift=3, axis=-1)
+        returned_array = torch_roll(torch_state, shift=3, axis=-1).numpy()
+        np.testing.assert_equal(returned_array, rolled_array)
+        rolled_array = np.roll(state, shift=-4, axis=1)
+        returned_array = torch_roll(torch_state, shift=-4, axis=1).numpy()
+        np.testing.assert_equal(returned_array, rolled_array)
+
     def test_calc_forcing_returns_forcing(self):
         returned_forcing = self.model._calc_forcing(self.torch_state)
         self.assertEqual(returned_forcing, self.model.forcing)
@@ -69,6 +79,14 @@ class TestLorenz96(unittest.TestCase):
         returned_advection = self.model._calc_advection(self.torch_state)
         np.testing.assert_equal(right_advection, returned_advection.numpy())
 
+    def test_calc_advection_rolls_along_last_axis(self):
+        state = rnd.normal(size=(20, 40))
+        torch_state = torch.tensor(state)
+        diff = np.roll(state, -1, axis=-1) - np.roll(state, 2, axis=-1)
+        right_advection = diff * np.roll(state, 1, axis=-1)
+        returned_advection = self.model._calc_advection(torch_state)
+        np.testing.assert_equal(right_advection, returned_advection)
+
     def test_calc_dissipation_returns_dissipation_term(self):
         dissipation = -self.state
         returned_dissipation = self.model._calc_dissipation(self.torch_state)
@@ -78,9 +96,7 @@ class TestLorenz96(unittest.TestCase):
         state_update = self.model._calc_advection(self.torch_state)
         state_update += self.model._calc_dissipation(self.torch_state)
         state_update += self.model._calc_forcing(self.torch_state)
-
         returned_update = self.model(self.torch_state)
-
         torch.testing.assert_allclose(state_update, returned_update)
 
 

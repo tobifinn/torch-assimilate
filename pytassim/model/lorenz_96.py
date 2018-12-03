@@ -35,30 +35,39 @@ import torch
 logger = logging.getLogger(__name__)
 
 
-def torch_roll(x, shift=1):
+def torch_roll(a, shift, axis=0):
     """
-    Roll :py:class:`torch.Tensor` along first axis by `shift`-steps.
+    Shift :py:class:`torch.Tensor` along first axis by `shift`-steps.
 
     Parameters
     ----------
-    x : :py:class:`torch.Tensor`
-        This tensor is rolled.
-    shift : int, optional
-        The tensor is rolled by this number of steps. Normally it is rolled to
-        the right side, a negative value will roll the tensor to the left side.
+    a : :py:class:`torch.Tensor`
+        This tensor is shifted.
+    shift : int
+        The tensor is shifted by this number of steps. Positive values shift it
+        to the right side, a negative value will shift the tensor to the left
+        side.
+    axis : int
+        The array is shifted along this specified axis. Default is 0, which
+        specifies the first axis.
 
     Returns
     -------
     rolled_tensor : :py:class:`torch.Tensor`
         This tensor was rolled on first axis by ``shift``-steps.
     """
-    rolled_tensor = torch.cat((x[-shift:], x[:-shift]))
+    ndims = a.dim()
+    left_slice = [slice(None, None)] * ndims
+    left_slice[axis] = slice(-shift, None)
+    right_slice = [slice(None, None)] * ndims
+    right_slice[axis] = slice(None, -shift)
+    rolled_tensor = torch.cat((a[left_slice], a[right_slice]), dim=axis)
     return rolled_tensor
 
 
 class Lorenz96(object):
     """
-    The Lorenz '96 [L96]_ is a grid based dynamical model. In its default
+    The Lorenz '96 [L96]_ [L98]_ is a grid based dynamical model. In its default
     settings it has a chaotic behaviour. The grid points are wrapped in
     one-dimension such that the first and last grid point are coupled. Only
     surrounding grid points and the forcing F influence the i-th grid point at
@@ -110,8 +119,8 @@ class Lorenz96(object):
             The calculated advection based on given state. The advection has the
             same type and shape as the input state.
         """
-        diff = torch_roll(state, shift=-1) - torch_roll(state, shift=2)
-        advection = diff * torch_roll(state, shift=1)
+        diff = torch_roll(state, -1, axis=-1) - torch_roll(state, 2, axis=-1)
+        advection = diff * torch_roll(state, 1, axis=-1)
         return advection
 
     def _calc_dissipation(self, state):
@@ -164,9 +173,25 @@ class Lorenz96(object):
         return forcing
 
     def __call__(self, state):
+        """
+        Calculates the time-derivative :math:`\\frac{dx_{i}}{dt}` for given
+        state.
+
+        Parameters
+        ----------
+        state : :py:class:`torch.Tensor`
+            This state is used to estimated the current time-derivative. The
+            last axis is supposed to be the grid axis.
+
+        Returns
+        -------
+        derivative : :py:class:`torch.Tensor`
+            The calculated time-derivative based on given state. This
+            time-derivative has the same type and shape as given state.
+        """
         advection = self._calc_advection(state)
         dissipation = self._calc_dissipation(state)
         forcing = self._calc_forcing(state)
 
-        state_update = advection + dissipation + forcing
-        return state_update
+        derivative = advection + dissipation + forcing
+        return derivative
