@@ -83,14 +83,41 @@ class Lorenz96(object):
     forcing : float, optional
         The forcing term in the equation. The default forcing of 8 leads to
         typical chaotic behaviour of the atmosphere.
-    nr_points : int, optional
-        The number of grid points of this model. The whole model spans an
-        atmospheric corridor around the world such that the first and last grid
-        point are connected. The default value is 40 grid points as in [L98]_.
     """
-    def __init__(self, forcing=8, nr_points=40,):
+    def __init__(self, forcing=8):
         self.forcing = forcing
-        self.nr_points = nr_points
+
+    def _calc_advection(self, state):
+        pass
+
+    def _calc_dissipation(self, state):
+        pass
+
+    def _calc_forcing(self, state):
+        """
+        This method calculates the forcing. This returns set forcing, which
+        a constant forcing in Lorenz '96 model. This method can be overwritten
+        to introduce a coupling between different models.
+
+        Parameters
+        ----------
+        state : :py:class:`torch.Tensor`
+            This state is currently not used, but can be used to introduce a
+            state-dependent forcing.
+
+        Returns
+        -------
+        forcing : :py:class:`torch.Tensor` or float
+            The calculated forcing based on attributes and given state. If it is
+            only a float than the same forcing is used at every grid point.
+        """
+        forcing = self.forcing
+        return forcing
 
     def __call__(self, state):
-        pass
+        advection = self._calc_advection(state)
+        dissipation = self._calc_dissipation(state)
+        forcing = self._calc_forcing(state)
+
+        state_update = advection + dissipation + forcing
+        return state_update

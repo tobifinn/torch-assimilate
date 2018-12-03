@@ -32,7 +32,7 @@ import torch
 import numpy as np
 
 # Internal modules
-from pytassim.model.lorenz_96 import torch_roll
+from pytassim.model.lorenz_96 import torch_roll, Lorenz96
 
 
 rnd = np.random.RandomState(42)
@@ -43,15 +43,28 @@ logging.basicConfig(level=logging.DEBUG)
 
 
 class TestLorenz96(unittest.TestCase):
+    def setUp(self):
+        self.model = Lorenz96()
+        self.state = rnd.normal(size=40)
+        self.torch_state = torch.tensor(self.state)
+
     def test_torch_roll(self):
-        in_array = rnd.normal(size=100)
-        rolled_array = np.roll(in_array, shift=4, axis=0)
-        torch_array = torch.tensor(in_array)
-        returned_array = torch_roll(torch_array, 4).numpy().copy()
+        rolled_array = np.roll(self.state, shift=4, axis=0)
+        returned_array = torch_roll(self.torch_state, 4).numpy().copy()
         np.testing.assert_equal(returned_array, rolled_array)
-        rolled_array = np.roll(in_array, shift=-4, axis=0)
-        returned_array = torch_roll(torch_array, shift=-4).numpy().copy()
+        rolled_array = np.roll(self.state, shift=-4, axis=0)
+        returned_array = torch_roll(self.torch_state, shift=-4).numpy().copy()
         np.testing.assert_equal(returned_array, rolled_array)
+
+    def test_calc_forcing_returns_forcing(self):
+        returned_forcing = self.model._calc_forcing(self.state)
+        self.assertEqual(returned_forcing, self.model.forcing)
+        self.model.forcing = 2
+        returned_forcing = self.model._calc_forcing(self.state)
+        self.assertEqual(returned_forcing, self.model.forcing)
+
+    def test_estimate_advection_returns_advection_term(self):
+        pass
 
 
 if __name__ == '__main__':
