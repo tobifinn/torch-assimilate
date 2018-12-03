@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 def torch_roll(a, shift, axis=0):
     """
-    Shift :py:class:`torch.Tensor` along first axis by `shift`-steps.
+    Shift :py:class:`torch.Tensor` along specified axis by `shift`-steps.
 
     Parameters
     ----------
@@ -54,7 +54,8 @@ def torch_roll(a, shift, axis=0):
     Returns
     -------
     rolled_tensor : :py:class:`torch.Tensor`
-        This tensor was rolled on first axis by ``shift``-steps.
+        This tensor was rolled on specified axis by ``shift``-steps. This tensor
+        has same type and shape as the input tensor.
     """
     ndims = a.dim()
     left_slice = [slice(None, None)] * ndims
