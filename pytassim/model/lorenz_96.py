@@ -101,26 +101,52 @@ class Lorenz96(object):
         ----------
         state : :py:class:`torch.Tensor`
             This state is used to calculate the advection term of the Lorenz
-            model. The last axis should be the grid axis.
+            model. The last axis should be the grid axis along which the
+            advection is calculated.
 
         Returns
         -------
         advection : :py:class:`torch.Tensor`
             The calculated advection based on given state. The advection has the
-            same shape as the state.
+            same type and shape as the input state.
         """
         diff = torch_roll(state, shift=-1) - torch_roll(state, shift=2)
         advection = diff * torch_roll(state, shift=1)
         return advection
 
     def _calc_dissipation(self, state):
-        pass
+        """
+        This method calculates the dissipation term. The term is given by
+
+        .. math::
+
+            -x_{i}.
+
+        Parameters
+        ----------
+        state : :py:class:`torch.Tensor`
+            This state is used to calculate the dissipation term of the Lorenz
+            model.
+
+        Returns
+        -------
+        dissipation : :py:class:`torch.Tensor`
+            The calculated dissipation based on given state. The dissipation has
+            same type and shape as the input state.
+        """
+        dissipation = -state
+        return dissipation
 
     def _calc_forcing(self, state):
         """
         This method calculates the forcing. This returns set forcing, which
         a constant forcing in Lorenz '96 model. This method can be overwritten
-        to introduce a coupling between different models.
+        to introduce a coupling between different models. The forcing is
+        currently given by
+
+        .. math::
+
+            F.
 
         Parameters
         ----------

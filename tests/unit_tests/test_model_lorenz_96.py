@@ -69,6 +69,11 @@ class TestLorenz96(unittest.TestCase):
         returned_advection = self.model._calc_advection(self.torch_state)
         np.testing.assert_equal(right_advection, returned_advection.numpy())
 
+    def test_calc_dissipation_returns_dissipation_term(self):
+        dissipation = -self.state
+        returned_dissipation = self.model._calc_dissipation(self.torch_state)
+        np.testing.assert_equal(dissipation, returned_dissipation.numpy())
+
 
 if __name__ == '__main__':
     unittest.main()
