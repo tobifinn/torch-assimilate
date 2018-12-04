@@ -79,8 +79,8 @@ class Lorenz96(object):
        \\frac{dx_{i}}{dt} = (x_{i+1}-x_{i-2})\\,x_{i-1}-x_{i}+F.
 
     The time unit of this model equals 5 days, a typical synoptical time scale.
-    It includes internal dissipation and external forcing by the linear terms,
-    while quadratic terms lead to advection.
+    The model includes internal dissipation and external forcing by the linear
+    terms, while quadratic terms represent advection.
 
     Arguments
     ---------
