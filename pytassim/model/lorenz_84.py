@@ -110,6 +110,25 @@ class Lorenz84(object):
         self.asymm_forcing = asymm_forcing
 
     def _calc_westerly(self, state):
+        """
+        Calculate the amplification of the westerly current, including coupling
+        effects, damping and forcing
+
+        .. math:: \\frac{dX}{dt} = -Y^2 - Z^2 - aX + aF.
+
+        Parameters
+        ----------
+        state : :py:class:`torch.Tensor`
+            This state is used to estimated the amplification. The
+            last axis is supposed to be the variable axis and should have a
+            size of three.
+
+        Returns
+        -------
+        amp : :py:class:`torch.Tensor`
+            The estimated amplification of the westerly current, depending on
+            given state, set damping factor and symmetric forcing.
+        """
         coupling = -state[..., 1] ** 2 - state[..., 2] ** 2
         damping = self.damp_factor * state[..., 0]
         forcing = self.damp_factor * self.symm_forcing
@@ -117,6 +136,26 @@ class Lorenz84(object):
         return amp
 
     def _calc_cosine_phase(self, state):
+        """
+        Calculates the change in the cosine phase of the eddies, including
+        amplification and displacement caused by westerly current, damping and
+        thermal forcing
+
+        .. math:: \\frac{dY}{dt} &= XY - bXZ - Y + G.
+
+        Parameters
+        ----------
+        state : :py:class:`torch.Tensor`
+            This state is used to estimated the phase change. The
+            last axis is supposed to be the variable axis and should have a
+            size of three.
+
+        Returns
+        -------
+        phase_change : :py:class:`torch.Tensor`
+            The estimated cosine phase change of the eddies, depending on given
+            state, set displacement factor and asymmetric forcing.
+        """
         amp = state[..., 0] * state[..., 1]
         displace = -self.dis_factor * state[..., 0] * state[..., 2]
         damping = state[..., 1]
@@ -125,6 +164,26 @@ class Lorenz84(object):
         return phase_change
 
     def _calc_sine_phase(self, state):
+        """
+        Calculates the change in the sine phase of the eddies, including
+        amplification and displacement caused by westerly current and damping.
+
+        .. math:: \\frac{dZ}{dt} &= bXY + XZ - Z.
+
+        Parameters
+        ----------
+        state : :py:class:`torch.Tensor`
+            This state is used to estimated the phase change. The
+            last axis is supposed to be the variable axis and should have a
+            size of three.
+
+        Returns
+        -------
+        phase_change : :py:class:`torch.Tensor`
+            The estimated sine phase change of the eddies, depending on given
+            state and set displacement factor.
+        """
+
         amp = state[..., 0] * state[..., 2]
         displace = self.dis_factor * state[..., 0] * state[..., 1]
         damping = state[..., 2]
@@ -132,6 +191,24 @@ class Lorenz84(object):
         return phase_change
 
     def __call__(self, state):
+        """
+        Estimate the time-derivative of this model. The time-derivative is
+        estimated based on amplification of the westerly current, and cosine and
+        sine phase change of the eddies.
+
+        Parameters
+        ----------
+        state : :py:class:`torch.Tensor`
+            This state is used to estimated the current time-derivative. The
+            last axis is supposed to be the variable axis and should have a size
+            of three.
+
+        Returns
+        -------
+        derivative : :py:class:`torch.Tensor`
+            The calculated time-derivative based on given state. This
+            time-derivative has the same type and shape as given state.
+        """
         westerly_amp = self._calc_westerly(state)
         cosine_change = self._calc_cosine_phase(state)
         sine_change = self._calc_sine_phase(state)
