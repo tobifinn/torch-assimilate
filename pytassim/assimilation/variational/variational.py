@@ -40,6 +40,9 @@ class VarAssimilation(BaseAssimilation):
     VarAssimilation is a base class for assimilation with a variational
     approach,like ``3DVar`` or ``4DVar``. These algorithms are fitted to
     trajectories of a weather model (especially 4DVar) such that they need
-    different algorithms than the filtering approach.
+    different algorithms than the filtering approach. This base class extends
+    :py:class:`~pytassim.assimilation.base.BaseAssimilation` with different
+    methods and attributes to simplify variational data assimilation
+    prototyping.
     """
     pass
