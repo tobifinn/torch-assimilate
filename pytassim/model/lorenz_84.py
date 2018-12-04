@@ -27,6 +27,7 @@
 import logging
 
 # External modules
+import torch
 
 # Internal modules
 
@@ -108,5 +109,33 @@ class Lorenz84(object):
         self.symm_forcing = symm_forcing
         self.asymm_forcing = asymm_forcing
 
+    def _calc_westerly(self, state):
+        coupling = -state[..., 1] ** 2 - state[..., 2] ** 2
+        damping = self.damp_factor * state[..., 0]
+        forcing = self.damp_factor * self.symm_forcing
+        amp = coupling - damping + forcing
+        return amp
+
+    def _calc_cosine_phase(self, state):
+        amp = state[..., 0] * state[..., 1]
+        displace = -self.dis_factor * state[..., 0] * state[..., 2]
+        damping = state[..., 1]
+        forcing = self.asymm_forcing
+        phase_change = amp + displace - damping + forcing
+        return phase_change
+
+    def _calc_sine_phase(self, state):
+        amp = state[..., 0] * state[..., 2]
+        displace = self.dis_factor * state[..., 0] * state[..., 1]
+        damping = state[..., 2]
+        phase_change = amp + displace - damping
+        return phase_change
+
     def __call__(self, state):
-        pass
+        westerly_amp = self._calc_westerly(state)
+        cosine_change = self._calc_cosine_phase(state)
+        sine_change = self._calc_sine_phase(state)
+
+        derivative = torch.stack([westerly_amp, cosine_change, sine_change],
+                                 dim=-1)
+        return derivative
