@@ -39,7 +39,8 @@ class RK4Integrator(BaseIntegrator):
     """
     RK4Integrator uses a Runge-Kutta fourth-order method to integrate given
     model function in time. This method calculates four different states, which
-    are then averaged to one single state increment.
+    are then averaged to one single state increment. To get another type of
+    Runge-Kutta scheme, ``steps`` and ``weights`` can be changed.
 
     Arguments
     ---------
@@ -52,9 +53,9 @@ class RK4Integrator(BaseIntegrator):
         This is the integration time step. This time step is unitless and
         depends on model's time unit. A positive time step indicates forward
         integration, while a negative shows a backward integration, which might
-        be complicated for given model. Default is 0.1.
+        be complicated for given model. Default is 0.05.
     """
-    def __init__(self, model, dt=0.1):
+    def __init__(self, model, dt=0.05):
         super().__init__(model=model, dt=dt)
         self.steps = [0, self.dt / 2, self.dt / 2, self.dt]
         self.weights = [1, 2, 2, 1]

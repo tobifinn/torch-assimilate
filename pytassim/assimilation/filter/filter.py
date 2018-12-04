@@ -39,7 +39,8 @@ class FilterAssimilation(BaseAssimilation):
     """
     FilterAssimilation is a base class for all assimilation algorithms, which
     are based on a filtering approach e.g. Ensemble Kalman filters or particle
-    filters. This class extends ``BaseAssimilation`` with different methods and
-    attributes for a simplified filtering approach.
+    filters. This class extends
+    :py:class:`~pytassim.assimilation.base.BaseAssimilation` with different
+    methods and attributes for a simplified filtering approach.
     """
     pass

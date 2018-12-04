@@ -38,8 +38,9 @@ logger = logging.getLogger(__name__)
 class NeuralAssimilation(BaseAssimilation):
     """
     NeuralAssimilation is a base class for all data assimilation algorithms,
-    which are based on neural networks This class can be used for fast
+    which are based on neural networks. This class can be used for fast
     prototyping of these algorithms. For fast prototyping some attributes and
-    methods are added compared to :py:class:``BaseAssimilation``.
+    methods are added compared to
+    :py:class:`~pytassim.assimilation.base.BaseAssimilation`.
     """
     pass

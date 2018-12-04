@@ -1,5 +1,5 @@
 torch-assimilate package
-=======)================
+========================
 
 .. automodule:: pytassim
     :members:
@@ -31,3 +31,11 @@ Assimilation algorithms
    :caption: Contents:
 
    assimilation
+
+Models
+------
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
+
+   model

@@ -51,10 +51,10 @@ class BaseIntegrator(object):
         This is the integration time step. This time step is unitless and
         depends on model's time unit. A positive time step indicates forward
         integration, while a negative shows a backward integration, which might
-        be complicated for given model. Default is 0.1.
+        be complicated for given model. Default is 0.05.
     """
 
-    def __init__(self, model, dt=0.1):
+    def __init__(self, model, dt=0.05):
         self._model = None
         self._dt = None
         self.model = model
@@ -62,6 +62,12 @@ class BaseIntegrator(object):
 
     @property
     def model(self):
+        """
+        This model function takes a state and returns a new estimated state. The
+        returned state should have the same shape as the input state. The model
+        should be a time derivative such that it can be integrated. It is
+        assumed that the state does not depend on the time itself.
+        """
         return self._model
 
     @model.setter
@@ -73,6 +79,12 @@ class BaseIntegrator(object):
 
     @property
     def dt(self):
+        """
+        This integration time step specifies the step width for the integration
+        and is unit less, and depends on model's time unit. A positive time step
+        indicates forward integration, while a negative shows a backward
+        integration, which might be complicated for given model.
+        """
         return self._dt
 
     @dt.setter

@@ -194,6 +194,6 @@ intersphinx_mapping = {
     'numpy': ('https://docs.scipy.org/doc/numpy/', None),
     'matplotlib': ('https://matplotlib.org/', None),
     'sphinx': ('http://www.sphinx-doc.org/en/stable/', None),
+    'torch': ('https://pytorch.org/docs/master/', None),
     'xarray': ('http://xarray.pydata.org/en/stable/', None),
-    'wradlib': ('http://wradlib.org/wradlib-docs/latest/', None),
     }
