@@ -10,6 +10,7 @@ dependencies:
     - xarray
     - numpy
     - scipy
+    - ipykernel
     - pip:
         - twine
         - sphinxcontrib-plantuml
