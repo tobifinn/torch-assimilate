@@ -18,23 +18,23 @@ torch-assimilate
     * - package
       - |pypi-test| |pypi| |conda|
 
-.. |pipeline| image:: https://gitlab.com/tobifinn/tf-assimilate/badges/dev/pipeline.svg
-    :target: https://gitlab.com/tobifinn/tf-assimilate/pipelines
+.. |pipeline| image:: https://gitlab.com/tobifinn/torch-assimilate/badges/dev/pipeline.svg
+    :target: https://gitlab.com/tobifinn/torch-assimilate/pipelines
     :alt: Pipeline status
-.. |coverage| image:: https://gitlab.com/tobifinn/tf-assimilate/badges/dev/coverage.svg
-    :target: https://tobifinn.gitlab.io/tf-assimilate/coverage-report/
+.. |coverage| image:: https://gitlab.com/tobifinn/torch-assimilate/badges/dev/coverage.svg
+    :target: https://tobifinn.gitlab.io/torch-assimilate/coverage-report/
     :alt: Coverage report
 .. |docs| image:: https://img.shields.io/badge/docs-sphinx-brightgreen.svg
-    :target: https://tobifinn.gitlab.io/tf-assimilate/
+    :target: https://tobifinn.gitlab.io/torch-assimilate/
     :alt: Documentation Status
 .. |quality| image:: https://img.shields.io/badge/quality-codeclimate-brightgreen.svg
-    :target: https://tobifinn.gitlab.io/tf-assimilate/coverage-report/codeclimate.html
+    :target: https://tobifinn.gitlab.io/torch-assimilate/coverage-report/codeclimate.html
 .. |pypi| image:: https://img.shields.io/badge/pypi-unavailable-lightgrey.svg
-    :target: https://pypi.org/project/tf-assimilate/
+    :target: https://pypi.org/project/torch-assimilate/
 .. |pypi-test| image:: https://img.shields.io/badge/pypi_test-online-brightgreen.svg
-    :target: https://test.pypi.org/project/tf-assimilate/
+    :target: https://test.pypi.org/project/torch-assimilate/
 .. |conda| image:: https://img.shields.io/badge/conda-unavailable-lightgrey.svg
-    :target: https://anaconda.org/tobifinn/tf-assimilate
+    :target: https://anaconda.org/tobifinn/torch-assimilate
 
 .. end_badges
 
@@ -71,10 +71,10 @@ via conda (recommended):
 ^^^^^^^^^^^^^^^^^^^^^^^^
 .. code:: sh
 
-    git clone git@gitlab.com:tobifinn/tf-assimilate.git
-    cd tf-assimilate
+    git clone git@gitlab.com:tobifinn/torch-assimilate.git
+    cd torch-assimilate
     conda env create -f environment.yml
-    source activate tf-assimilate
+    source activate pytassim
     conda install pytorch-cpu torchvision-cpu -c pytorch
     pip install .
 
@@ -82,7 +82,7 @@ via pip (latest pypi-test):
 ^^^^^^^^
 .. code:: sh
 
-    pip install --index-url https://test.pypi.org/simple/ tf-assimilate
+    pip install --index-url https://test.pypi.org/simple/ torch-assimilate
     pip3 install http://download.pytorch.org/whl/cpu/torch-0.4.1-cp36-cp36m-linux_x86_64.whl
     pip3 install torchvision
 
