@@ -190,7 +190,7 @@ class Observation(object):
 
         Returns
         -------
-        pseudo_obs : :py:class:`~xarray.DataArray`
+        obs_equivalent : :py:class:`~xarray.DataArray`
             The created pseudo observations based on the given state and this
             observation operator. The last two dimensions are the same
             dimensions as the ``observations`` :py:class:`~xarray.DataArray`
