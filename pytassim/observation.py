@@ -25,7 +25,6 @@
 
 # System modules
 import logging
-import abc
 
 # External modules
 from xarray import register_dataset_accessor
@@ -177,7 +176,6 @@ class Observation(object):
             valid_ds = True
         return valid_ds
 
-    @abc.abstractmethod
     def operator(self, state):
         """
         This method is used as observation operator within the assimilation
@@ -198,4 +196,4 @@ class Observation(object):
             dimensions as the ``observations`` :py:class:`~xarray.DataArray`
             in set observation subset.
         """
-        pass
+        raise NotImplementedError('No observation operator is set!')
