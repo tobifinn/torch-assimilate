@@ -47,11 +47,11 @@ rnd = np.random.RandomState(42)
 class TestState(unittest.TestCase):
     def setUp(self):
         self.values = rnd.normal(size=(2, 1, 5, 100))
-        self.dims = ('variable', 'time', 'ensemble', 'grid')
+        self.dims = ('var_name', 'time', 'ensemble', 'grid')
         self.state_da = xr.DataArray(
             data=self.values,
             coords={
-                'variable': ['T', 'RH', ],
+                'var_name': ['T', 'RH', ],
                 'time': [dt.datetime(year=1992, month=12, day=25), ],
                 'ensemble': np.arange(5),
                 'grid': np.arange(100)
@@ -132,7 +132,7 @@ class TestState(unittest.TestCase):
         state_da = self.state_da.rename({'ensemble': 'test'})
         self.assertFalse(state_da.state._valid_dims)
         state_da = self.state_da.transpose(
-            'grid', 'ensemble', 'time', 'variable'
+            'grid', 'ensemble', 'time', 'var_name'
         )
         self.assertFalse(state_da.state._valid_dims)
 

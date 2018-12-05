@@ -36,6 +36,14 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
+class StateError(Exception):  # pragma: no cover
+    """
+    This error is an error if given state is not valid or if there is
+    something strange with the state.
+    """
+    pass
+
+
 @register_dataarray_accessor('state')
 class ModelState(object):
     """
@@ -51,7 +59,7 @@ class ModelState(object):
         which are explained below. The values of the array have to be float.
 
         Coordinate explanation:
-            ``variable`` – str
+            ``var_name`` – str
                 This coordinate allows to concatenate multiple variables into
                 one single array. The coordinate should have :py:class:`str` as
                 dtype.
@@ -92,7 +100,7 @@ class ModelState(object):
         valid_dims : bool
             If the dimensions of this array have the right name and right order.
         """
-        correct_dims = ('variable', 'time', 'ensemble', 'grid')
+        correct_dims = ('var_name', 'time', 'ensemble', 'grid')
         valid_dims = correct_dims == self.array.dims
         return valid_dims
 
@@ -108,14 +116,14 @@ class ModelState(object):
             If the coordinates have the right type.
         """
         types = {
-            'variable': np.str_,
-            'time': np.datetime64,
-            'ensemble': np.int64
+            'var_name': (np.str_, np.object_),
+            'time': (np.datetime64,),
+            'ensemble': (np.int, np.int32, np.int64),
         }
         valid_type = []
         for coord, v in types.items():
             array_dtype = self.array[coord].dtype.type
-            same_type = array_dtype == v
+            same_type = array_dtype in v
             valid_type.append(same_type)
         return all(valid_type)
 
