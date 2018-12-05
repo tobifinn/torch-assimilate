@@ -96,11 +96,46 @@ class BaseAssimilation(object):
 
     @staticmethod
     def _apply_obs_operator(state, observations):
-        pass
+        """
+        This method applies the observation operator on given state. The
+        observation operator has to be set within given observations. It is
+        possible to overwrite this method to implement an own observation
+        operator, which was not set in given observations.
+
+        Parameters
+        ----------
+        state : :py:class:`xarray.DataArray`
+            This state is used as base state to apply set observation operator.
+        observations : iterable(:py:class:`xarray.Dataset`)
+            These observations are used as basis for the observation operators.
+            The observation operator should be set as method
+            :py:meth:`xarray.Dataset.obs.operator`.
+
+        Returns
+        -------
+        obs_equivalent : iterable(:py:class:`xarray.DataArray`)
+            A list with observation equivalents as :py:class:`xarray.DataArray`.
+            These observation equivalents have three dimensions, ``ensemble``,
+            ``time`` and ``obs_grid``. The order within these observation
+            equivalent is the same as in the observations.
+        filtered_observations : list(:py:class:`xarray.Dataset`)
+            These observations are filtered such that observations without an
+            observation operator are dropped.
+        """
+        obs_equivalent = []
+        filtered_observations = []
+        for obs in observations:
+            try:
+                obs_equivalent.append(obs.obs.operator(state))
+                filtered_observations.append(obs)
+            except NotImplementedError:
+                pass
+        return obs_equivalent, filtered_observations
 
     @abc.abstractmethod
     def update_state(self, state, observations, analysis_time):
-        """This method is called by
+        """
+        This method is called by
         :py:meth:`~pytassim.assimilation.base.BaseAssimilation.assimilate` and
         has to be overwritten to implement a data assimilation algorithm.
 
@@ -171,6 +206,8 @@ class BaseAssimilation(object):
             analysis has same coordinates as given ``state`` except ``time``,
             which contains only one time step.
         """
+        if not isinstance(observations, (list, set, tuple)):
+            observations = (observations, )
         self._validate_state(state)
         self._validate_observations(observations)
         analysis_time = self._get_analysis_time(state, analysis_time)

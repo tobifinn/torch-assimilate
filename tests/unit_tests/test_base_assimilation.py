@@ -50,6 +50,14 @@ def dummy_update(state, observations, analysis_time):   # pragma: no cover
     return analysis
 
 
+def observation_operator(self, state):    # pragma: no cover
+    obs_equivalent = state.sel(var_name='x')
+    obs_equivalent = obs_equivalent.rename(grid='obs_grid')
+    obs_equivalent['time'] = self.ds.time.values
+    obs_equivalent['obs_grid'] = self.ds.obs_grid_1.values
+    return obs_equivalent
+
+
 class TestBaseAssimilation(unittest.TestCase):
     def setUp(self):
         self.algorithm = BaseAssimilation()
@@ -148,7 +156,7 @@ class TestBaseAssimilation(unittest.TestCase):
                    '_validate_observations') as valid_mock:
             _ = self.algorithm.assimilate(self.state, self.obs, None)
             valid_mock.assert_called()
-        xr.testing.assert_equal(valid_mock.call_args[0][0], self.obs)
+        xr.testing.assert_equal(valid_mock.call_args[0][0][0], self.obs)
 
     @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
            side_effect=dummy_update)
@@ -157,8 +165,14 @@ class TestBaseAssimilation(unittest.TestCase):
         latest_time = self.state.time[-1]
         update_mock.assert_called_once()
         xr.testing.assert_equal(update_mock.call_args[0][0], self.state)
-        xr.testing.assert_equal(update_mock.call_args[0][1], self.obs)
+        xr.testing.assert_equal(update_mock.call_args[0][1][0], self.obs,)
         xr.testing.assert_equal(update_mock.call_args[0][2], latest_time)
+
+    @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
+           side_effect=dummy_update)
+    def test_assimilate_converts_single_obs_to_tuple(self, update_mock):
+        _ = self.algorithm.assimilate(self.state, self.obs, None)
+        self.assertIsInstance(update_mock.call_args[0][1], tuple)
 
     @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
            side_effect=dummy_update)
@@ -177,6 +191,25 @@ class TestBaseAssimilation(unittest.TestCase):
         returned_analysis = self.algorithm.assimilate(self.state, self.obs,
                                                       None)
         xr.testing.assert_equal(analysis, returned_analysis)
+
+    def test_apply_obs_operator_filters_obs_wo_operator(self):
+        obs_list = [self.obs, self.obs.copy()]
+        obs_list[-1].obs.operator = observation_operator
+        _, filtered_obs = self.algorithm._apply_obs_operator(self.state,
+                                                             obs_list)
+        self.assertIsInstance(filtered_obs, list)
+        self.assertEqual(len(filtered_obs), 1)
+        self.assertEqual(id(filtered_obs[0]), id(obs_list[-1]))
+
+    def test_apply_applies_obs_operator_to_state(self):
+        self.obs.obs.operator = observation_operator
+        obs_list = [self.obs, ]
+        obs_equivalent, _ = self.algorithm._apply_obs_operator(self.state,
+                                                               obs_list)
+        self.assertIsInstance(obs_equivalent, list)
+        self.assertEqual(len(obs_equivalent), 1)
+        xr.testing.assert_equal(self.obs.obs.operator(self.state),
+                                obs_equivalent[0])
 
 
 if __name__ == '__main__':
