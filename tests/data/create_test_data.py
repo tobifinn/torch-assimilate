@@ -15,6 +15,9 @@ import pytassim.observation
 # In[2]:
 
 
+# pragma: no cover
+
+
 rnd = np.random.RandomState(42)
 
 NR_ENS_MEMS = 10
@@ -36,14 +39,14 @@ times = pd.date_range(start='1992-12-25', periods=NR_TIMES, freq='H')
 grid_points = np.arange(NR_GRID_POINTS)
 
 state = xr.DataArray(
-    data = state_arr,
-    coords = {
+    data=state_arr,
+    coords={
         'var_name': var_names,
         'time': times,
         'ensemble': ens_mems,
         'grid': grid_points
     },
-    dims = ('var_name', 'time', 'ensemble', 'grid')
+    dims=('var_name', 'time', 'ensemble', 'grid')
 )
 
 state.to_netcdf('test_state.nc')
@@ -60,12 +63,12 @@ print('Ensemble state is valid: {0}'.format(state.state.valid))
 
 raw_obs = state.mean('ensemble').sel(var_name='x')
 raw_cov = xr.DataArray(
-    data = np.zeros((raw_obs.grid.size, raw_obs.grid.size)),
-    coords = {
-        'obs_grid_1': (('obs_grid_1', ), raw_obs.grid.values,),
-        'obs_grib_2': (('obs_grid_2', ), raw_obs.grid.values,)
+    data=np.zeros((raw_obs.grid.size, raw_obs.grid.size)),
+    coords={
+        'obs_grid_1': raw_obs.grid.values,
+        'obs_grid_2': raw_obs.grid.values,
     },
-    dims = ['obs_grid_1', 'obs_grid_2']
+    dims=['obs_grid_1', 'obs_grid_2']
 )
 
 
