@@ -30,6 +30,7 @@ import abc
 # External modules
 
 # Internal modules
+from pytassim.state import StateError
 
 
 logger = logging.getLogger(__name__)
@@ -39,7 +40,23 @@ class BaseAssimilation(object):
     def __init__(self):
         pass
 
+    @staticmethod
+    def _validate_state(state):
+        valid = state.state.valid
+        if not valid:
+            raise StateError('Given state is not a valid state')
+
+    @staticmethod
+    def _validate_single_obs(observation):
+        pass
+
+    def _validate_observations(self, observations):
+        pass
+
     @abc.abstractmethod
+    def update_state(self, state, observations, analysis_time=None):
+        pass
+
     def assimilate(self, state, observations, analysis_time=None):
         """
         This assimilate the ``observations`` in given background ``state`` and
