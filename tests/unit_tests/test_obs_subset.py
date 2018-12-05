@@ -26,6 +26,7 @@ Created for torch-assimilate
 import unittest
 import logging
 import os
+import types
 
 # External modules
 import numpy as np
@@ -41,6 +42,10 @@ BASE_PATH = os.path.dirname(os.path.realpath(__file__))
 
 
 rnd = np.random.RandomState(42)
+
+
+def obs_op(self, state):    # pragma: no cover
+    return state
 
 
 class TestObsSubset(unittest.TestCase):
@@ -137,6 +142,40 @@ class TestObsSubset(unittest.TestCase):
         self.assertTrue(self.obs_ds.obs.valid)
         del self.obs_ds['covariance']
         self.assertFalse(self.obs_ds.obs.valid)
+
+    def test_operator_returns_private_operator(self):
+        self.assertTrue(callable(self.obs_ds.obs.operator))
+        with self.assertRaises(NotImplementedError):
+            self.obs_ds.obs.operator(1)
+
+    def test_operator_setter_sets_instance_method(self):
+        self.assertIsInstance(self.obs_ds.obs._operator, types.MethodType)
+        self.obs_ds.obs.operator = obs_op
+        self.assertIsInstance(self.obs_ds.obs._operator, types.MethodType)
+
+    def test_operator_setter_sets_private_operator(self):
+        self.obs_ds.obs.operator = obs_op
+        return_value = self.obs_ds.obs.operator(1)
+        self.assertEqual(return_value, 1)
+
+    def test_operator_checks_if_callable(self):
+        with self.assertRaises(TypeError):
+            self.obs_ds.obs.operator = 1
+
+    def test_operator_checks_if_state_is_single_argument(self):
+        def obs_operator(cls, state, time):
+            return state
+
+        with self.assertRaises(ValueError):
+            self.obs_ds.obs.operator = obs_operator
+
+    def test_operator_sets_only_instance(self):
+        obs_list = [self.obs_ds, self.obs_ds.copy()]
+        obs_list[-1].obs.operator = obs_op
+        with self.assertRaises(NotImplementedError):
+            self.obs_ds.obs.operator(1)
+        returned_value = obs_list[-1].obs.operator(1)
+        self.assertEqual(returned_value, 1)
 
 
 if __name__ == '__main__':
