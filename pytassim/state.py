@@ -116,14 +116,14 @@ class ModelState(object):
             If the coordinates have the right type.
         """
         types = {
-            'var_name': np.str_,
-            'time': np.datetime64,
-            'ensemble': np.int64
+            'var_name': (np.str_, np.object_),
+            'time': (np.datetime64,),
+            'ensemble': (np.int, np.int32, np.int64),
         }
         valid_type = []
         for coord, v in types.items():
             array_dtype = self.array[coord].dtype.type
-            same_type = array_dtype == v
+            same_type = array_dtype in v
             valid_type.append(same_type)
         return all(valid_type)
 
