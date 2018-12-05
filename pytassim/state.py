@@ -59,7 +59,7 @@ class ModelState(object):
         which are explained below. The values of the array have to be float.
 
         Coordinate explanation:
-            ``variable`` – str
+            ``var_name`` – str
                 This coordinate allows to concatenate multiple variables into
                 one single array. The coordinate should have :py:class:`str` as
                 dtype.
@@ -100,7 +100,7 @@ class ModelState(object):
         valid_dims : bool
             If the dimensions of this array have the right name and right order.
         """
-        correct_dims = ('variable', 'time', 'ensemble', 'grid')
+        correct_dims = ('var_name', 'time', 'ensemble', 'grid')
         valid_dims = correct_dims == self.array.dims
         return valid_dims
 
@@ -116,7 +116,7 @@ class ModelState(object):
             If the coordinates have the right type.
         """
         types = {
-            'variable': np.str_,
+            'var_name': np.str_,
             'time': np.datetime64,
             'ensemble': np.int64
         }
