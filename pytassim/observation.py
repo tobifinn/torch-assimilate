@@ -36,6 +36,14 @@ from xarray import register_dataset_accessor
 logger = logging.getLogger(__name__)
 
 
+class ObservationError(Exception):  # pragma: no cover
+    """
+    This error is an error if given observation is not valid or if there is
+    something strange with the observations.
+    """
+    pass
+
+
 @register_dataset_accessor('obs')
 class Observation(object):
     """

@@ -36,6 +36,14 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
+class StateError(Exception):  # pragma: no cover
+    """
+    This error is an error if given state is not valid or if there is
+    something strange with the state.
+    """
+    pass
+
+
 @register_dataarray_accessor('state')
 class ModelState(object):
     """
