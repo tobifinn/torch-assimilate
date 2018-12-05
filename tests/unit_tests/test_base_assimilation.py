@@ -27,6 +27,7 @@ import unittest
 import logging
 import os
 from unittest.mock import patch, PropertyMock
+import warnings
 
 # External modules
 import xarray as xr
@@ -41,6 +42,10 @@ logging.basicConfig(level=logging.DEBUG)
 
 BASE_PATH = os.path.dirname(os.path.realpath(__file__))
 DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
+
+
+def dummy_update(state, observations, analysis_time):   # pragma: no cover
+    return state.sel(time=(analysis_time, ))
 
 
 class TestBaseAssimilation(unittest.TestCase):
@@ -94,7 +99,31 @@ class TestBaseAssimilation(unittest.TestCase):
             self.algorithm._validate_observations(self.obs)
         single_obs_patch.assert_called_once_with(self.obs)
 
-    def test_assimilate_uses_latest_state_time(self):
+    def test_get_analysis_time_uses_analysis_time_if_valid(self):
+        valid_time = self.state.time[-1]
+        returned_time = self.algorithm._get_analysis_time(
+            self.state, analysis_time=valid_time
+        )
+        xr.testing.assert_equal(valid_time, returned_time)
+
+    def test_get_analysis_time_return_latest_time_if_none(self):
+        valid_time = self.state.time[-1]
+        returned_time = self.algorithm._get_analysis_time(
+            self.state, analysis_time=None
+        )
+        xr.testing.assert_equal(valid_time, returned_time)
+
+    def test_get_analysis_returns_nearest_time_if_not_valid(self):
+        valid_time = self.state.time[0]
+        with self.assertWarns(UserWarning) as w:
+            returned_time = self.algorithm._get_analysis_time(
+                self.state, analysis_time='1991'
+            )
+        xr.testing.assert_equal(valid_time, returned_time)
+
+    @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
+           side_effect=dummy_update)
+    def test_assimilate_uses_latest_state_time(self, update_mock):
         pass
 
     def test_assimilate_validates_state(self):

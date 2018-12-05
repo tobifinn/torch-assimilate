@@ -26,6 +26,7 @@
 # System modules
 import logging
 import abc
+import warnings
 
 # External modules
 import xarray as xr
@@ -67,6 +68,25 @@ class BaseAssimilation(object):
                 self._validate_single_obs(obs)
         else:
             self._validate_single_obs(observations)
+
+    @staticmethod
+    def _get_analysis_time(state, analysis_time=None):
+        if analysis_time is None:
+            valid_time = state.time[-1]
+        else:
+            try:
+                valid_time = state.time.sel(time=analysis_time, method=None)
+            except KeyError:
+                valid_time = state.time.sel(time=analysis_time,
+                                            method='nearest')
+                warnings.warn(
+                    'Given analysis time {0:s} is not within state, used '
+                    'instead nearest neighbor {1:s}'.format(
+                        str(analysis_time), str(valid_time)
+                    ),
+                    category=UserWarning
+                )
+        return valid_time
 
     @abc.abstractmethod
     def update_state(self, state, observations, analysis_time=None):
