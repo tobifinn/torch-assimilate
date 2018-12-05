@@ -28,9 +28,11 @@ import logging
 import abc
 
 # External modules
+import xarray as xr
 
 # Internal modules
 from pytassim.state import StateError
+from pytassim.observation import ObservationError
 
 
 logger = logging.getLogger(__name__)
@@ -42,16 +44,29 @@ class BaseAssimilation(object):
 
     @staticmethod
     def _validate_state(state):
-        valid = state.state.valid
-        if not valid:
-            raise StateError('Given state is not a valid state')
+        if not isinstance(state, xr.DataArray):
+            raise TypeError('*** Given state is not a valid '
+                            '``xarray.DataArray`` ***\n{0:s}'.format(state))
+        if not state.state.valid:
+            err_msg = '*** Given state is not a valid state ***\n{0:s}'
+            raise StateError(err_msg.format(str(state)))
 
     @staticmethod
     def _validate_single_obs(observation):
-        pass
+        if not isinstance(observation, xr.Dataset):
+            raise TypeError('*** Given observation is not a valid'
+                            '``xarray.Dataset`` ***\n{0:s}'.format(observation))
+        if not observation.obs.valid:
+            err_msg = '*** Given observation is not a valid observation ***' \
+                      '\n{0:s}'
+            raise ObservationError(err_msg.format(str(observation)))
 
     def _validate_observations(self, observations):
-        pass
+        if isinstance(observations, (list, set, tuple)):
+            for obs in observations:
+                self._validate_single_obs(obs)
+        else:
+            self._validate_single_obs(observations)
 
     @abc.abstractmethod
     def update_state(self, state, observations, analysis_time=None):
