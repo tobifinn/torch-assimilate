@@ -45,7 +45,9 @@ DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
 
 
 def dummy_update(state, observations, analysis_time):   # pragma: no cover
-    return state.sel(time=(analysis_time, ))
+    analysis = state.sel(time=analysis_time)
+    analysis = analysis.expand_dims('time', axis=1)
+    return analysis
 
 
 class TestBaseAssimilation(unittest.TestCase):
@@ -123,20 +125,58 @@ class TestBaseAssimilation(unittest.TestCase):
 
     @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
            side_effect=dummy_update)
-    def test_assimilate_uses_latest_state_time(self, update_mock):
-        pass
+    def test_assimilate_uses_latest_state_time(self, _):
+        latest_time = self.state.time[-1]
+        with patch('pytassim.assimilation.base.BaseAssimilation.'
+                   '_get_analysis_time', return_value=latest_time) as time_mock:
+            _ = self.algorithm.assimilate(self.state, self.obs, None)
+        time_mock.assert_called_once_with(self.state, None)
 
-    def test_assimilate_validates_state(self):
-        pass
+    @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
+           side_effect=dummy_update)
+    def test_assimilate_validates_state(self, _):
+        with patch('pytassim.assimilation.base.BaseAssimilation.'
+                   '_validate_state') as valid_mock:
+            _ = self.algorithm.assimilate(self.state, self.obs, None)
+            valid_mock.assert_called()
+        xr.testing.assert_equal(valid_mock.call_args_list[0][0][0], self.state)
 
-    def test_assimilate_validates_observations(self):
-        pass
+    @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
+           side_effect=dummy_update)
+    def test_assimilate_validates_observations(self, _):
+        with patch('pytassim.assimilation.base.BaseAssimilation.'
+                   '_validate_observations') as valid_mock:
+            _ = self.algorithm.assimilate(self.state, self.obs, None)
+            valid_mock.assert_called()
+        xr.testing.assert_equal(valid_mock.call_args[0][0], self.obs)
 
-    def test_assimilate_calls_update_state(self):
-        pass
+    @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
+           side_effect=dummy_update)
+    def test_assimilate_calls_update_state(self, update_mock):
+        _ = self.algorithm.assimilate(self.state, self.obs, None)
+        latest_time = self.state.time[-1]
+        update_mock.assert_called_once()
+        xr.testing.assert_equal(update_mock.call_args[0][0], self.state)
+        xr.testing.assert_equal(update_mock.call_args[0][1], self.obs)
+        xr.testing.assert_equal(update_mock.call_args[0][2], latest_time)
 
-    def test_assimilate_validates_analysis(self):
-        pass
+    @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
+           side_effect=dummy_update)
+    def test_assimilate_validates_analysis(self, _):
+        analysis = dummy_update(self.state, self.obs, self.state.time[-1])
+        with patch('pytassim.assimilation.base.BaseAssimilation.'
+                   '_validate_state') as valid_mock:
+            _ = self.algorithm.assimilate(self.state, self.obs, None)
+        self.assertEqual(valid_mock.call_count, 2)
+        xr.testing.assert_equal(valid_mock.call_args_list[1][0][0], analysis)
+
+    @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
+           side_effect=dummy_update)
+    def test_assimilate_returns_analysis(self, _):
+        analysis = dummy_update(self.state, self.obs, self.state.time[-1])
+        returned_analysis = self.algorithm.assimilate(self.state, self.obs,
+                                                      None)
+        xr.testing.assert_equal(analysis, returned_analysis)
 
 
 if __name__ == '__main__':

@@ -40,6 +40,12 @@ logger = logging.getLogger(__name__)
 
 
 class BaseAssimilation(object):
+    """
+    BaseAssimilation is used as base class for all assimilation algorithms for
+    fast prototyping of assimilation prototyping. To implement a data
+    assimilation, one needs to overwrite
+    :py:meth:`~pytassim.assimilation.base.BaseAssimilation.update_state`.
+    """
     def __init__(self):
         pass
 
@@ -88,8 +94,42 @@ class BaseAssimilation(object):
                 )
         return valid_time
 
+    @staticmethod
+    def _apply_obs_operator(state, observations):
+        pass
+
     @abc.abstractmethod
-    def update_state(self, state, observations, analysis_time=None):
+    def update_state(self, state, observations, analysis_time):
+        """This method is called by
+        :py:meth:`~pytassim.assimilation.base.BaseAssimilation.assimilate` and
+        has to be overwritten to implement a data assimilation algorithm.
+
+        Parameters
+        ----------
+        state : :py:class:`xarray.DataArray`
+            This state is used to generate an observation-equivalent. It is
+            further updated by this assimilation algorithm and given
+            ``observation``. This :py:class:`~xarray.DataArray` should have
+            four coordinates, which are specified in
+            :py:class:`pytassim.state.ModelState`.
+        observations : :py:class:`xarray.Dataset` or \
+        iterable(:py:class:`xarray.Dataset`)
+            These observations are used to update given state. An iterable of
+            many :py:class:`xarray.Dataset` can be used to assimilate different
+            variables. For the observation state, these observations are
+            stacked such that the observation state contains all observations.
+            The :py:class:`xarray.Dataset` are validated with
+            :py:class:`pytassim.observation.Observation.valid`
+        analysis_time : :py:class:`datetime.datetime`
+            This analysis time determines at which point the state is updated.
+
+        Returns
+        -------
+        analysis : :py:class:`xarray.DataArray`
+            The analysed state based on given state and observations. The
+            analysis has same coordinates as given ``state`` except ``time``,
+            which should contain only one time step.
+        """
         pass
 
     def assimilate(self, state, observations, analysis_time=None):
@@ -98,7 +138,10 @@ class BaseAssimilation(object):
         creates an analysis for given ``analysis_time``. The observations need
         an observation operator, which translate given state into an
         observation-equivalent. The state, observations, observation covariance
-        and and the observation-equivalent are used to update given state.
+        and and the observation-equivalent are used to update given state. This
+        method validates given state and observations, gets analysis time and
+        calls
+        :py:meth:`~pytassim.assimilation.base.BaseAssimilation.update_state`.
 
         Parameters
         ----------
@@ -128,4 +171,9 @@ class BaseAssimilation(object):
             analysis has same coordinates as given ``state`` except ``time``,
             which contains only one time step.
         """
-        pass
+        self._validate_state(state)
+        self._validate_observations(observations)
+        analysis_time = self._get_analysis_time(state, analysis_time)
+        analysis = self.update_state(state, observations, analysis_time)
+        self._validate_state(analysis)
+        return analysis
