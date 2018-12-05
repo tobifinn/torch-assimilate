@@ -107,7 +107,7 @@ pages:
     dependencies:
         - sphinx
         - coverage
-        - codequality
+        - code_quality
     script:
         - rm -rf $PAGES_DIR/ # make sure there is not pages dir
         - mv $SPHINX_DOC_DIR $PAGES_DIR/ # sphinx doc is index page
