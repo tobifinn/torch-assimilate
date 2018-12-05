@@ -62,23 +62,24 @@ coverage:
             - $COVERAGE_STATIC_DIR
         expire_in: 1 week
 
-codequality:
-    stage: test
-    image: docker:latest
-    before_script: []
-    variables:
-        DOCKER_DRIVER: overlay
-    services:
-        - docker:dind
-    script:
-        - docker pull codeclimate/codeclimate:0.69.0
-        - docker run --env CODECLIMATE_CODE="$PWD" --volume "$PWD":/pytassim --volume /var/run/docker.sock:/var/run/docker.sock --volume /tmp/cc:/tmp/cc codeclimate/codeclimate:0.69.0 analyze -f json > codeclimate.json || true
-        - docker run --env CODECLIMATE_CODE="$PWD" --volume "$PWD":/pytassim --volume /var/run/docker.sock:/var/run/docker.sock --volume /tmp/cc:/tmp/cc codeclimate/codeclimate:0.69.0 analyze -f html > codeclimate.html || true
-    artifacts:
-        paths:
-            - codeclimate.json
-            - codeclimate.html
-        expire_in: 1 week
+code_quality:
+  image: docker:stable
+  variables:
+    DOCKER_DRIVER: overlay2
+  allow_failure: true
+  services:
+    - docker:stable-dind
+  script:
+    - export SP_VERSION=$(echo "$CI_SERVER_VERSION" | sed 's/^\([0-9]*\)\.\([0-9]*\).*/\1-\2-stable/')
+    - docker run
+        --env SOURCE_CODE="$PWD"
+        --volume "$PWD":/pytassim
+        --volume /var/run/docker.sock:/var/run/docker.sock
+        "registry.gitlab.com/gitlab-org/security-products/codequality:$SP_VERSION" /pytassim
+  artifacts:
+    reports:
+      codequality: gl-code-quality-report.json
+
 
 sphinx:
     stage: package
@@ -111,7 +112,7 @@ pages:
         - rm -rf $PAGES_DIR/ # make sure there is not pages dir
         - mv $SPHINX_DOC_DIR $PAGES_DIR/ # sphinx doc is index page
         - mv $COVERAGE_STATIC_DIR $PAGES_DIR/ # put coverage report inside
-        - mv codeclimate.html $PAGES_DIR/$COVERAGE_STATIC_DIR/ # put codeclimate report to coverage
+        - mv gl-code-quality-report.json $PAGES_DIR/$COVERAGE_STATIC_DIR/ # put codeclimate report to coverage
     artifacts:
         paths:
             - $PAGES_DIR/
