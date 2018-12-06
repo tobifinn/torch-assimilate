@@ -34,39 +34,24 @@ import xarray as xr
 
 # Internal modules
 from pytassim.observation import Observation
+from pytassim.testing import dummy_obs_operator
 
 
 logging.basicConfig(level=logging.DEBUG)
 
 BASE_PATH = os.path.dirname(os.path.realpath(__file__))
+DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
 
 
 rnd = np.random.RandomState(42)
 
 
-def obs_op(self, state):    # pragma: no cover
-    return state
-
-
 class TestObsSubset(unittest.TestCase):
     def setUp(self):
-        self.covariance = np.ones(shape=(10, 10))
-        self.obs = rnd.normal(size=(1, 10,))
-        self.obs_nr = np.arange(self.obs.shape[-1])
-        self.obs_time = np.arange(1)
-        self.obs_ds = xr.Dataset(
-            data_vars={
-                'observations': (('time', 'obs_grid_1'), self.obs),
-                'covariance': (
-                    ('obs_grid_1', 'obs_grid_2'), self.covariance
-                )
-            },
-            coords={
-                'time': self.obs_time,
-                'obs_grid_1': self.obs_nr,
-                'obs_grid_2': self.obs_nr
-            }
-        )
+        obs_path = os.path.join(DATA_PATH, 'test_single_obs.nc')
+        self.obs_ds = xr.open_dataset(obs_path)
+        state_path = os.path.join(DATA_PATH, 'test_state.nc')
+        self.state = xr.open_dataarray(state_path)
 
     def test_xr_dataset_has_accessor(self):
         self.assertTrue(hasattr(self.obs_ds, 'obs'))
@@ -79,7 +64,7 @@ class TestObsSubset(unittest.TestCase):
 
     def test_valid_checks_if_time_is_given(self):
         self.assertTrue(self.obs_ds.obs.valid)
-        self.assertFalse(self.obs_ds.squeeze().obs.valid)
+        self.assertFalse(self.obs_ds.isel(time=0).obs.valid)
 
     def test_valid_checks_if_grid_points_1_exists(self):
         self.assertTrue(self.obs_ds.obs.valid)
@@ -150,13 +135,14 @@ class TestObsSubset(unittest.TestCase):
 
     def test_operator_setter_sets_instance_method(self):
         self.assertIsInstance(self.obs_ds.obs._operator, types.MethodType)
-        self.obs_ds.obs.operator = obs_op
+        self.obs_ds.obs.operator = dummy_obs_operator
         self.assertIsInstance(self.obs_ds.obs._operator, types.MethodType)
 
     def test_operator_setter_sets_private_operator(self):
-        self.obs_ds.obs.operator = obs_op
-        return_value = self.obs_ds.obs.operator(1)
-        self.assertEqual(return_value, 1)
+        self.obs_ds.obs.operator = dummy_obs_operator
+        pseudo_obs = dummy_obs_operator(self.obs_ds.obs, self.state)
+        return_value = self.obs_ds.obs.operator(self.state)
+        xr.testing.assert_equal(pseudo_obs, return_value)
 
     def test_operator_checks_if_callable(self):
         with self.assertRaises(TypeError):
@@ -169,13 +155,21 @@ class TestObsSubset(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.obs_ds.obs.operator = obs_operator
 
+        def obs_operator(cls):
+            return None
+
+        with self.assertRaises(ValueError):
+            self.obs_ds.obs.operator = obs_operator
+
     def test_operator_sets_only_instance(self):
         obs_list = [self.obs_ds, self.obs_ds.copy()]
-        obs_list[-1].obs.operator = obs_op
+        self.assertNotEqual(id(obs_list[0].obs), id(obs_list[-1].obs))
+        obs_list[-1].obs.operator = dummy_obs_operator
+        pseudo_obs = dummy_obs_operator(obs_list[-1].obs, self.state)
         with self.assertRaises(NotImplementedError):
-            self.obs_ds.obs.operator(1)
-        returned_value = obs_list[-1].obs.operator(1)
-        self.assertEqual(returned_value, 1)
+            self.obs_ds.obs.operator(self.state)
+        returned_value = obs_list[-1].obs.operator(self.state)
+        xr.testing.assert_equal(returned_value, pseudo_obs)
 
 
 if __name__ == '__main__':
