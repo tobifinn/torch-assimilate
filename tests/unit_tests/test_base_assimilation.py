@@ -36,26 +36,13 @@ import xarray as xr
 from pytassim.assimilation.base import BaseAssimilation
 from pytassim.state import StateError
 from pytassim.observation import ObservationError
+from pytassim.testing import dummy_update_state, dummy_obs_operator
 
 
 logging.basicConfig(level=logging.DEBUG)
 
 BASE_PATH = os.path.dirname(os.path.realpath(__file__))
 DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
-
-
-def dummy_update(state, observations, analysis_time):   # pragma: no cover
-    analysis = state.sel(time=analysis_time)
-    analysis = analysis.expand_dims('time', axis=1)
-    return analysis
-
-
-def observation_operator(self, state):    # pragma: no cover
-    obs_equivalent = state.sel(var_name='x')
-    obs_equivalent = obs_equivalent.rename(grid='obs_grid')
-    obs_equivalent['time'] = self.ds.time.values
-    obs_equivalent['obs_grid'] = self.ds.obs_grid_1.values
-    return obs_equivalent
 
 
 class TestBaseAssimilation(unittest.TestCase):
@@ -132,7 +119,7 @@ class TestBaseAssimilation(unittest.TestCase):
         xr.testing.assert_equal(valid_time, returned_time)
 
     @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
-           side_effect=dummy_update)
+           side_effect=dummy_update_state, autospec=True)
     def test_assimilate_uses_latest_state_time(self, _):
         latest_time = self.state.time[-1]
         with patch('pytassim.assimilation.base.BaseAssimilation.'
@@ -141,7 +128,7 @@ class TestBaseAssimilation(unittest.TestCase):
         time_mock.assert_called_once_with(self.state, None)
 
     @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
-           side_effect=dummy_update)
+           side_effect=dummy_update_state, autospec=True)
     def test_assimilate_validates_state(self, _):
         with patch('pytassim.assimilation.base.BaseAssimilation.'
                    '_validate_state') as valid_mock:
@@ -150,7 +137,7 @@ class TestBaseAssimilation(unittest.TestCase):
         xr.testing.assert_equal(valid_mock.call_args_list[0][0][0], self.state)
 
     @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
-           side_effect=dummy_update)
+           side_effect=dummy_update_state, autospec=True)
     def test_assimilate_validates_observations(self, _):
         with patch('pytassim.assimilation.base.BaseAssimilation.'
                    '_validate_observations') as valid_mock:
@@ -159,25 +146,26 @@ class TestBaseAssimilation(unittest.TestCase):
         xr.testing.assert_equal(valid_mock.call_args[0][0][0], self.obs)
 
     @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
-           side_effect=dummy_update)
+           side_effect=dummy_update_state, autospec=True)
     def test_assimilate_calls_update_state(self, update_mock):
         _ = self.algorithm.assimilate(self.state, self.obs, None)
         latest_time = self.state.time[-1]
         update_mock.assert_called_once()
-        xr.testing.assert_equal(update_mock.call_args[0][0], self.state)
-        xr.testing.assert_equal(update_mock.call_args[0][1][0], self.obs,)
-        xr.testing.assert_equal(update_mock.call_args[0][2], latest_time)
+        xr.testing.assert_equal(update_mock.call_args[0][1], self.state)
+        xr.testing.assert_equal(update_mock.call_args[0][2][0], self.obs,)
+        xr.testing.assert_equal(update_mock.call_args[0][3], latest_time)
 
     @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
-           side_effect=dummy_update)
+           side_effect=dummy_update_state, autospec=True)
     def test_assimilate_converts_single_obs_to_tuple(self, update_mock):
         _ = self.algorithm.assimilate(self.state, self.obs, None)
-        self.assertIsInstance(update_mock.call_args[0][1], tuple)
+        self.assertIsInstance(update_mock.call_args[0][2], tuple)
 
     @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
-           side_effect=dummy_update)
+           side_effect=dummy_update_state, autospec=True)
     def test_assimilate_validates_analysis(self, _):
-        analysis = dummy_update(self.state, self.obs, self.state.time[-1])
+        analysis = dummy_update_state(self.algorithm, self.state, self.obs,
+                                      self.state.time[-1])
         with patch('pytassim.assimilation.base.BaseAssimilation.'
                    '_validate_state') as valid_mock:
             _ = self.algorithm.assimilate(self.state, self.obs, None)
@@ -185,16 +173,17 @@ class TestBaseAssimilation(unittest.TestCase):
         xr.testing.assert_equal(valid_mock.call_args_list[1][0][0], analysis)
 
     @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
-           side_effect=dummy_update)
+           side_effect=dummy_update_state, autospec=True)
     def test_assimilate_returns_analysis(self, _):
-        analysis = dummy_update(self.state, self.obs, self.state.time[-1])
+        analysis = dummy_update_state(self.algorithm, self.state, self.obs,
+                                      self.state.time[-1])
         returned_analysis = self.algorithm.assimilate(self.state, self.obs,
                                                       None)
         xr.testing.assert_equal(analysis, returned_analysis)
 
     def test_apply_obs_operator_filters_obs_wo_operator(self):
         obs_list = [self.obs, self.obs.copy()]
-        obs_list[-1].obs.operator = observation_operator
+        obs_list[-1].obs.operator = dummy_obs_operator
         _, filtered_obs = self.algorithm._apply_obs_operator(self.state,
                                                              obs_list)
         self.assertIsInstance(filtered_obs, list)
@@ -202,7 +191,7 @@ class TestBaseAssimilation(unittest.TestCase):
         self.assertEqual(id(filtered_obs[0]), id(obs_list[-1]))
 
     def test_apply_applies_obs_operator_to_state(self):
-        self.obs.obs.operator = observation_operator
+        self.obs.obs.operator = dummy_obs_operator
         obs_list = [self.obs, ]
         obs_equivalent, _ = self.algorithm._apply_obs_operator(self.state,
                                                                obs_list)

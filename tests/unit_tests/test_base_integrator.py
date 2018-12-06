@@ -33,15 +33,12 @@ import numpy as np
 
 # Internal modules
 from pytassim.model.integration.integrator import BaseIntegrator
+from pytassim.testing import dummy_model
 
 
 logging.basicConfig(level=logging.DEBUG)
 
 BASE_PATH = os.path.dirname(os.path.realpath(__file__))
-
-
-def dummy_model(state):     # pragma: no cover
-    return None
 
 
 class TestBaseIntegrator(unittest.TestCase):
