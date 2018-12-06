@@ -34,8 +34,34 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def dummy_obs_operator():
-    pass
+def dummy_obs_operator(self, state):
+    """
+    This dummy observation operator can be used to patch
+    :py:meth:`~pytassim.observation.Observation.operator` for testing purpose.
+    This function / method select the `x` variable of given ``state`` and
+    renames `grid` to `obs_grid_1`. `time` and `obs_grid_1` are further new set
+    based on values of given observation instance in self.
+
+    Parameters
+    ----------
+    self : :py:class:`pytassim.observation.Observation`
+        This dummy_obs_operator is patched to this given observation instance.
+    state : :py:class:`~xarray.DataArray`
+        The pseudo observations are created based on this state.
+
+    Returns
+    -------
+    pseudo_obs : :py:class:`~xarray.DataArray`
+        The created pseudo observations based on the given state and this
+        observation operator. The last two dimensions are the same
+        dimensions as the ``observations`` :py:class:`~xarray.DataArray`
+        in set observation subset.
+    """
+    pseudo_obs = state.sel(var_name='x')
+    pseudo_obs = pseudo_obs.rename(grid='obs_grid_1')
+    pseudo_obs['time'] = self.time.values
+    pseudo_obs['obs_grid_1'] = self.obs_grid_1.values
+    return pseudo_obs
 
 
 def dummy_update_state(self, state, observations, analysis_time):

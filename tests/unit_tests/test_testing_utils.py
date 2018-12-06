@@ -31,6 +31,7 @@ import os
 import xarray as xr
 
 # Internal modules
+from pytassim.assimilation.base import BaseAssimilation
 import pytassim.testing.utilities as utils
 
 
@@ -48,12 +49,23 @@ class TestTestingUtilities(unittest.TestCase):
         self.obs = xr.open_dataset(obs_path)
 
     def test_dummy_update_returns_sliced_date(self):
+        assimilation = BaseAssimilation()
         ana_time = self.state.time[-1]
         sliced_state = self.state.isel(time=slice(-1, None))
-        returned_state = utils.dummy_update_state(self, self.state, self.obs,
-                                                  ana_time)
+        returned_state = utils.dummy_update_state(assimilation, self.state,
+                                                  self.obs, ana_time)
         self.assertIsInstance(returned_state, xr.DataArray)
         xr.testing.assert_equal(sliced_state, returned_state)
+
+    def test_dummy_obs_operator_returns_pseudo_obs(self):
+        pseudo_obs = self.state.sel(var_name='x')
+        pseudo_obs = pseudo_obs.rename(grid='obs_grid_1')
+        pseudo_obs['time'] = self.obs.time.values
+        pseudo_obs['obs_grid_1'] = self.obs.obs_grid_1.values
+
+        returned_pseudo_obs = utils.dummy_obs_operator(self.obs, self.state)
+
+        xr.testing.assert_equal(pseudo_obs, returned_pseudo_obs)
 
 
 if __name__ == '__main__':
