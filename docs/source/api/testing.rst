@@ -4,7 +4,7 @@ package.
 
 Dummy
 -----
-Dummy has dummy methods to patch different classes during testing.
+Dummy has dummy methods and functions to patch different classes during testing.
 
 .. automodule:: pytassim.testing.dummy
     :members:
