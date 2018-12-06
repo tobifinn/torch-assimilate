@@ -47,9 +47,8 @@ class ETKFilter(FilterAssimilation):
         w_mean, w_pert = self._gen_weights(*torch_states)
         analysis_state = state.sel(time=[analysis_time, ])
         state_mean, state_perts = analysis_state.state.split_mean_perts()
-
-    def get_weights(self, state, observations):
-        pass
+        analysis = self._apply_weights(w_mean, w_pert, state_mean, state_perts)
+        return analysis
 
     def _prepare(self, state, observations):
         hx_mean, hx_pert, filtered_obs = self._prepare_back_obs(state,

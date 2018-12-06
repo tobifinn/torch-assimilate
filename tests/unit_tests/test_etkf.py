@@ -253,7 +253,7 @@ class TestETKFilter(unittest.TestCase):
         with patch('pytassim.assimilation.filter.etkf.ETKFilter._prepare',
                    return_value=prepared_states) as prepare_patch:
             _ = self.algorithm.update_state(self.state, obs_tuple,
-                                            self.state.time[-1])
+                                            self.state.time[-1].values)
         prepare_patch.assert_called_once_with(self.state, obs_tuple)
 
     def test_update_state_calls_gen_weights_once(self):
@@ -264,7 +264,7 @@ class TestETKFilter(unittest.TestCase):
         with patch('pytassim.assimilation.filter.etkf.ETKFilter._gen_weights',
                    return_value=weights) as weights_patch:
             _ = self.algorithm.update_state(self.state, obs_tuple,
-                                            self.state.time[-1])
+                                            self.state.time[-1].values)
         weights_patch.assert_called_once()
 
     def test_weights_matmul_applies_matmul(self):
@@ -296,6 +296,36 @@ class TestETKFilter(unittest.TestCase):
 
         ret_analysis = self.algorithm._apply_weights(w_mean, w_perts,
                                                      state_mean, state_perts)
+
+        xr.testing.assert_equal(ret_analysis, analysis)
+
+    def test_update_state_applies_weights(self):
+        obs_tuple = (self.obs, self.obs)
+        prepared_states = self.algorithm._prepare(self.state, obs_tuple)
+        prepared_states = [torch.tensor(s) for s in prepared_states]
+        w_mean, w_perts = self.algorithm._gen_weights(*prepared_states[:-1])
+        state_mean, state_perts = self.state.state.split_mean_perts()
+        analysis = self.algorithm._apply_weights(w_mean, w_perts, state_mean,
+                                                 state_perts)
+        with patch('pytassim.assimilation.filter.etkf.ETKFilter._apply_weights',
+                   return_value=analysis) as apply_patch:
+            _ = self.algorithm.update_state(self.state, obs_tuple,
+                                            self.state.time[-1].values)
+        apply_patch.assert_called_once()
+
+    def test_update_state_returns_analysis(self):
+        ana_time = self.state.time[-1].values
+        obs_tuple = (self.obs, self.obs)
+        prepared_states = self.algorithm._prepare(self.state, obs_tuple)
+        prepared_states = [torch.tensor(s) for s in prepared_states]
+        w_mean, w_perts = self.algorithm._gen_weights(*prepared_states[:-1])
+        back_state = self.state.sel(time=[ana_time, ])
+        state_mean, state_perts = back_state.state.split_mean_perts()
+        analysis = self.algorithm._apply_weights(w_mean, w_perts, state_mean,
+                                                 state_perts)
+
+        ret_analysis = self.algorithm.update_state(self.state, obs_tuple,
+                                                   ana_time)
 
         xr.testing.assert_equal(ret_analysis, analysis)
 
