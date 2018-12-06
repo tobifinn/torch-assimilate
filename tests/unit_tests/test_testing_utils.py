@@ -32,7 +32,7 @@ import xarray as xr
 
 # Internal modules
 from pytassim.assimilation.base import BaseAssimilation
-import pytassim.testing.utilities as utils
+import pytassim.testing.dummy as utils
 
 
 logging.basicConfig(level=logging.DEBUG)
