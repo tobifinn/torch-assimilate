@@ -110,7 +110,7 @@ class TestETKFilter(unittest.TestCase):
         hx_stacked = hx.stack(obs_id=('time', 'obs_grid_1'))
         hx_concat = xr.concat([hx_stacked, hx_stacked], dim='obs_id')
         hx_mean, hx_pert = hx_concat.state.split_mean_perts()
-        returned_mean, returned_pert, _ = self.algorithm._prepare_state(
+        returned_mean, returned_pert, _ = self.algorithm._prepare_back_obs(
             self.state, (self.obs, self.obs)
         )
         np.testing.assert_equal(returned_mean, hx_mean.values)
@@ -118,7 +118,7 @@ class TestETKFilter(unittest.TestCase):
 
     def test_prepare_state_returns_filtered_obs(self):
         obs_list = (self.obs, self.obs.copy())
-        _, _, returned_obs = self.algorithm._prepare_state(
+        _, _, returned_obs = self.algorithm._prepare_back_obs(
             self.state, obs_list
         )
         self.assertEqual(len(returned_obs), 1)
@@ -126,9 +126,9 @@ class TestETKFilter(unittest.TestCase):
 
     def test_prepare_calls_prepare_state(self):
         obs_tuple = (self.obs, self.obs.copy())
-        prepared_state = self.algorithm._prepare_state(self.state, obs_tuple)
-        with patch('pytassim.assimilation.filter.etkf.ETKFilter._prepare_state',
-                   return_value=prepared_state) as prepare_patch:
+        prepared_state = self.algorithm._prepare_back_obs(self.state, obs_tuple)
+        trg = 'pytassim.assimilation.filter.etkf.ETKFilter._prepare_back_obs'
+        with patch(trg, return_value=prepared_state) as prepare_patch:
             _ = self.algorithm._prepare(self.state, obs_tuple)
         prepare_patch.assert_called_once_with(self.state, obs_tuple)
 
@@ -143,7 +143,7 @@ class TestETKFilter(unittest.TestCase):
 
     def test_prepare_returns_necessary_variables(self):
         obs_tuple = (self.obs, self.obs.copy())
-        prepared_state = self.algorithm._prepare_state(self.state, obs_tuple)
+        prepared_state = self.algorithm._prepare_back_obs(self.state, obs_tuple)
         prepared_obs = self.algorithm._prepare_obs((self.obs, ))
 
         returned_state = self.algorithm._prepare(self.state, obs_tuple)
@@ -155,7 +155,7 @@ class TestETKFilter(unittest.TestCase):
 
     def test_compute_inv_r_obs_solves_linear_system(self):
         _, obs_cov, _ = self.algorithm._prepare_obs((self.obs, ))
-        _, hx_pert, _ = self.algorithm._prepare_state(self.state, (self.obs, ))
+        _, hx_pert, _ = self.algorithm._prepare_back_obs(self.state, (self.obs,))
         pinv = np.linalg.pinv(obs_cov)
         c_solved = np.matmul(pinv, hx_pert).T
         obs_cov = torch.tensor(obs_cov)
@@ -165,7 +165,7 @@ class TestETKFilter(unittest.TestCase):
 
     def test_calc_precision_returns_precision(self):
         _, obs_cov, _ = self.algorithm._prepare_obs((self.obs, ))
-        _, hx_pert, _ = self.algorithm._prepare_state(self.state, (self.obs, ))
+        _, hx_pert, _ = self.algorithm._prepare_back_obs(self.state, (self.obs,))
         nr_obs, ens_size = hx_pert.shape
         obs_cov = torch.tensor(obs_cov)
         hx_pert = torch.tensor(hx_pert)
@@ -180,8 +180,8 @@ class TestETKFilter(unittest.TestCase):
 
     def test_det_square_root_returns_weight_perts(self):
         obs_state, obs_cov, obs_grid = self.algorithm._prepare_obs((self.obs, ))
-        hx_mean, hx_pert, _ = self.algorithm._prepare_state(self.state,
-                                                            (self.obs, ))
+        hx_mean, hx_pert, _ = self.algorithm._prepare_back_obs(self.state,
+                                                               (self.obs, ))
         nr_obs, ens_size = hx_pert.shape
         hx_pert = torch.tensor(hx_pert).double()
         obs_cov = torch.tensor(obs_cov).double()
@@ -199,8 +199,8 @@ class TestETKFilter(unittest.TestCase):
 
     def test_eigendecomposition_returns_eig_eiginv_evects(self):
         obs_state, obs_cov, obs_grid = self.algorithm._prepare_obs((self.obs, ))
-        hx_mean, hx_pert, _ = self.algorithm._prepare_state(self.state,
-                                                            (self.obs, ))
+        hx_mean, hx_pert, _ = self.algorithm._prepare_back_obs(self.state,
+                                                               (self.obs, ))
         hx_pert = torch.tensor(hx_pert).double()
         obs_cov = torch.tensor(obs_cov).double()
 
@@ -219,8 +219,8 @@ class TestETKFilter(unittest.TestCase):
 
     def test_gen_weights_returns_mean_pert_weight(self):
         obs_state, obs_cov, obs_grid = self.algorithm._prepare_obs((self.obs, ))
-        hx_mean, hx_pert, _ = self.algorithm._prepare_state(self.state,
-                                                            (self.obs, ))
+        hx_mean, hx_pert, _ = self.algorithm._prepare_back_obs(self.state,
+                                                               (self.obs, ))
         hx_mean = torch.tensor(hx_mean).double()
         hx_pert = torch.tensor(hx_pert).double()
         obs_state = torch.tensor(obs_state).double()

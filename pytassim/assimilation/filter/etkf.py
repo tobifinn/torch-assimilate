@@ -34,7 +34,6 @@ import torch
 import pytassim.state
 from .filter import FilterAssimilation
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -50,12 +49,12 @@ class ETKFilter(FilterAssimilation):
         pass
 
     def _prepare(self, state, observations):
-        hx_mean, hx_pert, filtered_obs = self._prepare_state(state,
-                                                             observations)
+        hx_mean, hx_pert, filtered_obs = self._prepare_back_obs(state,
+                                                                observations)
         obs_state, obs_cov, obs_grid = self._prepare_obs(filtered_obs)
         return hx_mean, hx_pert, obs_state, obs_cov, obs_grid
 
-    def _prepare_state(self, state, observations):
+    def _prepare_back_obs(self, state, observations):
         pseudo_obs, filtered_obs = self._apply_obs_operator(state, observations)
         pseudo_obs = [obs.stack(obs_id=('time', 'obs_grid_1'))
                       for obs in pseudo_obs]
@@ -78,7 +77,7 @@ class ETKFilter(FilterAssimilation):
 
     def _det_square_root(self, evals_inv, evects):
         ens_size = evals_inv.size()[0]
-        w_perts = torch.sqrt((ens_size-1) * evals_inv)
+        w_perts = torch.sqrt((ens_size - 1) * evals_inv)
         w_perts = torch.matmul(evects.t(), w_perts)
         w_perts = torch.matmul(w_perts, evects)
         return w_perts
