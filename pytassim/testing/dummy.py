@@ -59,8 +59,8 @@ def dummy_obs_operator(self, state):
     """
     pseudo_obs = state.sel(var_name='x')
     pseudo_obs = pseudo_obs.rename(grid='obs_grid_1')
-    pseudo_obs['time'] = self.time.values
-    pseudo_obs['obs_grid_1'] = self.obs_grid_1.values
+    pseudo_obs['time'] = self.ds.time.values
+    pseudo_obs['obs_grid_1'] = self.ds.obs_grid_1.values
     return pseudo_obs
 
 

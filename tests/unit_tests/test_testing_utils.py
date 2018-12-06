@@ -31,6 +31,7 @@ import os
 import xarray as xr
 
 # Internal modules
+from pytassim.observation import Observation
 from pytassim.assimilation.base import BaseAssimilation
 import pytassim.testing.dummy as utils
 
@@ -63,7 +64,8 @@ class TestTestingUtilities(unittest.TestCase):
         pseudo_obs['time'] = self.obs.time.values
         pseudo_obs['obs_grid_1'] = self.obs.obs_grid_1.values
 
-        returned_pseudo_obs = utils.dummy_obs_operator(self.obs, self.state)
+        obs_inst = Observation(self.obs)
+        returned_pseudo_obs = utils.dummy_obs_operator(obs_inst, self.state)
 
         xr.testing.assert_equal(pseudo_obs, returned_pseudo_obs)
 
