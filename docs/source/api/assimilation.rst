@@ -1,23 +1,35 @@
-Data assimilation algorithms
-============================
 This package is used to unify different data assimilation algorithms.
 
-Base class
+
+Algorithms
 ----------
-A base algorithm class from which all data assimilation algorithms are
-inherited.
+Here are all available and implemented algorithms listed.
+
+.. toctree::
+   :maxdepth: 2
+
+   algorithms/etkf
+
+Base classes
+------------
+All data assimilation algorithms are inherited from one of these base classes.
 
 .. automodule:: pytassim.assimilation.base
     :members:
     :undoc-members:
     :show-inheritance:
 
-Inherited classes
------------------
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+.. automodule:: pytassim.assimilation.filter.filter
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
-   filter
-   neural
-   variational
+.. automodule:: pytassim.assimilation.neural.neural
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+.. automodule:: pytassim.assimilation.variational.variational
+    :members:
+    :undoc-members:
+    :show-inheritance:

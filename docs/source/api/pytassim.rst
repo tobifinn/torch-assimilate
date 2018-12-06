@@ -28,7 +28,6 @@ Assimilation algorithms
 -----------------------
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
 
    assimilation
 
@@ -36,7 +35,6 @@ Models
 ------
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
 
    model
 
@@ -44,6 +42,5 @@ Testing
 -------
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
 
    testing
