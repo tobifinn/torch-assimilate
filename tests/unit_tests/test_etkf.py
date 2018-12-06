@@ -191,7 +191,7 @@ class TestETKFilter(unittest.TestCase):
         evals = evals[:, 0]
         evals_inv = 1 / evals
         w_perts = torch.sqrt((ens_size-1) * evals_inv)
-        w_perts = torch.matmul(evects.t(), w_perts)
+        w_perts = torch.matmul(evects.t(), torch.diagflat(w_perts))
         w_perts = torch.matmul(w_perts, evects)
 
         ret_perts = self.algorithm._det_square_root(evals_inv, evects)
@@ -266,6 +266,38 @@ class TestETKFilter(unittest.TestCase):
             _ = self.algorithm.update_state(self.state, obs_tuple,
                                             self.state.time[-1])
         weights_patch.assert_called_once()
+
+    def test_weights_matmul_applies_matmul(self):
+        obs_tuple = (self.obs, self.obs)
+        prepared_states = self.algorithm._prepare(self.state, obs_tuple)
+        prepared_states = [torch.tensor(s) for s in prepared_states]
+        w_mean, w_perts = self.algorithm._gen_weights(*prepared_states[:-1])
+        weights = w_mean + w_perts
+        state_mean, state_perts = self.state.state.split_mean_perts()
+        ana_perts = xr.apply_ufunc(
+            np.matmul, state_perts, weights.numpy(),
+            input_core_dims=[['ensemble'], []], output_core_dims=[['ensemble']],
+            dask='parallelized'
+        )
+        ana_perts = ana_perts.transpose('var_name', 'time', 'ensemble', 'grid')
+
+        ret_perts = self.algorithm._weights_matmul(state_perts, weights.numpy())
+        xr.testing.assert_equal(ret_perts, ana_perts)
+
+    def test_apply_weights_applies_weights_to_state(self):
+        obs_tuple = (self.obs, self.obs)
+        prepared_states = self.algorithm._prepare(self.state, obs_tuple)
+        prepared_states = [torch.tensor(s) for s in prepared_states]
+        w_mean, w_perts = self.algorithm._gen_weights(*prepared_states[:-1])
+        weights = w_mean + w_perts
+        state_mean, state_perts = self.state.state.split_mean_perts()
+        ana_perts = self.algorithm._weights_matmul(state_perts, weights.numpy())
+        analysis = state_mean + ana_perts
+
+        ret_analysis = self.algorithm._apply_weights(w_mean, w_perts,
+                                                     state_mean, state_perts)
+
+        xr.testing.assert_equal(ret_analysis, analysis)
 
 
 if __name__ == '__main__':

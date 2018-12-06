@@ -29,6 +29,7 @@ import logging
 # External modules
 import xarray as xr
 import torch
+import numpy as np
 
 # Internal modules
 import pytassim.state
@@ -44,6 +45,8 @@ class ETKFilter(FilterAssimilation):
         )[:-1]
         torch_states = [torch.tensor(s) for s in prepared_states]
         w_mean, w_pert = self._gen_weights(*torch_states)
+        analysis_state = state.sel(time=[analysis_time, ])
+        state_mean, state_perts = analysis_state.state.split_mean_perts()
 
     def get_weights(self, state, observations):
         pass
@@ -78,7 +81,7 @@ class ETKFilter(FilterAssimilation):
     def _det_square_root(self, evals_inv, evects):
         ens_size = evals_inv.size()[0]
         w_perts = torch.sqrt((ens_size - 1) * evals_inv)
-        w_perts = torch.matmul(evects.t(), w_perts)
+        w_perts = torch.matmul(evects.t(), torch.diagflat(w_perts))
         w_perts = torch.matmul(w_perts, evects)
         return w_perts
 
@@ -103,5 +106,17 @@ class ETKFilter(FilterAssimilation):
         w_perts = self._det_square_root(evals_inv, evects)
         return w_mean, w_perts
 
+    def _weights_matmul(self, perts, weights):
+        ana_perts = xr.apply_ufunc(
+            np.matmul, perts, weights,
+            input_core_dims=[['ensemble'], []], output_core_dims=[['ensemble']],
+            dask='parallelized'
+        )
+        ana_perts = ana_perts.transpose('var_name', 'time', 'ensemble', 'grid')
+        return ana_perts
+
     def _apply_weights(self, w_mean, w_pert, state_mean, state_pert):
-        pass
+        combined_weights = (w_mean + w_pert).numpy()
+        ana_perts = self._weights_matmul(state_pert, combined_weights)
+        analysis = state_mean + ana_perts
+        return analysis
