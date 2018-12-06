@@ -67,6 +67,10 @@ class TestTestingUtilities(unittest.TestCase):
 
         xr.testing.assert_equal(pseudo_obs, returned_pseudo_obs)
 
+    def test_dummy_model_returns_state(self):
+        returned_model_update = utils.dummy_model(self.state)
+        xr.testing.assert_equal(self.state, returned_model_update)
+
 
 if __name__ == '__main__':
     unittest.main()

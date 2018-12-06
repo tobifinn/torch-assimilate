@@ -98,3 +98,23 @@ def dummy_update_state(self, state, observations, analysis_time):
     analysis = state.sel(time=analysis_time, method='nearest')
     analysis = analysis.expand_dims('time', axis=1)
     return analysis
+
+
+def dummy_model(state):
+    """
+    This model is a dummy model which can be used for testing purpose. This
+    dummy model only returns given state without type testing such that it can
+    be used for all types of inputs.
+
+    Parameters
+    ----------
+    state : any
+        This `model_state` is returned by this dummy_model.
+
+    Returns
+    -------
+    derivative : any
+        The returned state, same as given ``state``.
+    """
+    derivative = state
+    return derivative
