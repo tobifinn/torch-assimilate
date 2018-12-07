@@ -31,6 +31,7 @@ import warnings
 
 # External modules
 import xarray as xr
+import numpy as np
 
 # Internal modules
 from pytassim.assimilation.base import BaseAssimilation
@@ -101,14 +102,14 @@ class TestBaseAssimilation(unittest.TestCase):
         returned_time = self.algorithm._get_analysis_time(
             self.state, analysis_time=valid_time
         )
-        xr.testing.assert_equal(valid_time, returned_time)
+        np.testing.assert_equal(valid_time.values, returned_time)
 
     def test_get_analysis_time_return_latest_time_if_none(self):
         valid_time = self.state.time[-1]
         returned_time = self.algorithm._get_analysis_time(
             self.state, analysis_time=None
         )
-        xr.testing.assert_equal(valid_time, returned_time)
+        np.testing.assert_equal(valid_time.values, returned_time)
 
     def test_get_analysis_returns_nearest_time_if_not_valid(self):
         valid_time = self.state.time[0]
@@ -116,7 +117,7 @@ class TestBaseAssimilation(unittest.TestCase):
             returned_time = self.algorithm._get_analysis_time(
                 self.state, analysis_time='1991'
             )
-        xr.testing.assert_equal(valid_time, returned_time)
+        np.testing.assert_equal(valid_time.values, returned_time)
 
     @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
            side_effect=dummy_update_state, autospec=True)
@@ -153,7 +154,7 @@ class TestBaseAssimilation(unittest.TestCase):
         update_mock.assert_called_once()
         xr.testing.assert_equal(update_mock.call_args[0][1], self.state)
         xr.testing.assert_equal(update_mock.call_args[0][2][0], self.obs,)
-        xr.testing.assert_equal(update_mock.call_args[0][3], latest_time)
+        np.testing.assert_equal(update_mock.call_args[0][3], latest_time.values)
 
     @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
            side_effect=dummy_update_state, autospec=True)
@@ -199,6 +200,13 @@ class TestBaseAssimilation(unittest.TestCase):
         self.assertEqual(len(obs_equivalent), 1)
         xr.testing.assert_equal(self.obs.obs.operator(self.state),
                                 obs_equivalent[0])
+
+    @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
+           side_effect=dummy_update_state, autospec=True)
+    def test_assimilate_wo_obs_returns_state(self, _):
+        with self.assertWarns(UserWarning):
+            analysis = self.algorithm.assimilate(self.state, ())
+        xr.testing.assert_identical(analysis, self.state)
 
 
 if __name__ == '__main__':

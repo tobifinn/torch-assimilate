@@ -6,9 +6,10 @@ Algorithms
 Here are all available and implemented algorithms listed.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    algorithms/etkf
+   algorithms/letkf
 
 Base classes
 ------------
