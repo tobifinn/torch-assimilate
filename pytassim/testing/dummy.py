@@ -27,6 +27,7 @@
 import logging
 
 # External modules
+import numpy as np
 
 # Internal modules
 
@@ -118,3 +119,16 @@ def dummy_model(state):
     """
     derivative = state
     return derivative
+
+
+class DummyLocalization(object):
+    """
+    This localization selects only grid points where `grid_ind` and `obs_grid`
+    are the same.
+    """
+    @staticmethod
+    def localize_obs(grid_ind, innov, hx_perts, obs_cov, obs_grid):
+        obs_weights = (obs_grid == grid_ind).astype(float)
+        in_loc = obs_weights > 0
+        return innov[in_loc], hx_perts[in_loc], obs_cov[in_loc, in_loc], \
+               obs_weights[in_loc]

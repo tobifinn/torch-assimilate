@@ -38,7 +38,7 @@ import pytassim.state
 import pytassim.observation
 from pytassim.assimilation.filter.letkf import ETKFilter
 from pytassim.assimilation.filter.letkf import LETKFilter
-from pytassim.testing import dummy_obs_operator
+from pytassim.testing import dummy_obs_operator, DummyLocalization
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -93,8 +93,8 @@ class TestLETKF(unittest.TestCase):
         obs_tuple = (self.obs, self.obs)
         prepared_states = self.algorithm._prepare(self.state, obs_tuple)
         nr_grid_points = len(self.state.grid)
-        prepared_states = [torch.tensor(s) for s in prepared_states]
-        weights = self.algorithm._gen_weights(*prepared_states[:-1])
+        prepared_states = [torch.tensor(s) for s in prepared_states[:-1]]
+        weights = self.algorithm._gen_weights(*prepared_states)
         back_state = self.state.sel(time=[ana_time, ])
         localized_state = back_state.isel(grid=0)
         trg = 'pytassim.assimilation.filter.letkf.LETKFilter._apply_weights'
@@ -118,6 +118,21 @@ class TestLETKF(unittest.TestCase):
         analysis = self.algorithm.update_state(self.state, obs_tuple,
                                                self.state.time[-1].values)
         self.assertTrue(analysis.state.valid)
+
+    def test_dummy_localization_returns_equal_grids(self):
+        obs_tuple = (self.obs, self.obs)
+        prepared_states = self.algorithm._prepare(self.state, obs_tuple)
+        obs_weights = (prepared_states[-1] == 10).astype(float)
+        in_loc = obs_weights > 0
+
+        localization = DummyLocalization()
+        localized_states = localization.localize_obs(10, *prepared_states)
+
+        np.testing.assert_equal(localized_states[0], prepared_states[0][in_loc])
+        np.testing.assert_equal(localized_states[1], prepared_states[1][in_loc])
+        np.testing.assert_equal(localized_states[2],
+                                prepared_states[2][in_loc, in_loc])
+        np.testing.assert_equal(localized_states[3], obs_weights[in_loc])
 
 
 if __name__ == '__main__':
