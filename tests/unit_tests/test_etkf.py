@@ -296,7 +296,7 @@ class TestETKFilter(unittest.TestCase):
         state_mean, state_perts = self.state.state.split_mean_perts()
         ana_perts = self.algorithm._weights_matmul(state_perts, weights.numpy())
         analysis = state_mean + ana_perts
-
+        analysis = analysis.transpose('var_name', 'time', 'ensemble', 'grid')
         ret_analysis = self.algorithm._apply_weights(w_mean, w_perts,
                                                      state_mean, state_perts)
         xr.testing.assert_equal(ret_analysis, analysis)
