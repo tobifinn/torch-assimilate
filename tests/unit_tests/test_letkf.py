@@ -134,6 +134,25 @@ class TestLETKF(unittest.TestCase):
                                 prepared_states[2][in_loc, in_loc])
         np.testing.assert_equal(localized_states[3], obs_weights[in_loc])
 
+    def test_update_state_uses_localization(self):
+        self.algorithm.localization = DummyLocalization()
+        ana_time = self.state.time[-1].values
+        nr_grid_points = len(self.state.grid)
+        obs_tuple = (self.obs, self.obs)
+        prepared_states = self.algorithm._prepare(self.state, obs_tuple)
+        with patch('pytassim.testing.dummy.DummyLocalization.localize_obs',
+                   return_value=prepared_states[:-1]) as loc_patch:
+            _ = self.algorithm.update_state(self.state, obs_tuple, ana_time)
+        self.assertEqual(loc_patch.call_count, nr_grid_points)
+
+    def test_wo_localization_letkf_equals_etkf_smoothing(self):
+        etkf = ETKFilter(smoothing=True)
+        self.algorithm.smoothing = True
+        obs_tuple = (self.obs, self.obs)
+        etkf_analysis = etkf.assimilate(self.state, obs_tuple)
+        letkf_analysis = self.algorithm.assimilate(self.state, obs_tuple)
+        xr.testing.assert_allclose(letkf_analysis, etkf_analysis)
+
 
 if __name__ == '__main__':
     unittest.main()

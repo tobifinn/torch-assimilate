@@ -115,10 +115,14 @@ class LETKFilter(ETKFilter):
             is on, then the time axis has only one element.
         """
         prepared_states = self._prepare(state, observations)
-        back_state = state.sel(time=[analysis_time, ])
+        if not self.smoothing:
+            back_state = state.sel(time=[analysis_time, ])
+        else:
+            back_state = state
         analysis = []
         for grid_ind in state.grid.values:
-            prepared_l = [torch.tensor(s) for s in prepared_states[:-1]]
+            prepared_l = self._localize(prepared_states)
+            prepared_l = [torch.tensor(s) for s in prepared_l]
             w_mean_l, w_perts_l = self._gen_weights(*prepared_l)
             back_state_l = back_state.sel(grid=grid_ind)
             state_mean_l, state_perts_l = back_state_l.state.split_mean_perts()
@@ -129,3 +133,10 @@ class LETKFilter(ETKFilter):
         analysis['grid'] = back_state['grid']
         analysis = analysis.transpose('var_name', 'time', 'ensemble', 'grid')
         return analysis
+
+    def _localize(self, prepared_states):
+        try:
+            prepared_l = self.localization.localize_obs(prepared_states)
+        except (NotImplementedError, AttributeError):
+            prepared_l = prepared_states[:-1]
+        return prepared_l
