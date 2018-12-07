@@ -127,11 +127,10 @@ class DummyLocalization(object):
     are the same.
     """
     @staticmethod
-    def localize_obs(grid_ind, innov, hx_perts, obs_cov, obs_grid):
-        obs_weights = (obs_grid == grid_ind).astype(float)
-        in_loc = obs_weights > 0
-        return innov[in_loc], hx_perts[in_loc], obs_cov[in_loc, in_loc], \
-               obs_weights[in_loc]
+    def localize_obs(grid_ind, obs_grid):
+        obs_weights = (np.abs(obs_grid-grid_ind) < 10).astype(float)
+        use_obs = obs_weights > 0
+        return use_obs, obs_weights
 
 
 def dummy_distance(a, b):
