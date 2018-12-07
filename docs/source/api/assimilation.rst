@@ -9,6 +9,7 @@ Here are all available and implemented algorithms listed.
    :maxdepth: 1
 
    algorithms/etkf
+   algorithms/letkf
 
 Base classes
 ------------
