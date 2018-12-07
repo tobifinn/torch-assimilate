@@ -45,6 +45,8 @@ class ETKFilter(FilterAssimilation):
     update globally. This ensemble Kalman filter estimates ensemble weights in
     weight space, which are then applied to the given state. This implementation
     follows [H07]_ with global weight estimation and is implemented in PyTorch.
+    This implementation allows filtering in time based on linear propagation
+    assumption [H04]_ and ensemble smoothing.
 
     References
     ----------
@@ -52,12 +54,27 @@ class ETKFilter(FilterAssimilation):
              Adaptive sampling with the ensemble transform Kalman filter.
              Part I: Theoretical aspects. Monthly Weather Review, 129(3),
              420–436.
+    .. [H04] Hunt, B., et al. Four-dimensional ensemble Kalman filtering.
+             Tellus A, 56(4), 273–277.
     .. [H07] Hunt, B. R., Kostelich, E. J., & Szunyogh, I. (2007).
              Efficient data assimilation for spatiotemporal chaos: A local
              ensemble transform Kalman filter. Physica D: Nonlinear
              Phenomena, 230(1), 112–126.
              https://doi.org/10.1016/j.physd.2006.11.008
+
+    Parameters
+    ----------
+    smoothing : bool, optional
+        Indicates if this filter should be run in smoothing or in filtering
+        mode. In smoothing mode, no analysis time is selected from given state
+        and the ensemble weights are applied to the whole state. In filtering
+        mode, the weights are applied only on selected analysis time. Default
+        is False, indicating filtering mode.
     """
+    def __init__(self, smoothing=False):
+        super().__init__()
+        self.smoothing = smoothing
+
     def update_state(self, state, observations, analysis_time):
         """
         This method updates the state based on given observations and analysis
@@ -87,15 +104,18 @@ class ETKFilter(FilterAssimilation):
         -------
         analysis : :py:class:`xarray.DataArray`
             The analysed state based on given state and observations. The
-            analysis has same coordinates as given ``state`` except ``time``,
-            which should contain only one time step.
+            analysis has same coordinates as given ``state``. If filtering mode
+            is on, then the time axis has only one element.
         """
         prepared_states = self._prepare(
             state, observations
         )[:-1]
         torch_states = [torch.tensor(s) for s in prepared_states]
         w_mean, w_perts = self._gen_weights(*torch_states)
-        analysis_state = state.sel(time=[analysis_time, ])
+        if not self.smoothing:
+            analysis_state = state.sel(time=[analysis_time, ])
+        else:
+            analysis_state = state
         state_mean, state_perts = analysis_state.state.split_mean_perts()
         analysis = self._apply_weights(w_mean, w_perts, state_mean, state_perts)
         return analysis

@@ -329,6 +329,22 @@ class TestETKFilter(unittest.TestCase):
 
         xr.testing.assert_equal(ret_analysis, analysis)
 
+    def test_smoothing_doesnt_select_analysis_time(self):
+        self.algorithm.smoothing = True
+        ana_time = self.state.time[-1].values
+        obs_tuple = (self.obs, self.obs)
+        prepared_states = self.algorithm._prepare(self.state, obs_tuple)
+        prepared_states = [torch.tensor(s) for s in prepared_states]
+        w_mean, w_perts = self.algorithm._gen_weights(*prepared_states[:-1])
+        state_mean, state_perts = self.state.state.split_mean_perts()
+        analysis = self.algorithm._apply_weights(w_mean, w_perts, state_mean,
+                                                 state_perts)
+
+        ret_analysis = self.algorithm.update_state(self.state, obs_tuple,
+                                                   ana_time)
+
+        xr.testing.assert_equal(ret_analysis, analysis)
+
 
 if __name__ == '__main__':
     unittest.main()
