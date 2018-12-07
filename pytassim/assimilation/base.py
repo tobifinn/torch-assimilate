@@ -92,7 +92,7 @@ class BaseAssimilation(object):
                     ),
                     category=UserWarning
                 )
-        return valid_time
+        return valid_time.values
 
     @staticmethod
     def _apply_obs_operator(state, observations):
