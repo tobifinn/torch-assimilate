@@ -281,7 +281,6 @@ class ETKFilter(FilterAssimilation):
             input_core_dims=[['ensemble'], []], output_core_dims=[['ensemble']],
             dask='parallelized'
         )
-        ana_perts = ana_perts.transpose('var_name', 'time', 'ensemble', 'grid')
         return ana_perts
 
     def _apply_weights(self, w_mean, w_perts, state_mean, state_pert):
@@ -317,4 +316,5 @@ class ETKFilter(FilterAssimilation):
         combined_weights = (w_mean+w_perts).numpy()
         ana_perts = self._weights_matmul(state_pert, combined_weights)
         analysis = state_mean + ana_perts
+        analysis = analysis.transpose('var_name', 'time', 'ensemble', 'grid')
         return analysis

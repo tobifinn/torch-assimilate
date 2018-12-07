@@ -56,6 +56,10 @@ class TestETKFilter(unittest.TestCase):
         self.obs = xr.open_dataset(obs_path).load()
         self.obs.obs.operator = dummy_obs_operator
 
+    def tearDown(self):
+        self.state.close()
+        self.obs.close()
+
     def test_prepare_obs_stackes_and_concats_obs(self):
         obs_stacked = self.obs['observations'].stack(
             obs_id=('time', 'obs_grid_1')
@@ -279,7 +283,6 @@ class TestETKFilter(unittest.TestCase):
             input_core_dims=[['ensemble'], []], output_core_dims=[['ensemble']],
             dask='parallelized'
         )
-        ana_perts = ana_perts.transpose('var_name', 'time', 'ensemble', 'grid')
 
         ret_perts = self.algorithm._weights_matmul(state_perts, weights.numpy())
         xr.testing.assert_equal(ret_perts, ana_perts)
@@ -296,8 +299,17 @@ class TestETKFilter(unittest.TestCase):
 
         ret_analysis = self.algorithm._apply_weights(w_mean, w_perts,
                                                      state_mean, state_perts)
-
         xr.testing.assert_equal(ret_analysis, analysis)
+
+    def test_apply_weights_returns_valid_state(self):
+        obs_tuple = (self.obs, self.obs)
+        prepared_states = self.algorithm._prepare(self.state, obs_tuple)
+        prepared_states = [torch.tensor(s) for s in prepared_states]
+        w_mean, w_perts = self.algorithm._gen_weights(*prepared_states[:-1])
+        state_mean, state_perts = self.state.state.split_mean_perts()
+        ret_analysis = self.algorithm._apply_weights(w_mean, w_perts,
+                                                     state_mean, state_perts)
+        self.assertTrue(ret_analysis.state.valid)
 
     def test_update_state_applies_weights(self):
         obs_tuple = (self.obs, self.obs)
