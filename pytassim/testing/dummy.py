@@ -132,3 +132,15 @@ class DummyLocalization(object):
         in_loc = obs_weights > 0
         return innov[in_loc], hx_perts[in_loc], obs_cov[in_loc, in_loc], \
                obs_weights[in_loc]
+
+
+def dummy_distance(a, b):
+    """
+    This calculates a dummy distance as :math:`\\text{abs}(a-b)`.
+
+    Returns
+    -------
+    distance : any
+    """
+    distance = np.abs(a-b)
+    return distance

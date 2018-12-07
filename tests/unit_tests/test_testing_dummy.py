@@ -29,6 +29,7 @@ import os
 
 # External modules
 import xarray as xr
+import numpy as np
 
 # Internal modules
 from pytassim.observation import Observation
@@ -37,6 +38,7 @@ import pytassim.testing.dummy as utils
 
 
 logging.basicConfig(level=logging.DEBUG)
+rnd = np.random.RandomState(42)
 
 BASE_PATH = os.path.dirname(os.path.realpath(__file__))
 DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
@@ -72,6 +74,17 @@ class TestTestingUtilities(unittest.TestCase):
     def test_dummy_model_returns_state(self):
         returned_model_update = utils.dummy_model(self.state)
         xr.testing.assert_equal(self.state, returned_model_update)
+
+    def test_dummy_distance_returns_abs_distance(self):
+        returned_dist = utils.dummy_distance(10, 30)
+        self.assertEqual(returned_dist, 20)
+
+    def test_dummy_distance_returns_numpy_distance(self):
+        a = rnd.normal(size=100)
+        b = rnd.normal(size=100)
+        abs_dist = np.abs(a-b)
+        ret_dist = utils.dummy_distance(a, b)
+        np.testing.assert_equal(ret_dist, abs_dist)
 
 
 if __name__ == '__main__':
