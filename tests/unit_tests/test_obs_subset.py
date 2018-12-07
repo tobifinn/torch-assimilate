@@ -149,7 +149,7 @@ class TestObsSubset(unittest.TestCase):
             self.obs_ds.obs.operator = 1
 
     def test_operator_checks_if_state_is_single_argument(self):
-        def obs_operator(cls, state, time):
+        def obs_operator(cls, state, time):     # pragma: no cover
             return state
 
         with self.assertRaises(ValueError):
@@ -158,7 +158,7 @@ class TestObsSubset(unittest.TestCase):
         def obs_operator(cls):
             return None
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError):     # pragma: no cover
             self.obs_ds.obs.operator = obs_operator
 
     def test_operator_sets_only_instance(self):
