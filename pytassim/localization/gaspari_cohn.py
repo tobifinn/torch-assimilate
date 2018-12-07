@@ -25,8 +25,10 @@
 
 # System modules
 import logging
+import warnings
 
 # External modules
+import numpy as np
 
 # Internal modules
 from .localization import BaseLocalization
@@ -35,11 +37,12 @@ from .localization import BaseLocalization
 logger = logging.getLogger(__name__)
 
 
-class GaspariCohn(BaseLocalization):
+class GaspariCohnInf(BaseLocalization):
     """
     This localization can  be used to constrain observations. It is based on
-    Gaspari-Cohn correlation function [GC99]_. This correlation function is
-    similar to a gaussian with truncation.
+    Gaspari-Cohn correlation function [GC99]_. This correlation function
+    corresponds to a form factor of infinity, in [GC99]_
+    :math:`C_0(z, \\infty, c)`.
 
     References
     ----------
@@ -62,6 +65,7 @@ class GaspariCohn(BaseLocalization):
     def __init__(self, length_scale, dist_func):
         self.radius = length_scale
         self.dist_func = dist_func
+        self._thres = [2, 1.5, 1, 0.5]
 
     @staticmethod
     def _f1(dist):
@@ -105,4 +109,37 @@ class GaspariCohn(BaseLocalization):
         return f4
 
     def localize_obs(self, grid_ind, obs_grid):
-        pass
+        """
+        This method creates weights for observations based on given grid index
+        and observation grid.
+
+        Parameters
+        ----------
+        grid_ind : any
+            This parameter indicates the current grid index.
+        obs_grid : :py:class:`np.ndarray`
+            This observation grid is used to estimate a spatial distance to
+            given grid index.
+
+        Returns
+        -------
+        use_obs : :py:class:`np.ndarray`, dtype=bool
+            This is a boolean array indicating if the `i`-th observation should
+            be used. This array is calculated based on estimated observation
+            weights.
+        obs_weights : :py:class:`np.ndarray`, dtype=float
+            The estimated observation weights. These weights can be used to
+            weight observations.
+        """
+        weights = np.zeros((obs_grid.shape[-1]), dtype=float)
+        dist = self.dist_func(grid_ind, obs_grid)
+        dist_radius = dist / self.radius
+        conds = [dist_radius < thres for thres in self._thres]
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            weights[conds[0]] = self._f4(dist_radius[conds[0]])
+            weights[conds[1]] = self._f3(dist_radius[conds[1]])
+            weights[conds[2]] = self._f2(dist_radius[conds[2]])
+        weights[conds[3]] = self._f1(dist_radius[conds[3]])
+        use_obs = weights != 0
+        return use_obs, weights

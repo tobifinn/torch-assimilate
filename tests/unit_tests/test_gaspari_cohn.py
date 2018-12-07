@@ -24,13 +24,14 @@ Created for torch-assimilate
 import unittest
 import logging
 import os
+import warnings
 
 # External modules
 import xarray as xr
 import numpy as np
 
 # Internal modules
-from pytassim.localization.gaspari_cohn import GaspariCohn
+from pytassim.localization.gaspari_cohn import GaspariCohnInf
 from pytassim.testing import dummy_distance
 
 
@@ -40,12 +41,13 @@ BASE_PATH = os.path.dirname(os.path.realpath(__file__))
 DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
 
 
-class TestGaspariCohn(unittest.TestCase):
+class TestGaspariCohnInf(unittest.TestCase):
     def setUp(self):
         state_path = os.path.join(DATA_PATH, 'test_state.nc')
-        self.state = xr.open_dataarray(state_path).load()
-        self.loc = GaspariCohn(5, dist_func=dummy_distance)
-        self.dist = dummy_distance(10, self.state.grid.values)
+        state = xr.open_dataarray(state_path).load()
+        self.grid = state.grid.values.astype(float)
+        self.loc = GaspariCohnInf(5., dist_func=dummy_distance)
+        self.dist = dummy_distance(10, self.grid)
 
     def test_f1_returns_f1_from_gc99(self):
         ret_f1 = self.loc._f1(self.dist)
@@ -90,6 +92,30 @@ class TestGaspariCohn(unittest.TestCase):
 
         ret_f4 = self.loc._f4(self.dist)
         np.testing.assert_equal(ret_f4, f4)
+
+    def test_localize_obs_returns_zero_weight_for_two_times_radius(self):
+        zero_weights = np.zeros_like(self.grid)
+        _, ret_weights = self.loc.localize_obs(9999999, self.grid)
+        np.testing.assert_equal(ret_weights, zero_weights)
+
+    def test_localize_obs_returns_right_weights(self):
+        conds = [2, 1.5, 1, 0.5]
+        conds = [self.grid < c * self.loc.radius for c in conds]
+        weights = np.zeros_like(self.grid)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            weights[conds[0]] = self.loc._f4(self.grid[conds[0]] / self.loc.radius)
+            weights[conds[1]] = self.loc._f3(self.grid[conds[1]] / self.loc.radius)
+            weights[conds[2]] = self.loc._f2(self.grid[conds[2]] / self.loc.radius)
+        weights[conds[3]] = self.loc._f1(self.grid[conds[3]] / self.loc.radius)
+
+        _, ret_weights = self.loc.localize_obs(0, self.grid)
+        np.testing.assert_equal(ret_weights, weights)
+
+    def test_localize_obs_returns_use_obs_bool(self):
+        ret_use_obs, ret_weights = self.loc.localize_obs(0, self.grid)
+        use_obs = ret_weights > 0
+        np.testing.assert_equal(ret_use_obs, use_obs)
 
 
 if __name__ == '__main__':

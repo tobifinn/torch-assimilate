@@ -8,6 +8,13 @@ Assimilation algorithms
 
    assimilation
 
+Localization
+------------
+.. toctree::
+   :maxdepth: 2
+
+   localization
+
 Models
 ------
 .. toctree::
