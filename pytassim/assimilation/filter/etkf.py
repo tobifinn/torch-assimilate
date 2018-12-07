@@ -54,7 +54,8 @@ class ETKFilter(FilterAssimilation):
         hx_mean, hx_pert, filtered_obs = self._prepare_back_obs(state,
                                                                 observations)
         obs_state, obs_cov, obs_grid = self._prepare_obs(filtered_obs)
-        return hx_mean, hx_pert, obs_state, obs_cov, obs_grid
+        innov = obs_state - hx_mean
+        return innov, hx_pert, obs_cov, obs_grid
 
     def _prepare_back_obs(self, state, observations):
         pseudo_obs, filtered_obs = self._apply_obs_operator(state, observations)
@@ -91,14 +92,13 @@ class ETKFilter(FilterAssimilation):
         evals_inv = 1 / evals
         return evals, evects, evals_inv
 
-    def _gen_weights(self, hx_mean, hx_pert, obs_state, obs_cov, obs_weights=1):
+    def _gen_weights(self, innov, hx_pert, obs_cov, obs_weights=1):
         estimated_c = self._compute_c(hx_pert, obs_cov, obs_weights)
         prec_ana = self._calc_precision(estimated_c, hx_pert)
         evals, evects, evals_inv = self._eigendecomp(prec_ana)
 
         cov_analysed = torch.matmul(evects.t(), torch.diagflat(evals_inv))
         cov_analysed = torch.matmul(cov_analysed, evects)
-        innov = obs_state - hx_mean
         gain = torch.matmul(cov_analysed, estimated_c)
         w_mean = torch.matmul(gain, innov)
 

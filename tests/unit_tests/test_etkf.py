@@ -145,13 +145,13 @@ class TestETKFilter(unittest.TestCase):
         obs_tuple = (self.obs, self.obs.copy())
         prepared_state = self.algorithm._prepare_back_obs(self.state, obs_tuple)
         prepared_obs = self.algorithm._prepare_obs((self.obs, ))
+        innov = prepared_obs[0] - prepared_state[0]
 
         returned_state = self.algorithm._prepare(self.state, obs_tuple)
-        np.testing.assert_equal(prepared_state[0], returned_state[0])
+        np.testing.assert_equal(innov, returned_state[0])
         np.testing.assert_equal(prepared_state[1], returned_state[1])
-        np.testing.assert_equal(prepared_obs[0], returned_state[2])
-        np.testing.assert_equal(prepared_obs[1], returned_state[3])
-        np.testing.assert_equal(prepared_obs[2], returned_state[4])
+        np.testing.assert_equal(prepared_obs[1], returned_state[2])
+        np.testing.assert_equal(prepared_obs[2], returned_state[3])
 
     def test_compute_inv_r_obs_solves_linear_system(self):
         _, obs_cov, _ = self.algorithm._prepare_obs((self.obs, ))
@@ -225,6 +225,7 @@ class TestETKFilter(unittest.TestCase):
         hx_pert = torch.tensor(hx_pert).double()
         obs_state = torch.tensor(obs_state).double()
         obs_cov = torch.tensor(obs_cov).double()
+        innov = obs_state - hx_mean
 
         estimated_c = self.algorithm._compute_c(hx_pert, obs_cov)
         prec_ana = self.algorithm._calc_precision(estimated_c, hx_pert)
@@ -234,7 +235,6 @@ class TestETKFilter(unittest.TestCase):
         cov_analysed = torch.matmul(evects.t(), torch.diagflat(evals_inv))
         cov_analysed = torch.matmul(cov_analysed, evects)
 
-        innov = obs_state - hx_mean
         gain = torch.matmul(cov_analysed, estimated_c)
 
         w_mean = torch.matmul(gain, innov)
@@ -242,7 +242,7 @@ class TestETKFilter(unittest.TestCase):
         w_perts = self.algorithm._det_square_root(evals_inv, evects)
 
         ret_mean, ret_perts = self.algorithm._gen_weights(
-            hx_mean, hx_pert, obs_state, obs_cov
+            innov, hx_pert, obs_cov
         )
         torch.testing.assert_allclose(ret_mean, w_mean)
         torch.testing.assert_allclose(ret_perts, w_perts)
