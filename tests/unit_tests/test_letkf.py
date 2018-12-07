@@ -122,17 +122,16 @@ class TestLETKF(unittest.TestCase):
     def test_dummy_localization_returns_equal_grids(self):
         obs_tuple = (self.obs, self.obs)
         prepared_states = self.algorithm._prepare(self.state, obs_tuple)
-        obs_weights = (prepared_states[-1] == 10).astype(float)
-        in_loc = obs_weights > 0
+        obs_weights = (np.abs(prepared_states[-1]-10) < 10).astype(float)
+        use_obs = obs_weights > 0
 
         localization = DummyLocalization()
-        localized_states = localization.localize_obs(10, *prepared_states)
+        ret_use_obs, ret_weights = localization.localize_obs(
+            10, prepared_states[-1]
+        )
 
-        np.testing.assert_equal(localized_states[0], prepared_states[0][in_loc])
-        np.testing.assert_equal(localized_states[1], prepared_states[1][in_loc])
-        np.testing.assert_equal(localized_states[2],
-                                prepared_states[2][in_loc, in_loc])
-        np.testing.assert_equal(localized_states[3], obs_weights[in_loc])
+        np.testing.assert_equal(ret_use_obs, use_obs)
+        np.testing.assert_equal(ret_weights, obs_weights)
 
     def test_update_state_uses_localization(self):
         self.algorithm.localization = DummyLocalization()
@@ -140,9 +139,11 @@ class TestLETKF(unittest.TestCase):
         nr_grid_points = len(self.state.grid)
         obs_tuple = (self.obs, self.obs)
         prepared_states = self.algorithm._prepare(self.state, obs_tuple)
+        obs_weights = (np.abs(prepared_states[-1]-10) < 10).astype(float)
+        use_obs = obs_weights > 0
         with patch('pytassim.testing.dummy.DummyLocalization.localize_obs',
-                   return_value=prepared_states[:-1]) as loc_patch:
-            _ = self.algorithm.update_state(self.state, obs_tuple, ana_time)
+                  return_value=(use_obs, obs_weights)) as loc_patch:
+           _ = self.algorithm.update_state(self.state, obs_tuple, ana_time)
         self.assertEqual(loc_patch.call_count, nr_grid_points)
 
     def test_wo_localization_letkf_equals_etkf_smoothing(self):

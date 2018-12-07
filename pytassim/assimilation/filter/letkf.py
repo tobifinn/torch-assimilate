@@ -121,7 +121,7 @@ class LETKFilter(ETKFilter):
             back_state = state
         analysis = []
         for grid_ind in state.grid.values:
-            prepared_l = self._localize(prepared_states)
+            prepared_l = self._localize(grid_ind, prepared_states)
             prepared_l = [torch.tensor(s) for s in prepared_l]
             w_mean_l, w_perts_l = self._gen_weights(*prepared_l)
             back_state_l = back_state.sel(grid=grid_ind)
@@ -134,9 +134,15 @@ class LETKFilter(ETKFilter):
         analysis = analysis.transpose('var_name', 'time', 'ensemble', 'grid')
         return analysis
 
-    def _localize(self, prepared_states):
+    def _localize(self, grid_ind, prepared_states):
         try:
-            prepared_l = self.localization.localize_obs(prepared_states)
+            use_obs, obs_weights = self.localization.localize_obs(
+                grid_ind, prepared_states[-1]
+            )
+            innov = prepared_states[0][use_obs]
+            hx_perts = prepared_states[1][use_obs]
+            obs_cov = prepared_states[2][use_obs, :][:, use_obs]
+            obs_weights = obs_weights[use_obs]
+            return innov, hx_perts, obs_cov, obs_weights
         except (NotImplementedError, AttributeError):
-            prepared_l = prepared_states[:-1]
-        return prepared_l
+            return prepared_states[:-1]
