@@ -118,6 +118,7 @@ class ETKFilter(FilterAssimilation):
             analysis_state = state
         state_mean, state_perts = analysis_state.state.split_mean_perts()
         analysis = self._apply_weights(w_mean, w_perts, state_mean, state_perts)
+        analysis = analysis.transpose('var_name', 'time', 'ensemble', 'grid')
         return analysis
 
     def _prepare(self, state, observations):
@@ -316,5 +317,4 @@ class ETKFilter(FilterAssimilation):
         combined_weights = (w_mean+w_perts).numpy()
         ana_perts = self._weights_matmul(state_pert, combined_weights)
         analysis = state_mean + ana_perts
-        analysis = analysis.transpose('var_name', 'time', 'ensemble', 'grid')
         return analysis

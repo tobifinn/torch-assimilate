@@ -296,20 +296,9 @@ class TestETKFilter(unittest.TestCase):
         state_mean, state_perts = self.state.state.split_mean_perts()
         ana_perts = self.algorithm._weights_matmul(state_perts, weights.numpy())
         analysis = state_mean + ana_perts
-        analysis = analysis.transpose('var_name', 'time', 'ensemble', 'grid')
         ret_analysis = self.algorithm._apply_weights(w_mean, w_perts,
                                                      state_mean, state_perts)
         xr.testing.assert_equal(ret_analysis, analysis)
-
-    def test_apply_weights_returns_valid_state(self):
-        obs_tuple = (self.obs, self.obs)
-        prepared_states = self.algorithm._prepare(self.state, obs_tuple)
-        prepared_states = [torch.tensor(s) for s in prepared_states]
-        w_mean, w_perts = self.algorithm._gen_weights(*prepared_states[:-1])
-        state_mean, state_perts = self.state.state.split_mean_perts()
-        ret_analysis = self.algorithm._apply_weights(w_mean, w_perts,
-                                                     state_mean, state_perts)
-        self.assertTrue(ret_analysis.state.valid)
 
     def test_update_state_applies_weights(self):
         obs_tuple = (self.obs, self.obs)
@@ -335,11 +324,13 @@ class TestETKFilter(unittest.TestCase):
         state_mean, state_perts = back_state.state.split_mean_perts()
         analysis = self.algorithm._apply_weights(w_mean, w_perts, state_mean,
                                                  state_perts)
+        analysis = analysis.transpose('var_name', 'time', 'ensemble', 'grid')
 
         ret_analysis = self.algorithm.update_state(self.state, obs_tuple,
                                                    ana_time)
 
         xr.testing.assert_equal(ret_analysis, analysis)
+        self.assertTrue(ret_analysis.state.valid)
 
     def test_smoothing_doesnt_select_analysis_time(self):
         self.algorithm.smoothing = True
@@ -351,6 +342,7 @@ class TestETKFilter(unittest.TestCase):
         state_mean, state_perts = self.state.state.split_mean_perts()
         analysis = self.algorithm._apply_weights(w_mean, w_perts, state_mean,
                                                  state_perts)
+        analysis = analysis.transpose('var_name', 'time', 'ensemble', 'grid')
 
         ret_analysis = self.algorithm.update_state(self.state, obs_tuple,
                                                    ana_time)
