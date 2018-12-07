@@ -206,6 +206,10 @@ class BaseAssimilation(object):
             analysis has same coordinates as given ``state`` except ``time``,
             which contains only one time step.
         """
+        if not observations:
+            warnings.warn('No observation is given, I will return the '
+                          'background state!', UserWarning)
+            return state
         if not isinstance(observations, (list, set, tuple)):
             observations = (observations, )
         self._validate_state(state)

@@ -201,6 +201,13 @@ class TestBaseAssimilation(unittest.TestCase):
         xr.testing.assert_equal(self.obs.obs.operator(self.state),
                                 obs_equivalent[0])
 
+    @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
+           side_effect=dummy_update_state, autospec=True)
+    def test_assimilate_wo_obs_returns_state(self, _):
+        with self.assertWarns(UserWarning):
+            analysis = self.algorithm.assimilate(self.state, ())
+        xr.testing.assert_identical(analysis, self.state)
+
 
 if __name__ == '__main__':
     unittest.main()
