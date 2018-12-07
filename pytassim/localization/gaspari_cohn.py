@@ -41,7 +41,7 @@ class GaspariCohn(BaseLocalization):
     """
     This localization can  be used to constrain observations. It is based on
     Gaspari-Cohn correlation function [GC99]_. This correlation function
-    corresponds to a form factor of :math:`\\frac{1}{2}, in [GC99]_
+    corresponds to a form factor of :math:`\\frac{1}{2}`, in [GC99]_
     :math:`C_0(z, \\frac{1}{2}, c)`.
 
     References
