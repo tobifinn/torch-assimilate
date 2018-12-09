@@ -27,12 +27,14 @@ import unittest
 import logging
 import os
 from unittest.mock import patch
+import time
 
 # External modules
 import xarray as xr
 import numpy as np
 import torch
 import scipy.linalg
+import scipy.linalg.blas
 
 # Internal modules
 import pytassim.state
@@ -81,13 +83,9 @@ class TestETKFilter(unittest.TestCase):
         np.testing.assert_equal(obs_grid, returned_grid)
 
     def test_prepare_obs_returns_obs_cov_matrix(self):
-        obs_stacked = self.obs['observations'].stack(
-            obs_id=('time', 'obs_grid_1')
-        )
-        stacked_cov = self.obs['covariance'].sel(
-            obs_grid_1=obs_stacked.obs_grid_1.values,
-            obs_grid_2=obs_stacked.obs_grid_1.values
-        ).values
+        len_time = len(self.obs.time)
+        stacked_cov = [self.obs['covariance'].values] * len_time
+        stacked_cov = scipy.linalg.block_diag(*stacked_cov)
         block_diag = scipy.linalg.block_diag(stacked_cov, stacked_cov)
         _, returned_cov, _ = self.algorithm._prepare_obs(
             (self.obs, self.obs)
@@ -98,15 +96,14 @@ class TestETKFilter(unittest.TestCase):
         obs_stacked = self.obs['observations'].stack(
             obs_id=('time', 'obs_grid_1')
         )
-        stacked_cov = self.obs['covariance'].sel(
-            obs_grid_1=obs_stacked.obs_grid_1.values,
-            obs_grid_2=obs_stacked.obs_grid_1.values
-        )
+        len_time = len(self.obs.time)
+        stacked_cov = [self.obs['covariance'].values] * len_time
+        stacked_cov = scipy.linalg.block_diag(*stacked_cov)
         returned_obs, returned_cov, returned_grid = self.algorithm._prepare_obs(
             (self.obs, )
         )
         np.testing.assert_equal(returned_obs, obs_stacked.values)
-        np.testing.assert_equal(returned_cov, stacked_cov.values)
+        np.testing.assert_equal(returned_cov, stacked_cov)
         np.testing.assert_equal(returned_grid, obs_stacked.obs_grid_1.values)
 
     def test_prepare_state_returns_state_array(self):
@@ -157,15 +154,122 @@ class TestETKFilter(unittest.TestCase):
         np.testing.assert_equal(prepared_obs[1], returned_state[2])
         np.testing.assert_equal(prepared_obs[2], returned_state[3])
 
-    def test_compute_inv_r_obs_solves_linear_system(self):
-        _, obs_cov, _ = self.algorithm._prepare_obs((self.obs, ))
-        _, hx_pert, _ = self.algorithm._prepare_back_obs(self.state, (self.obs,))
-        pinv = np.linalg.pinv(obs_cov)
-        c_solved = np.matmul(pinv, hx_pert).T
+    def test_diagonal_inverse_returns_inverse_of_diagonal_matrix(self):
+        obs_tuple = [self.obs, ] * 5
+        _, obs_cov, _ = self.algorithm._prepare_obs(obs_tuple)
+        _, hx_perts, _ = self.algorithm._prepare_back_obs(self.state, obs_tuple)
+        est_c = np.matmul(hx_perts.T, np.linalg.inv(obs_cov))
+        self.assertTupleEqual(est_c.shape, hx_perts.T.shape)
+
+        t_obs_cov = torch.tensor(obs_cov)
+        t_hx_perts = torch.tensor(hx_perts)
+        ret_c = self.algorithm._compute_c_diag(t_hx_perts, t_obs_cov).numpy()
+        self.assertTupleEqual(ret_c.shape, hx_perts.T.shape)
+
+    def test_calc_c_chol_calculates_c_based_on_cholesky_decomp(self):
+        obs_tuple = [self.obs, ] * 5
+        _, obs_cov, _ = self.algorithm._prepare_obs(obs_tuple)
+        _, hx_perts, _ = self.algorithm._prepare_back_obs(self.state, obs_tuple)
+        alpha = 0
+        obs_cov_prod = np.matmul(obs_cov.T, obs_cov)
+        obs_hx = np.matmul(obs_cov.T, hx_perts)
+        est_c = None
+        nr_iters = 0
+        while est_c is None:
+            try:
+                U, lower = scipy.linalg.cho_factor(obs_cov_prod)
+                est_c = scipy.linalg.cho_solve((U, lower), obs_hx).T
+            except np.linalg.linalg.LinAlgError:
+                obs_cov_prod[np.diag_indices_from(obs_cov_prod)] -= alpha
+                if alpha == 0:
+                    alpha = 0.00001
+                else:
+                    alpha *= 10
+                obs_cov_prod[np.diag_indices_from(obs_cov_prod)] += alpha
+            nr_iters += 1
+        t_obs_cov = torch.tensor(obs_cov)
+        t_hx_perts = torch.tensor(hx_perts)
+
+        ret_c, _ = self.algorithm._compute_c_chol(t_hx_perts, t_obs_cov)
+        np.testing.assert_array_almost_equal(est_c, ret_c.numpy())
+
+    def test_calc_inc_alpha_if_singular(self):
+        self.obs['covariance'][0, :2] = 0
+        self.obs['covariance'][:2, 0] = 0
+        obs_tuple = [self.obs, ]
+        _, obs_cov, _ = self.algorithm._prepare_obs(obs_tuple)
+        _, hx_perts, _ = self.algorithm._prepare_back_obs(self.state, obs_tuple)
+        t_obs_cov = torch.tensor(obs_cov)
+        t_hx_perts = torch.tensor(hx_perts)
+
+        _, alpha = self.algorithm._compute_c_chol(t_hx_perts, t_obs_cov)
+        self.assertGreater(alpha, 0)
+
+    def test_calc_inc_alpha_if_singular_alpha_too_small(self):
+        self.obs['covariance'][0, :2] = 0
+        self.obs['covariance'][:2, 0] = 0
+        obs_tuple = [self.obs, ]
+        _, obs_cov, _ = self.algorithm._prepare_obs(obs_tuple)
+        _, hx_perts, _ = self.algorithm._prepare_back_obs(self.state, obs_tuple)
+        t_obs_cov = torch.tensor(obs_cov)
+        t_hx_perts = torch.tensor(hx_perts)
+
+        alpha = np.finfo(np.float64).eps
+        _, ret_alpha = self.algorithm._compute_c_chol(t_hx_perts, t_obs_cov,
+                                                      alpha)
+        self.assertGreater(ret_alpha, alpha)
+
+    def test_calculate_c_returns_same_for_diag(self):
+        obs_tuple = [self.obs, ] * 5
+        _, obs_cov, _ = self.algorithm._prepare_obs(obs_tuple)
+        _, hx_perts, _ = self.algorithm._prepare_back_obs(self.state, obs_tuple)
         obs_cov = torch.tensor(obs_cov)
-        hx_pert = torch.tensor(hx_pert)
-        c_returned = self.algorithm._compute_c(hx_pert, obs_cov,).numpy()
-        np.testing.assert_array_almost_equal(c_returned, c_solved)
+        hx_perts = torch.tensor(hx_perts)
+        diag_c = self.algorithm._compute_c_diag(hx_perts, obs_cov)
+        chol_c, _ = self.algorithm._compute_c_chol(hx_perts, obs_cov)
+        torch.testing.assert_allclose(diag_c, chol_c)
+
+    def test_calculate_c_calls_diag_if_diag_matrix(self):
+        obs_tuple = [self.obs, ] * 5
+        _, obs_cov, _ = self.algorithm._prepare_obs(obs_tuple)
+        _, hx_perts, _ = self.algorithm._prepare_back_obs(self.state, obs_tuple)
+        obs_cov = torch.tensor(obs_cov)
+        hx_perts = torch.tensor(hx_perts)
+        est_c = self.algorithm._compute_c_diag(hx_perts, obs_cov)
+        trg = 'pytassim.assimilation.filter.etkf.ETKFilter._compute_c_diag'
+        with patch(trg, return_value=est_c) as c_patch:
+            _ = self.algorithm._compute_c(hx_perts, obs_cov)
+        c_patch.assert_called_once_with(hx_perts, obs_cov)
+
+    def test_calculate_c_calls_chel_if_else(self):
+        self.obs['covariance'][0, :] = 1
+        self.obs['covariance'][:, 0] = 1
+        obs_tuple = [self.obs, ] * 5
+        _, obs_cov, _ = self.algorithm._prepare_obs(obs_tuple)
+        _, hx_perts, _ = self.algorithm._prepare_back_obs(self.state, obs_tuple)
+        obs_cov = torch.tensor(obs_cov)
+        hx_perts = torch.tensor(hx_perts)
+        est_c = self.algorithm._compute_c_chol(hx_perts, obs_cov)
+        trg = 'pytassim.assimilation.filter.etkf.ETKFilter._compute_c_chol'
+        with patch(trg, return_value=est_c) as c_patch:
+            _ = self.algorithm._compute_c(hx_perts, obs_cov)
+        c_patch.assert_called_once_with(hx_perts, obs_cov)
+
+    def test_calculate_c_multiplies_with_obs_weight(self):
+        obs_tuple = [self.obs, ] * 5
+        _, obs_cov, _ = self.algorithm._prepare_obs(obs_tuple)
+        _, hx_perts, _ = self.algorithm._prepare_back_obs(self.state, obs_tuple)
+        obs_len = obs_cov.shape[1]
+        obs_weights = np.zeros(obs_len)
+        obs_weights[::10] = 1
+        obs_cov = torch.tensor(obs_cov)
+        hx_perts = torch.tensor(hx_perts)
+        obs_weights = torch.tensor(obs_weights)
+
+        est_c = self.algorithm._compute_c_diag(hx_perts, obs_cov) * obs_weights
+
+        ret_c = self.algorithm._compute_c(hx_perts, obs_cov, obs_weights)
+        np.testing.assert_array_equal(ret_c.numpy(), est_c.numpy())
 
     def test_calc_precision_returns_precision(self):
         _, obs_cov, _ = self.algorithm._prepare_obs((self.obs, ))

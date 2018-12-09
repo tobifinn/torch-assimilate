@@ -180,12 +180,40 @@ class ETKFilter(FilterAssimilation):
         hx_mean, hx_perts = pseudo_obs_concat.state.split_mean_perts()
         return hx_mean.values, hx_perts.T.values, filtered_obs
 
-    @staticmethod
-    def _compute_c(hx_perts, obs_cov, obs_weights=1):
-        pinv = torch.pinverse(obs_cov)
-        calculated_c = torch.matmul(pinv, hx_perts).t()
+    def _compute_c(self, hx_perts, obs_cov, obs_weights=1):
+        if torch.allclose(obs_cov, torch.diag(torch.diagonal(obs_cov))):
+            calculated_c = self._compute_c_diag(hx_perts, obs_cov)
+        else:
+            calculated_c, _ = self._compute_c_chol(hx_perts, obs_cov)
         calculated_c = calculated_c * obs_weights
         return calculated_c
+
+    @staticmethod
+    def _compute_c_diag(hx_perts, obs_cov):
+        calculated_c = hx_perts.t() / torch.diagonal(obs_cov)
+        return calculated_c
+
+    @staticmethod
+    def _compute_c_chol(hx_perts, obs_cov, alpha=0):
+        obs_cov_prod = torch.matmul(obs_cov.t(), obs_cov)
+        obs_hx = torch.matmul(obs_cov.t(), hx_perts)
+        mat_size = obs_cov_prod.size()[1]
+        step = mat_size + 1
+        end = mat_size * mat_size
+        calculated_c = None
+        while calculated_c is None:
+            try:
+                mat_upper = torch.cholesky(obs_cov_prod, upper=True)
+                calculated_c = torch.potrs(obs_hx, mat_upper, upper=True).t()
+            except RuntimeError:
+                obs_cov_prod.view(-1)[:end:step] -= alpha
+                if alpha == 0:
+                    alpha = 0.00001
+                else:
+                    alpha *= 10
+                obs_cov_prod.view(-1)[:end:step] += alpha
+        return calculated_c, alpha
+
 
     @staticmethod
     def _calc_precision(c, hx_perts):
