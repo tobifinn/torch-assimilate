@@ -542,6 +542,7 @@ class TestETKFilter(unittest.TestCase):
         np.testing.assert_array_equal(self.algorithm._back_prec.numpy(),
                                       back_prec)
 
+    @if_gpu_decorator
     def test_set_back_prec_sets_back_prec_on_gpu(self):
         self.algorithm.gpu = True
         self.algorithm._set_back_prec(50)
