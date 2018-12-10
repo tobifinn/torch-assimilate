@@ -70,10 +70,16 @@ class ETKFilter(FilterAssimilation):
         and the ensemble weights are applied to the whole state. In filtering
         mode, the weights are applied only on selected analysis time. Default
         is False, indicating filtering mode.
+    inf_factor : float, optional
+        Multiplicative inflation factor :math:`\\rho``, which is applied to the
+        background precision. An inflation factor greater one increases the
+        ensemble spread, while a factor less one decreases the spread. Default
+        is 1.0, which is the same as no inflation at all.
     """
-    def __init__(self, smoothing=False):
+    def __init__(self, smoothing=False, inf_factor=1.0):
         super().__init__()
         self.smoothing = smoothing
+        self.inf_factor = inf_factor
 
     def update_state(self, state, observations, analysis_time):
         """
@@ -214,13 +220,11 @@ class ETKFilter(FilterAssimilation):
                 obs_cov_prod.view(-1)[:end:step] += alpha
         return calculated_c, alpha
 
-
-    @staticmethod
-    def _calc_precision(c, hx_perts):
+    def _calc_precision(self, c, hx_perts):
         ens_size = hx_perts.size()[1]
         prec_obs = torch.matmul(c, hx_perts)
         prec_back = (ens_size - 1) * torch.eye(ens_size).double()
-        prec_ana = prec_back + prec_obs
+        prec_ana = prec_back / self.inf_factor + prec_obs
         return prec_ana
 
     @staticmethod

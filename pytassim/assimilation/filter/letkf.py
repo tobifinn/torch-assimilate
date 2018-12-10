@@ -76,9 +76,14 @@ class LETKFilter(ETKFilter):
         spatially. If this localization is None, no localization is applied such
         it is an inefficient version of the `ensemble transform Kalman filter`.
         Default value is None, indicating no localization at all.
+    inf_factor : float, optional
+        Multiplicative inflation factor :math:`\\rho``, which is applied to the
+        background precision. An inflation factor greater one increases the
+        ensemble spread, while a factor less one decreases the spread. Default
+        is 1.0, which is the same as no inflation at all.
     """
-    def __init__(self, smoothing=False, localization=None):
-        super().__init__(smoothing=smoothing)
+    def __init__(self, smoothing=False, localization=None, inf_factor=1.0):
+        super().__init__(smoothing=smoothing, inf_factor=inf_factor)
         self.localization = localization
 
     def update_state(self, state, observations, analysis_time):

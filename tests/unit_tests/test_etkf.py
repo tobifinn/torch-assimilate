@@ -286,6 +286,22 @@ class TestETKFilter(unittest.TestCase):
         ret_prec = self.algorithm._calc_precision(estimated_c, hx_pert)
         torch.testing.assert_allclose(ret_prec, precision)
 
+    def test_calc_precision_divides_by_inflation_factor(self):
+        _, obs_cov, _ = self.algorithm._prepare_obs((self.obs, ))
+        _, hx_pert, _ = self.algorithm._prepare_back_obs(self.state, (self.obs,))
+        nr_obs, ens_size = hx_pert.shape
+        obs_cov = torch.tensor(obs_cov)
+        hx_pert = torch.tensor(hx_pert)
+        estimated_c = self.algorithm._compute_c(
+            hx_pert, obs_cov
+        )
+        prec_obs = torch.mm(estimated_c, hx_pert)
+        prec_back = (ens_size-1) * torch.eye(ens_size).double() / 1.1
+        precision = prec_back + prec_obs
+        self.algorithm.inf_factor = 1.1
+        ret_prec = self.algorithm._calc_precision(estimated_c, hx_pert)
+        torch.testing.assert_allclose(ret_prec, precision)
+
     def test_det_square_root_returns_weight_perts(self):
         obs_state, obs_cov, obs_grid = self.algorithm._prepare_obs((self.obs, ))
         hx_mean, hx_pert, _ = self.algorithm._prepare_back_obs(self.state,
