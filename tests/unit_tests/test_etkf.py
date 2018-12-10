@@ -49,6 +49,13 @@ BASE_PATH = os.path.dirname(os.path.realpath(__file__))
 DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
 
 
+def if_gpu_decorator(func):     # pragma: no cover
+    @unittest.skipIf(not torch.cuda.is_available(), "no GPU")
+    def newfunc(self, *args, **kwargs):
+        func(self, *args, **kwargs)
+    return newfunc
+
+
 class TestETKFilter(unittest.TestCase):
     def setUp(self):
         self.algorithm = ETKFilter()
@@ -57,6 +64,7 @@ class TestETKFilter(unittest.TestCase):
         obs_path = os.path.join(DATA_PATH, 'test_single_obs.nc')
         self.obs = xr.open_dataset(obs_path).load()
         self.obs.obs.operator = dummy_obs_operator
+        self.algorithm._set_back_prec(len(self.state.ensemble))
 
     def tearDown(self):
         self.state.close()
@@ -311,14 +319,10 @@ class TestETKFilter(unittest.TestCase):
         obs_cov = torch.tensor(obs_cov).double()
         estimated_c = self.algorithm._compute_c(hx_pert, obs_cov)
         prec_ana = self.algorithm._calc_precision(estimated_c, hx_pert)
-        evals, evects = torch.eig(prec_ana, eigenvectors=True)
-        evals = evals[:, 0]
-        evals_inv = 1 / evals
-        w_perts = torch.sqrt((ens_size-1) * evals_inv)
-        w_perts = torch.matmul(evects.t(), torch.diagflat(w_perts))
-        w_perts = torch.matmul(w_perts, evects)
+        cov_ana = torch.inverse(prec_ana)
+        w_perts = torch.sqrt((ens_size-1) * cov_ana)
 
-        ret_perts = self.algorithm._det_square_root(evals_inv, evects)
+        ret_perts = self.algorithm._det_square_root(cov_ana)
         torch.testing.assert_allclose(ret_perts, w_perts)
 
     def test_eigendecomposition_returns_eig_eiginv_evects(self):
@@ -354,16 +358,12 @@ class TestETKFilter(unittest.TestCase):
         estimated_c = self.algorithm._compute_c(hx_pert, obs_cov)
         prec_ana = self.algorithm._calc_precision(estimated_c, hx_pert)
 
-        evals, evects, evals_inv = self.algorithm._eigendecomp(prec_ana)
-
-        cov_analysed = torch.matmul(evects.t(), torch.diagflat(evals_inv))
-        cov_analysed = torch.matmul(cov_analysed, evects)
-
+        cov_analysed = torch.inverse(prec_ana)
         gain = torch.matmul(cov_analysed, estimated_c)
 
         w_mean = torch.matmul(gain, innov)
 
-        w_perts = self.algorithm._det_square_root(evals_inv, evects)
+        w_perts = self.algorithm._det_square_root(cov_analysed)
 
         ret_mean, ret_perts = self.algorithm._gen_weights(
             innov, hx_pert, obs_cov
@@ -468,6 +468,66 @@ class TestETKFilter(unittest.TestCase):
                                                    ana_time)
 
         xr.testing.assert_equal(ret_analysis, analysis)
+
+    def test_transfer_states_transfers_arguments_to_tensor(self):
+        obs_tuple = (self.obs, self.obs)
+        prepared_states = self.algorithm._prepare(self.state, obs_tuple)
+        ret_states = self.algorithm._states_to_torch(*prepared_states)
+        for k, state in enumerate(ret_states):
+            self.assertIsInstance(state, torch.Tensor)
+            np.testing.assert_array_equal(state.numpy(), prepared_states[k])
+
+    @if_gpu_decorator
+    def test_transfer_states_transfers_to_gpus(self):
+        self.algorithm.gpu = True
+        obs_tuple = (self.obs, self.obs)
+        prepared_states = self.algorithm._prepare(self.state, obs_tuple)
+        ret_states = self.algorithm._states_to_torch(*prepared_states)
+        for k, state in enumerate(ret_states):
+            self.assertIsInstance(state, torch.Tensor)
+            self.assertTrue(state.is_cuda)
+            np.testing.assert_array_equal(state.cpu().numpy(),
+                                          prepared_states[k])
+
+    def test_set_back_prec_sets_back_prec_to_tensor(self):
+        self.algorithm._back_prec = None
+        self.algorithm._set_back_prec(50)
+
+        back_prec = 49 * np.eye(50)
+        self.assertIsInstance(self.algorithm._back_prec, torch.Tensor)
+        np.testing.assert_array_equal(self.algorithm._back_prec.numpy(),
+                                      back_prec)
+
+    def test_set_back_prec_sets_back_prec_on_gpu(self):
+        self.algorithm.gpu = True
+        self.algorithm._set_back_prec(50)
+
+        back_prec = 49 * np.eye(50)
+        self.assertIsInstance(self.algorithm._back_prec, torch.Tensor)
+        self.assertTrue(self.algorithm._back_prec.is_cuda)
+        np.testing.assert_array_equal(self.algorithm._back_prec.cpu().numpy(),
+                                      back_prec)
+
+    def test_prepare_sets_back_prec(self):
+        self.algorithm._back_prec = None
+        obs_tuple = (self.obs, self.obs.copy())
+        ens_size = len(self.state.ensemble)
+        back_prec = (ens_size-1) * np.eye(ens_size)
+
+        _ = self.algorithm._prepare(self.state, obs_tuple)
+        self.assertIsInstance(self.algorithm._back_prec, torch.Tensor)
+        np.testing.assert_array_equal(self.algorithm._back_prec.numpy(),
+                                      back_prec)
+
+    def test_update_states_uses_states_to_torch(self):
+        ana_time = self.state.time[-1].values
+        obs_tuple = (self.obs, self.obs.copy())
+        prepared_states = self.algorithm._prepare(self.state, obs_tuple)
+        torch_states = self.algorithm._states_to_torch(*prepared_states)
+        trg = 'pytassim.assimilation.filter.etkf.ETKFilter._states_to_torch'
+        with patch(trg, return_value=torch_states) as torch_patch:
+            _ = self.algorithm.update_state(self.state, obs_tuple, ana_time)
+        torch_patch.assert_called_once()
 
 
 if __name__ == '__main__':

@@ -75,11 +75,18 @@ class ETKFilter(FilterAssimilation):
         background precision. An inflation factor greater one increases the
         ensemble spread, while a factor less one decreases the spread. Default
         is 1.0, which is the same as no inflation at all.
+    gpu : bool, optional
+        Indicator if the weight estimation should be done on either GPU (True)
+        or CPU (False): Default is None. For small models, estimation of the
+        weights on CPU is faster than on GPU!.
     """
-    def __init__(self, smoothing=False, inf_factor=1.0):
+    def __init__(self, smoothing=False, inf_factor=1.0, gpu=False):
         super().__init__()
         self.smoothing = smoothing
         self.inf_factor = inf_factor
+        self.gpu = False
+        self._back_prec = None
+        self._torch_dtype = torch.double
 
     def update_state(self, state, observations, analysis_time):
         """
@@ -116,7 +123,7 @@ class ETKFilter(FilterAssimilation):
         prepared_states = self._prepare(
             state, observations
         )[:-1]
-        torch_states = [torch.tensor(s) for s in prepared_states]
+        torch_states = self._states_to_torch(*prepared_states)
         w_mean, w_perts = self._gen_weights(*torch_states)
         if not self.smoothing:
             analysis_state = state.sel(time=[analysis_time, ])
@@ -175,8 +182,24 @@ class ETKFilter(FilterAssimilation):
         hx_mean, hx_perts, filtered_obs = self._prepare_back_obs(state,
                                                                  observations)
         obs_state, obs_cov, obs_grid = self._prepare_obs(filtered_obs)
+        self._set_back_prec(len(state.ensemble))
         innov = obs_state - hx_mean
         return innov, hx_perts, obs_cov, obs_grid
+
+    def _set_back_prec(self, ens_mems):
+        self._back_prec = torch.eye(ens_mems, dtype=self._torch_dtype)
+        if self.gpu:
+            self._back_prec = self._back_prec.cuda()
+        self._back_prec *= (ens_mems - 1)
+
+    def _states_to_torch(self, *states):
+        if self.gpu:
+            torch_states = [torch.tensor(s, dtype=self._torch_dtype).cuda()
+                            for s in states]
+        else:
+            torch_states = [torch.tensor(s, dtype=self._torch_dtype)
+                            for s in states]
+        return torch_states
 
     def _prepare_back_obs(self, state, observations):
         pseudo_obs, filtered_obs = self._apply_obs_operator(state, observations)
@@ -221,18 +244,23 @@ class ETKFilter(FilterAssimilation):
         return calculated_c, alpha
 
     def _calc_precision(self, c, hx_perts):
-        ens_size = hx_perts.size()[1]
         prec_obs = torch.matmul(c, hx_perts)
-        prec_back = (ens_size - 1) * torch.eye(ens_size).double()
-        prec_ana = prec_back / self.inf_factor + prec_obs
+        prec_ana = self._back_prec / self.inf_factor + prec_obs
         return prec_ana
 
     @staticmethod
-    def _det_square_root(evals_inv, evects):
+    def _det_square_root_eigen(evals_inv, evects):
         ens_size = evals_inv.size()[0]
         w_perts = torch.sqrt((ens_size - 1) * evals_inv)
         w_perts = torch.matmul(evects.t(), torch.diagflat(w_perts))
         w_perts = torch.matmul(w_perts, evects)
+        return w_perts
+
+    @staticmethod
+    def _det_square_root(cov_analysed):
+        ens_size = cov_analysed.size()[0]
+        w_perts_sq = (ens_size - 1) * cov_analysed
+        w_perts = torch.sqrt(w_perts_sq)
         return w_perts
 
     @staticmethod
@@ -297,14 +325,13 @@ class ETKFilter(FilterAssimilation):
         """
         estimated_c = self._compute_c(hx_perts, obs_cov, obs_weights)
         prec_ana = self._calc_precision(estimated_c, hx_perts)
-        evals, evects, evals_inv = self._eigendecomp(prec_ana)
+        cov_analysed = torch.inverse(prec_ana)
 
-        cov_analysed = torch.matmul(evects.t(), torch.diagflat(evals_inv))
-        cov_analysed = torch.matmul(cov_analysed, evects)
         gain = torch.matmul(cov_analysed, estimated_c)
         w_mean = torch.matmul(gain, innov)
 
-        w_perts = self._det_square_root(evals_inv, evects)
+        w_perts = self._det_square_root(cov_analysed)
+
         return w_mean, w_perts
 
     @staticmethod
@@ -346,7 +373,7 @@ class ETKFilter(FilterAssimilation):
         analysis : :py:class:`xarray.DataArray`
             The estimated analysis based on given state and weights.
         """
-        combined_weights = (w_mean+w_perts).numpy()
+        combined_weights = (w_mean + w_perts).numpy()
         ana_perts = self._weights_matmul(state_pert, combined_weights)
         analysis = state_mean + ana_perts
         return analysis

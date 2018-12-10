@@ -81,9 +81,14 @@ class LETKFilter(ETKFilter):
         background precision. An inflation factor greater one increases the
         ensemble spread, while a factor less one decreases the spread. Default
         is 1.0, which is the same as no inflation at all.
+    gpu : bool, optional
+        Indicator if the weight estimation should be done on either GPU (True)
+        or CPU (False): Default is None. For small models, estimation of the
+        weights on CPU is faster than on GPU!.
     """
-    def __init__(self, smoothing=False, localization=None, inf_factor=1.0):
-        super().__init__(smoothing=smoothing, inf_factor=inf_factor)
+    def __init__(self, smoothing=False, localization=None, inf_factor=1.0,
+                 gpu=False):
+        super().__init__(smoothing=smoothing, inf_factor=inf_factor, gpu=gpu)
         self.localization = localization
 
     def update_state(self, state, observations, analysis_time):
@@ -127,8 +132,8 @@ class LETKFilter(ETKFilter):
         analysis = []
         for grid_ind in state.grid.values:
             prepared_l = self._localize(grid_ind, prepared_states)
-            prepared_l = [torch.tensor(s) for s in prepared_l]
-            w_mean_l, w_perts_l = self._gen_weights(*prepared_l)
+            torch_state_l = self._states_to_torch(*prepared_l)
+            w_mean_l, w_perts_l = self._gen_weights(*torch_state_l)
             back_state_l = back_state.sel(grid=grid_ind)
             state_mean_l, state_perts_l = back_state_l.state.split_mean_perts()
             ana_l = self._apply_weights(w_mean_l, w_perts_l, state_mean_l,
