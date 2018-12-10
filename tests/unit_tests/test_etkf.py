@@ -310,21 +310,6 @@ class TestETKFilter(unittest.TestCase):
         ret_prec = self.algorithm._calc_precision(estimated_c, hx_pert)
         torch.testing.assert_allclose(ret_prec, precision)
 
-    def test_det_square_root_returns_weight_perts(self):
-        obs_state, obs_cov, obs_grid = self.algorithm._prepare_obs((self.obs, ))
-        hx_mean, hx_pert, _ = self.algorithm._prepare_back_obs(self.state,
-                                                               (self.obs, ))
-        nr_obs, ens_size = hx_pert.shape
-        hx_pert = torch.tensor(hx_pert).double()
-        obs_cov = torch.tensor(obs_cov).double()
-        estimated_c = self.algorithm._compute_c(hx_pert, obs_cov)
-        prec_ana = self.algorithm._calc_precision(estimated_c, hx_pert)
-        cov_ana = torch.inverse(prec_ana)
-        w_perts = torch.sqrt((ens_size-1) * cov_ana)
-
-        ret_perts = self.algorithm._det_square_root(cov_ana)
-        torch.testing.assert_allclose(ret_perts, w_perts)
-
     def test_eigendecomposition_returns_eig_eiginv_evects(self):
         obs_state, obs_cov, obs_grid = self.algorithm._prepare_obs((self.obs, ))
         hx_mean, hx_pert, _ = self.algorithm._prepare_back_obs(self.state,
@@ -335,15 +320,70 @@ class TestETKFilter(unittest.TestCase):
         estimated_c = self.algorithm._compute_c(hx_pert, obs_cov)
         prec_ana = self.algorithm._calc_precision(estimated_c, hx_pert)
 
-        evals, evects = torch.eig(prec_ana, eigenvectors=True)
-        evals = evals[:, 0]
+        evals, evects = np.linalg.eigh(prec_ana.numpy())
+        evals[evals < 0] = 0
         evals_inv = 1 / evals
+        evects_inv = np.linalg.inv(evects)
 
-        ret_evals, ret_evects, ret_einv = self.algorithm._eigendecomp(
-            prec_ana)
-        torch.testing.assert_allclose(ret_evals, evals)
-        torch.testing.assert_allclose(ret_evects, evects)
-        torch.testing.assert_allclose(ret_einv, evals_inv)
+        ret_evd = self.algorithm._eigendecomp(prec_ana)
+        ret_evals, ret_evects, ret_einv, ret_evects_inv = ret_evd
+        np.testing.assert_allclose(ret_evals.numpy(), evals)
+        np.testing.assert_allclose(ret_evects.numpy(), evects)
+        np.testing.assert_allclose(ret_einv.numpy(), evals_inv)
+        np.testing.assert_allclose(ret_evects_inv.numpy(), evects_inv)
+
+    def test_eigendecomposition_can_be_reverted(self):
+        obs_state, obs_cov, obs_grid = self.algorithm._prepare_obs((self.obs, ))
+        hx_mean, hx_pert, _ = self.algorithm._prepare_back_obs(self.state,
+                                                               (self.obs, ))
+        hx_pert = torch.tensor(hx_pert).double()
+        obs_cov = torch.tensor(obs_cov).double()
+
+        estimated_c = self.algorithm._compute_c(hx_pert, obs_cov)
+        prec_ana = self.algorithm._calc_precision(estimated_c, hx_pert)
+        ret_evd = self.algorithm._eigendecomp(prec_ana)
+        ret_evals, ret_evects, ret_evals_inv, ret_evects_inv = ret_evd
+        recon_matrix = torch.matmul(ret_evects, torch.diagflat(ret_evals))
+        recon_matrix = torch.matmul(recon_matrix, ret_evects_inv)
+
+        torch.testing.assert_allclose(recon_matrix, prec_ana)
+
+    def test_eigen_cov_variance(self):
+        obs_state, obs_cov, obs_grid = self.algorithm._prepare_obs((self.obs, ))
+        hx_mean, hx_pert, _ = self.algorithm._prepare_back_obs(self.state,
+                                                               (self.obs, ))
+        hx_pert = torch.tensor(hx_pert).double()
+        obs_cov = torch.tensor(obs_cov).double()
+
+        estimated_c = self.algorithm._compute_c(hx_pert, obs_cov)
+        prec_ana = self.algorithm._calc_precision(estimated_c, hx_pert)
+        evd = self.algorithm._eigendecomp(prec_ana)
+        evals, evects, evals_inv, evects_inv = evd
+        cov_ana = torch.matmul(evects, torch.diagflat(evals_inv))
+        cov_ana = torch.matmul(cov_ana, evects_inv)
+
+        cov_ana_inv = torch.inverse(prec_ana)
+        torch.testing.assert_allclose(cov_ana_inv, cov_ana)
+
+    def test_det_square_root_eigen_returns_weight_perts(self):
+        obs_state, obs_cov, obs_grid = self.algorithm._prepare_obs((self.obs, ))
+        hx_mean, hx_pert, _ = self.algorithm._prepare_back_obs(self.state,
+                                                               (self.obs, ))
+        nr_obs, ens_size = hx_pert.shape
+        hx_pert = torch.tensor(hx_pert).double()
+        obs_cov = torch.tensor(obs_cov).double()
+        estimated_c = self.algorithm._compute_c(hx_pert, obs_cov)
+        prec_ana = self.algorithm._calc_precision(estimated_c, hx_pert)
+        evd = self.algorithm._eigendecomp(prec_ana)
+        evals, evects, eval_inv, evects_inv = evd
+
+        w_perts = torch.sqrt((ens_size-1) * eval_inv)
+        w_perts = torch.matmul(evects, torch.diagflat(w_perts))
+        w_perts = torch.matmul(w_perts, evects_inv)
+        ret_perts = self.algorithm._det_square_root_eigen(eval_inv, evects,
+                                                          evects_inv)
+        torch.testing.assert_allclose(ret_perts, w_perts)
+        torch.testing.assert_allclose(torch.sum(ret_perts, dim=0), 1)
 
     def test_gen_weights_returns_mean_pert_weight(self):
         obs_state, obs_cov, obs_grid = self.algorithm._prepare_obs((self.obs, ))
@@ -357,13 +397,17 @@ class TestETKFilter(unittest.TestCase):
 
         estimated_c = self.algorithm._compute_c(hx_pert, obs_cov)
         prec_ana = self.algorithm._calc_precision(estimated_c, hx_pert)
+        evd = self.algorithm._eigendecomp(prec_ana)
+        evals, evects, evals_inv, evects_inv = evd
+        cov_analysed = torch.matmul(evects, torch.diagflat(evals_inv))
+        cov_analysed = torch.matmul(cov_analysed, evects_inv)
 
-        cov_analysed = torch.inverse(prec_ana)
         gain = torch.matmul(cov_analysed, estimated_c)
 
         w_mean = torch.matmul(gain, innov)
 
-        w_perts = self.algorithm._det_square_root(cov_analysed)
+        w_perts = self.algorithm._det_square_root_eigen(evals_inv, evects,
+                                                        evects_inv)
 
         ret_mean, ret_perts = self.algorithm._gen_weights(
             innov, hx_pert, obs_cov
@@ -528,6 +572,14 @@ class TestETKFilter(unittest.TestCase):
         with patch(trg, return_value=torch_states) as torch_patch:
             _ = self.algorithm.update_state(self.state, obs_tuple, ana_time)
         torch_patch.assert_called_once()
+
+    def test_algorithm_works(self):
+        self.algorithm.inf_factor = 1.2
+        ana_time = self.state.time[-1].values
+        obs_tuple = (self.obs, self.obs.copy())
+        assimilated_state = self.algorithm.assimilate(self.state, obs_tuple,
+                                                      ana_time)
+        self.assertFalse(np.any(np.isnan(assimilated_state.values)))
 
 
 if __name__ == '__main__':

@@ -164,6 +164,14 @@ class TestLETKF(unittest.TestCase):
             _ = self.algorithm.update_state(self.state, obs_tuple, ana_time)
         self.assertEqual(torch_patch.call_count, len(self.state.grid))
 
+    def test_algorithm_works(self):
+        self.algorithm.inf_factor = 1.1
+        ana_time = self.state.time[-1].values
+        obs_tuple = (self.obs, self.obs.copy())
+        assimilated_state = self.algorithm.assimilate(self.state, obs_tuple,
+                                                      ana_time)
+        self.assertFalse(np.any(np.isnan(assimilated_state.values)))
+
 
 if __name__ == '__main__':
     unittest.main()
