@@ -40,20 +40,13 @@ import scipy.linalg.blas
 import pytassim.state
 import pytassim.observation
 from pytassim.assimilation.filter.etkf import ETKFilter
-from pytassim.testing import dummy_obs_operator
+from pytassim.testing import dummy_obs_operator, if_gpu_decorator
 
 
 logging.basicConfig(level=logging.DEBUG)
 
 BASE_PATH = os.path.dirname(os.path.realpath(__file__))
 DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
-
-
-def if_gpu_decorator(func):     # pragma: no cover
-    @unittest.skipIf(not torch.cuda.is_available(), "no GPU")
-    def newfunc(self, *args, **kwargs):
-        func(self, *args, **kwargs)
-    return newfunc
 
 
 class TestETKFilter(unittest.TestCase):
