@@ -31,6 +31,7 @@ import warnings
 # External modules
 import xarray as xr
 import scipy.linalg
+import torch
 
 # Internal modules
 from pytassim.state import StateError
@@ -47,8 +48,17 @@ class BaseAssimilation(object):
     assimilation, one needs to overwrite
     :py:meth:`~pytassim.assimilation.base.BaseAssimilation.update_state`.
     """
-    def __init__(self):
-        pass
+    def __init__(self, gpu):
+        self.gpu = gpu
+
+    def _states_to_torch(self, *states):
+        if self.gpu:
+            torch_states = [torch.tensor(s, dtype=self._torch_dtype).cuda()
+                            for s in states]
+        else:
+            torch_states = [torch.tensor(s, dtype=self._torch_dtype)
+                            for s in states]
+        return torch_states
 
     @staticmethod
     def _validate_state(state):

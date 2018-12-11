@@ -81,10 +81,9 @@ class ETKFilter(FilterAssimilation):
         weights on CPU is faster than on GPU!.
     """
     def __init__(self, smoothing=False, inf_factor=1.0, gpu=False):
-        super().__init__()
+        super().__init__(gpu=gpu)
         self.smoothing = smoothing
         self.inf_factor = inf_factor
-        self.gpu = gpu
         self._back_prec = None
         self._torch_dtype = torch.double
 
@@ -191,15 +190,6 @@ class ETKFilter(FilterAssimilation):
         if self.gpu:
             self._back_prec = self._back_prec.cuda()
         self._back_prec *= (ens_mems - 1)
-
-    def _states_to_torch(self, *states):
-        if self.gpu:
-            torch_states = [torch.tensor(s, dtype=self._torch_dtype).cuda()
-                            for s in states]
-        else:
-            torch_states = [torch.tensor(s, dtype=self._torch_dtype)
-                            for s in states]
-        return torch_states
 
     def _prepare_back_obs(self, state, observations):
         pseudo_obs, filtered_obs = self._apply_obs_operator(state, observations)
