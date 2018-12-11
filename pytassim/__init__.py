@@ -3,4 +3,4 @@ from .state import ModelState
 
 __all__ = ['Observation', 'ModelState']
 
-__version__ = "0.0.2"
+__version__ = "0.1.0"
