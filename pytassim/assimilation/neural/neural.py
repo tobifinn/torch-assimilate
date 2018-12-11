@@ -44,10 +44,10 @@ class NeuralAssimilation(BaseAssimilation):
 
     Parameters
     ----------
-    module : child of :py:class:`torch.nn.Module`
-        This module is used to assimilate given observations into given state.
-        The module needs an ``assimilate`` method, where state, flattened
-        observations and flattened observation covariance is given. This module
+    model : child of :py:class:`torch.nn.Module`
+        This model is used to assimilate given observations into given state.
+        The model needs an ``assimilate`` method, where state, flattened
+        observations and flattened observation covariance is given. This model
         is transferred to specified device.
     smoother : bool, optional
         This bool indicates if given `state` and `observations` should be
@@ -57,12 +57,26 @@ class NeuralAssimilation(BaseAssimilation):
     gpu : bool, optional
         This boolean indicates if the assimilation should be done on GPU (True)
         or CPU (False). Default value is False, indicating computations on CPU.
-        This flag transfers also given module to CPU or GPU.
+        This flag transfers also given model to CPU or GPU.
     """
-    def __init__(self, module, smoother=True, gpu=False):
+    def __init__(self, model, smoother=True, gpu=False):
         super().__init__(gpu=gpu)
+        self._model = None
         self.smoother = smoother
-        self.module = module
+        self.model = model
+
+    @property
+    def model(self):
+        return self._model
+
+    @model.setter
+    def model(self, new_model):
+        if not hasattr(new_model, 'assimilate'):
+            raise TypeError('Given model is not a valid assimilation model!')
+        if self.gpu:
+            self._model = new_model.cuda()
+        else:
+            self._model = new_model.cpu()
 
     def update_state(self, state, observations, analysis_time):
         """
@@ -71,7 +85,7 @@ class NeuralAssimilation(BaseAssimilation):
         observations are localized to given `analysis_time`, if ``smoother`` is
         set to False. In an additional step, the prepared states are
         transferred to :py:class:`torch.tensor`, on either CPU or GPU, depending
-        on set `gpu` flag. :py:meth:`self.module.assimilate` is called for
+        on set `gpu` flag. :py:meth:`self.model.assimilate` is called for
         assimilation with prepared state, observations and observation
         covariance. Estimated analysis is converted into a
         :py:class:`xarray.DataArray`, which is returned.
@@ -80,7 +94,7 @@ class NeuralAssimilation(BaseAssimilation):
         ----------
         state : :py:class:`xarray.DataArray`
             This state is localized in time and passed to
-            :py:meth:`self.module.assimilate` as first argument. It is
+            :py:meth:`self.model.assimilate` as first argument. It is
             further updated by this assimilation algorithm and given
             ``observation``. This :py:class:`~xarray.DataArray` should have
             four coordinates, which are specified in
@@ -111,7 +125,7 @@ class NeuralAssimilation(BaseAssimilation):
         obs_state, obs_cov, _ = self._prepare_obs(observations)
         prepared_torch = self._states_to_torch(back_state.values, obs_state,
                                                obs_cov)
-        torch_analysis = self.module.assimilate(*prepared_torch)
+        torch_analysis = self.model.assimilate(*prepared_torch)
         if self.gpu:
             torch_analysis = torch_analysis.cpu()
         analysis = back_state.copy(deep=True, data=torch_analysis.numpy())

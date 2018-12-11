@@ -44,10 +44,10 @@ BASE_PATH = os.path.dirname(os.path.realpath(__file__))
 DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
 
 
-class TestClass(unittest.TestCase):
+class TestNeuralAssimilation(unittest.TestCase):
     def setUp(self):
         self.module = DummyNeuralModule()
-        self.algorithm = NeuralAssimilation(module=self.module)
+        self.algorithm = NeuralAssimilation(model=self.module)
         state_path = os.path.join(DATA_PATH, 'test_state.nc')
         self.state = xr.open_dataarray(state_path).load()
         obs_path = os.path.join(DATA_PATH, 'test_single_obs.nc')
@@ -122,7 +122,7 @@ class TestClass(unittest.TestCase):
 
     @if_gpu_decorator
     def test_update_state_copies_analysis_back_to_cpu(self):
-        self.module.cuda()
+        self.module = self.module.cuda()
         self.algorithm.gpu = True
         ana_time = self.state.time[-1].values
         obs_tuple = (self.obs, self.obs)
@@ -171,6 +171,35 @@ class TestClass(unittest.TestCase):
         torch.testing.assert_allclose(assimilate_patch.call_args[0][2],
                                       torch_states[2])
         xr.testing.assert_identical(ret_ana, analysis)
+
+    def test_module_gets_private_module(self):
+        self.algorithm._model = 123
+        self.assertEqual(self.algorithm.model, 123)
+
+    def test_module_sets_private_module(self):
+        self.algorithm._model = None
+        self.algorithm.model = self.module
+        self.assertIsInstance(self.algorithm._model, torch.nn.Module)
+
+    def test_module_raises_type_error_if_not_assimilate(self):
+        with self.assertRaises(TypeError):
+            self.algorithm.model = self.state
+
+    @if_gpu_decorator
+    def test_module_copies_module_to_cpu_if_gpu_false(self):
+        self.module.linear = torch.nn.Linear(16, 8)
+        self.module = self.module.cuda()
+        self.algorithm.gpu = False
+        self.algorithm.model = self.module
+        self.assertFalse(next(self.algorithm.model.parameters()).is_cuda)
+
+    @if_gpu_decorator
+    def test_module_copies_module_to_gpu_if_gpu_true(self):
+        self.module.linear = torch.nn.Linear(16, 8)
+        self.module = self.module.cpu()
+        self.algorithm.gpu = True
+        self.algorithm.model = self.module
+        self.assertTrue(next(self.algorithm.model.parameters()).is_cuda)
 
 
 if __name__ == '__main__':
