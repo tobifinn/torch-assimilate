@@ -73,6 +73,7 @@ class NeuralAssimilation(BaseAssimilation):
     def model(self, new_model):
         if not hasattr(new_model, 'assimilate'):
             raise TypeError('Given model is not a valid assimilation model!')
+        new_model = new_model.type(self.dtype)
         if self.gpu:
             self._model = new_model.cuda()
         else:

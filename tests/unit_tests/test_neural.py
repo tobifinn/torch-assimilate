@@ -201,6 +201,13 @@ class TestNeuralAssimilation(unittest.TestCase):
         self.algorithm.model = self.module
         self.assertTrue(next(self.algorithm.model.parameters()).is_cuda)
 
+    def test_module_casts_to_dtype(self):
+        self.module.linear = torch.nn.Linear(16, 8)
+        self.module = self.module.type(torch.float16)
+        self.algorithm.model = self.module
+        self.assertIsInstance(next(self.algorithm.model.parameters()),
+                              torch.DoubleTensor)
+
 
 if __name__ == '__main__':
     unittest.main()
