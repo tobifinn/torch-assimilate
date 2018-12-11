@@ -139,6 +139,39 @@ class TestClass(unittest.TestCase):
                                                   ana_time)
         xr.testing.assert_identical(ret_ana, analysis)
 
+    def test_if_not_smoother_use_analysis_time(self):
+        self.algorithm.smoother = False
+        ana_time = self.state.time[-1].values
+        obs_tuple = (self.obs, self.obs)
+        obs_state, obs_cov, _ = self.algorithm._prepare_obs(obs_tuple)
+        analysis = self.state.sel(time=[ana_time, ])
+        ret_ana = self.algorithm.update_state(self.state, obs_tuple,
+                                              ana_time)
+        xr.testing.assert_identical(ret_ana, analysis)
+
+    def test_if_not_smoother_constrains_back_obs(self):
+        self.algorithm.smoother = False
+        ana_time = self.state.time[-1].values
+        timed_obs = self.obs.sel(time=[ana_time, ])
+        analysis = self.state.sel(time=[ana_time, ])
+        timed_obs_tuple = (timed_obs, timed_obs)
+        obs_state, obs_cov, _ = self.algorithm._prepare_obs(timed_obs_tuple)
+        torch_states = self.algorithm._states_to_torch(
+            analysis.values, obs_state, obs_cov
+        )
+        trg = 'pytassim.testing.dummy.DummyNeuralModule.assimilate'
+        with patch(trg, return_value=torch_states[0]) as assimilate_patch:
+            obs_tuple = (self.obs, self.obs)
+            ret_ana = self.algorithm.update_state(self.state, obs_tuple,
+                                                  ana_time)
+        torch.testing.assert_allclose(assimilate_patch.call_args[0][0],
+                                      torch_states[0])
+        torch.testing.assert_allclose(assimilate_patch.call_args[0][1],
+                                      torch_states[1])
+        torch.testing.assert_allclose(assimilate_patch.call_args[0][2],
+                                      torch_states[2])
+        xr.testing.assert_identical(ret_ana, analysis)
+
 
 if __name__ == '__main__':
     unittest.main()
