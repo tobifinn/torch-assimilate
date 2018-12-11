@@ -48,15 +48,16 @@ class BaseAssimilation(object):
     assimilation, one needs to overwrite
     :py:meth:`~pytassim.assimilation.base.BaseAssimilation.update_state`.
     """
-    def __init__(self, gpu):
+    def __init__(self, gpu=False):
         self.gpu = gpu
+        self.dtype = torch.double
 
     def _states_to_torch(self, *states):
         if self.gpu:
-            torch_states = [torch.tensor(s, dtype=self._torch_dtype).cuda()
+            torch_states = [torch.tensor(s, dtype=self.dtype).cuda()
                             for s in states]
         else:
-            torch_states = [torch.tensor(s, dtype=self._torch_dtype)
+            torch_states = [torch.tensor(s, dtype=self.dtype)
                             for s in states]
         return torch_states
 

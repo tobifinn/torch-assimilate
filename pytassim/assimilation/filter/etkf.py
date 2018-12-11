@@ -85,7 +85,6 @@ class ETKFilter(FilterAssimilation):
         self.smoothing = smoothing
         self.inf_factor = inf_factor
         self._back_prec = None
-        self._torch_dtype = torch.double
 
     def update_state(self, state, observations, analysis_time):
         """
@@ -186,7 +185,7 @@ class ETKFilter(FilterAssimilation):
         return innov, hx_perts, obs_cov, obs_grid
 
     def _set_back_prec(self, ens_mems):
-        self._back_prec = torch.eye(ens_mems, dtype=self._torch_dtype)
+        self._back_prec = torch.eye(ens_mems, dtype=self.dtype)
         if self.gpu:
             self._back_prec = self._back_prec.cuda()
         self._back_prec *= (ens_mems - 1)
