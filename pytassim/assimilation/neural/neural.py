@@ -37,10 +37,30 @@ logger = logging.getLogger(__name__)
 
 class NeuralAssimilation(BaseAssimilation):
     """
-    NeuralAssimilation is a base class for all data assimilation algorithms,
-    which are based on neural networks. This class can be used for fast
-    prototyping of these algorithms. For fast prototyping some attributes and
-    methods are added compared to
-    :py:class:`~pytassim.assimilation.base.BaseAssimilation`.
+    NeuralAssimilation is a class to assimilate observations into a state with
+    neural networks. This class supports PyTorch natively. The ``assimilate``
+    method of a given :py:class:`torch.nn.Module` is used to to assimilate the
+    given state. No observation operator is needed for given observations.
+
+    Parameters
+    ----------
+    module : child of :py:class:`torch.nn.Module`
+        This module is used to assimilate given observations into given state.
+        The module needs an ``assimilate`` method, where state, flattened
+        observations and flattened observation covariance is given.
+    gpu : bool, optional
+        This boolean indicates if the assimilation should be done on gpu (True)
+        or cpu (False). Default value is False, indicating computations on cpu.
     """
-    pass
+    def __init__(self, module, gpu=False):
+        super().__init__(gpu=gpu)
+        self.module = module
+
+    def update_state(self, state, observations, analysis_time):
+        obs_state, obs_cov, _ = self._prepare_obs(observations)
+        prepared_torch = self._states_to_torch(state.values, obs_state, obs_cov)
+        torch_analysis = self.module.assimilate(*prepared_torch)
+        if self.gpu:
+            torch_analysis = torch_analysis.cpu()
+        analysis = state.copy(deep=True, data=torch_analysis.numpy())
+        return analysis
