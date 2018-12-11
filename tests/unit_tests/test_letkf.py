@@ -154,6 +154,24 @@ class TestLETKF(unittest.TestCase):
         letkf_analysis = self.algorithm.assimilate(self.state, obs_tuple)
         xr.testing.assert_allclose(letkf_analysis, etkf_analysis)
 
+    def test_update_states_uses_states_to_torch(self):
+        ana_time = self.state.time[-1].values
+        obs_tuple = (self.obs, self.obs.copy())
+        prepared_states = self.algorithm._prepare(self.state, obs_tuple)
+        torch_states = self.algorithm._states_to_torch(*prepared_states)
+        trg = 'pytassim.assimilation.filter.etkf.ETKFilter._states_to_torch'
+        with patch(trg, return_value=torch_states) as torch_patch:
+            _ = self.algorithm.update_state(self.state, obs_tuple, ana_time)
+        self.assertEqual(torch_patch.call_count, len(self.state.grid))
+
+    def test_algorithm_works(self):
+        self.algorithm.inf_factor = 1.1
+        ana_time = self.state.time[-1].values
+        obs_tuple = (self.obs, self.obs.copy())
+        assimilated_state = self.algorithm.assimilate(self.state, obs_tuple,
+                                                      ana_time)
+        self.assertFalse(np.any(np.isnan(assimilated_state.values)))
+
 
 if __name__ == '__main__':
     unittest.main()

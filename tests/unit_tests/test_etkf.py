@@ -40,7 +40,7 @@ import scipy.linalg.blas
 import pytassim.state
 import pytassim.observation
 from pytassim.assimilation.filter.etkf import ETKFilter
-from pytassim.testing import dummy_obs_operator
+from pytassim.testing import dummy_obs_operator, if_gpu_decorator
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -57,6 +57,7 @@ class TestETKFilter(unittest.TestCase):
         obs_path = os.path.join(DATA_PATH, 'test_single_obs.nc')
         self.obs = xr.open_dataset(obs_path).load()
         self.obs.obs.operator = dummy_obs_operator
+        self.algorithm._set_back_prec(len(self.state.ensemble))
 
     def tearDown(self):
         self.state.close()
@@ -286,24 +287,21 @@ class TestETKFilter(unittest.TestCase):
         ret_prec = self.algorithm._calc_precision(estimated_c, hx_pert)
         torch.testing.assert_allclose(ret_prec, precision)
 
-    def test_det_square_root_returns_weight_perts(self):
-        obs_state, obs_cov, obs_grid = self.algorithm._prepare_obs((self.obs, ))
-        hx_mean, hx_pert, _ = self.algorithm._prepare_back_obs(self.state,
-                                                               (self.obs, ))
+    def test_calc_precision_divides_by_inflation_factor(self):
+        _, obs_cov, _ = self.algorithm._prepare_obs((self.obs, ))
+        _, hx_pert, _ = self.algorithm._prepare_back_obs(self.state, (self.obs,))
         nr_obs, ens_size = hx_pert.shape
-        hx_pert = torch.tensor(hx_pert).double()
-        obs_cov = torch.tensor(obs_cov).double()
-        estimated_c = self.algorithm._compute_c(hx_pert, obs_cov)
-        prec_ana = self.algorithm._calc_precision(estimated_c, hx_pert)
-        evals, evects = torch.eig(prec_ana, eigenvectors=True)
-        evals = evals[:, 0]
-        evals_inv = 1 / evals
-        w_perts = torch.sqrt((ens_size-1) * evals_inv)
-        w_perts = torch.matmul(evects.t(), torch.diagflat(w_perts))
-        w_perts = torch.matmul(w_perts, evects)
-
-        ret_perts = self.algorithm._det_square_root(evals_inv, evects)
-        torch.testing.assert_allclose(ret_perts, w_perts)
+        obs_cov = torch.tensor(obs_cov)
+        hx_pert = torch.tensor(hx_pert)
+        estimated_c = self.algorithm._compute_c(
+            hx_pert, obs_cov
+        )
+        prec_obs = torch.mm(estimated_c, hx_pert)
+        prec_back = (ens_size-1) * torch.eye(ens_size).double() / 1.1
+        precision = prec_back + prec_obs
+        self.algorithm.inf_factor = 1.1
+        ret_prec = self.algorithm._calc_precision(estimated_c, hx_pert)
+        torch.testing.assert_allclose(ret_prec, precision)
 
     def test_eigendecomposition_returns_eig_eiginv_evects(self):
         obs_state, obs_cov, obs_grid = self.algorithm._prepare_obs((self.obs, ))
@@ -315,15 +313,70 @@ class TestETKFilter(unittest.TestCase):
         estimated_c = self.algorithm._compute_c(hx_pert, obs_cov)
         prec_ana = self.algorithm._calc_precision(estimated_c, hx_pert)
 
-        evals, evects = torch.eig(prec_ana, eigenvectors=True)
-        evals = evals[:, 0]
+        evals, evects = np.linalg.eigh(prec_ana.numpy())
+        evals[evals < 0] = 0
         evals_inv = 1 / evals
+        evects_inv = np.linalg.inv(evects)
 
-        ret_evals, ret_evects, ret_einv = self.algorithm._eigendecomp(
-            prec_ana)
-        torch.testing.assert_allclose(ret_evals, evals)
-        torch.testing.assert_allclose(ret_evects, evects)
-        torch.testing.assert_allclose(ret_einv, evals_inv)
+        ret_evd = self.algorithm._eigendecomp(prec_ana)
+        ret_evals, ret_evects, ret_einv, ret_evects_inv = ret_evd
+        np.testing.assert_allclose(ret_evals.numpy(), evals)
+        np.testing.assert_allclose(ret_evects.numpy(), evects)
+        np.testing.assert_allclose(ret_einv.numpy(), evals_inv)
+        np.testing.assert_allclose(ret_evects_inv.numpy(), evects_inv)
+
+    def test_eigendecomposition_can_be_reverted(self):
+        obs_state, obs_cov, obs_grid = self.algorithm._prepare_obs((self.obs, ))
+        hx_mean, hx_pert, _ = self.algorithm._prepare_back_obs(self.state,
+                                                               (self.obs, ))
+        hx_pert = torch.tensor(hx_pert).double()
+        obs_cov = torch.tensor(obs_cov).double()
+
+        estimated_c = self.algorithm._compute_c(hx_pert, obs_cov)
+        prec_ana = self.algorithm._calc_precision(estimated_c, hx_pert)
+        ret_evd = self.algorithm._eigendecomp(prec_ana)
+        ret_evals, ret_evects, ret_evals_inv, ret_evects_inv = ret_evd
+        recon_matrix = torch.matmul(ret_evects, torch.diagflat(ret_evals))
+        recon_matrix = torch.matmul(recon_matrix, ret_evects_inv)
+
+        torch.testing.assert_allclose(recon_matrix, prec_ana)
+
+    def test_eigen_cov_variance(self):
+        obs_state, obs_cov, obs_grid = self.algorithm._prepare_obs((self.obs, ))
+        hx_mean, hx_pert, _ = self.algorithm._prepare_back_obs(self.state,
+                                                               (self.obs, ))
+        hx_pert = torch.tensor(hx_pert).double()
+        obs_cov = torch.tensor(obs_cov).double()
+
+        estimated_c = self.algorithm._compute_c(hx_pert, obs_cov)
+        prec_ana = self.algorithm._calc_precision(estimated_c, hx_pert)
+        evd = self.algorithm._eigendecomp(prec_ana)
+        evals, evects, evals_inv, evects_inv = evd
+        cov_ana = torch.matmul(evects, torch.diagflat(evals_inv))
+        cov_ana = torch.matmul(cov_ana, evects_inv)
+
+        cov_ana_inv = torch.inverse(prec_ana)
+        torch.testing.assert_allclose(cov_ana_inv, cov_ana)
+
+    def test_det_square_root_eigen_returns_weight_perts(self):
+        obs_state, obs_cov, obs_grid = self.algorithm._prepare_obs((self.obs, ))
+        hx_mean, hx_pert, _ = self.algorithm._prepare_back_obs(self.state,
+                                                               (self.obs, ))
+        nr_obs, ens_size = hx_pert.shape
+        hx_pert = torch.tensor(hx_pert).double()
+        obs_cov = torch.tensor(obs_cov).double()
+        estimated_c = self.algorithm._compute_c(hx_pert, obs_cov)
+        prec_ana = self.algorithm._calc_precision(estimated_c, hx_pert)
+        evd = self.algorithm._eigendecomp(prec_ana)
+        evals, evects, eval_inv, evects_inv = evd
+
+        w_perts = torch.sqrt((ens_size-1) * eval_inv)
+        w_perts = torch.matmul(evects, torch.diagflat(w_perts))
+        w_perts = torch.matmul(w_perts, evects_inv)
+        ret_perts = self.algorithm._det_square_root_eigen(eval_inv, evects,
+                                                          evects_inv)
+        torch.testing.assert_allclose(ret_perts, w_perts)
+        torch.testing.assert_allclose(torch.sum(ret_perts, dim=0), 1)
 
     def test_gen_weights_returns_mean_pert_weight(self):
         obs_state, obs_cov, obs_grid = self.algorithm._prepare_obs((self.obs, ))
@@ -337,17 +390,17 @@ class TestETKFilter(unittest.TestCase):
 
         estimated_c = self.algorithm._compute_c(hx_pert, obs_cov)
         prec_ana = self.algorithm._calc_precision(estimated_c, hx_pert)
-
-        evals, evects, evals_inv = self.algorithm._eigendecomp(prec_ana)
-
-        cov_analysed = torch.matmul(evects.t(), torch.diagflat(evals_inv))
-        cov_analysed = torch.matmul(cov_analysed, evects)
+        evd = self.algorithm._eigendecomp(prec_ana)
+        evals, evects, evals_inv, evects_inv = evd
+        cov_analysed = torch.matmul(evects, torch.diagflat(evals_inv))
+        cov_analysed = torch.matmul(cov_analysed, evects_inv)
 
         gain = torch.matmul(cov_analysed, estimated_c)
 
         w_mean = torch.matmul(gain, innov)
 
-        w_perts = self.algorithm._det_square_root(evals_inv, evects)
+        w_perts = self.algorithm._det_square_root_eigen(evals_inv, evects,
+                                                        evects_inv)
 
         ret_mean, ret_perts = self.algorithm._gen_weights(
             innov, hx_pert, obs_cov
@@ -452,6 +505,75 @@ class TestETKFilter(unittest.TestCase):
                                                    ana_time)
 
         xr.testing.assert_equal(ret_analysis, analysis)
+
+    def test_transfer_states_transfers_arguments_to_tensor(self):
+        obs_tuple = (self.obs, self.obs)
+        prepared_states = self.algorithm._prepare(self.state, obs_tuple)
+        ret_states = self.algorithm._states_to_torch(*prepared_states)
+        for k, state in enumerate(ret_states):
+            self.assertIsInstance(state, torch.Tensor)
+            np.testing.assert_array_equal(state.numpy(), prepared_states[k])
+
+    @if_gpu_decorator
+    def test_transfer_states_transfers_to_gpus(self):
+        self.algorithm.gpu = True
+        obs_tuple = (self.obs, self.obs)
+        prepared_states = self.algorithm._prepare(self.state, obs_tuple)
+        ret_states = self.algorithm._states_to_torch(*prepared_states)
+        for k, state in enumerate(ret_states):
+            self.assertIsInstance(state, torch.Tensor)
+            self.assertTrue(state.is_cuda)
+            np.testing.assert_array_equal(state.cpu().numpy(),
+                                          prepared_states[k])
+
+    def test_set_back_prec_sets_back_prec_to_tensor(self):
+        self.algorithm._back_prec = None
+        self.algorithm._set_back_prec(50)
+
+        back_prec = 49 * np.eye(50)
+        self.assertIsInstance(self.algorithm._back_prec, torch.Tensor)
+        np.testing.assert_array_equal(self.algorithm._back_prec.numpy(),
+                                      back_prec)
+
+    @if_gpu_decorator
+    def test_set_back_prec_sets_back_prec_on_gpu(self):
+        self.algorithm.gpu = True
+        self.algorithm._set_back_prec(50)
+
+        back_prec = 49 * np.eye(50)
+        self.assertIsInstance(self.algorithm._back_prec, torch.Tensor)
+        self.assertTrue(self.algorithm._back_prec.is_cuda)
+        np.testing.assert_array_equal(self.algorithm._back_prec.cpu().numpy(),
+                                      back_prec)
+
+    def test_prepare_sets_back_prec(self):
+        self.algorithm._back_prec = None
+        obs_tuple = (self.obs, self.obs.copy())
+        ens_size = len(self.state.ensemble)
+        back_prec = (ens_size-1) * np.eye(ens_size)
+
+        _ = self.algorithm._prepare(self.state, obs_tuple)
+        self.assertIsInstance(self.algorithm._back_prec, torch.Tensor)
+        np.testing.assert_array_equal(self.algorithm._back_prec.numpy(),
+                                      back_prec)
+
+    def test_update_states_uses_states_to_torch(self):
+        ana_time = self.state.time[-1].values
+        obs_tuple = (self.obs, self.obs.copy())
+        prepared_states = self.algorithm._prepare(self.state, obs_tuple)
+        torch_states = self.algorithm._states_to_torch(*prepared_states)
+        trg = 'pytassim.assimilation.filter.etkf.ETKFilter._states_to_torch'
+        with patch(trg, return_value=torch_states) as torch_patch:
+            _ = self.algorithm.update_state(self.state, obs_tuple, ana_time)
+        torch_patch.assert_called_once()
+
+    def test_algorithm_works(self):
+        self.algorithm.inf_factor = 1.2
+        ana_time = self.state.time[-1].values
+        obs_tuple = (self.obs, self.obs.copy())
+        assimilated_state = self.algorithm.assimilate(self.state, obs_tuple,
+                                                      ana_time)
+        self.assertFalse(np.any(np.isnan(assimilated_state.values)))
 
 
 if __name__ == '__main__':

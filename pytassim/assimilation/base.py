@@ -30,6 +30,8 @@ import warnings
 
 # External modules
 import xarray as xr
+import scipy.linalg
+import torch
 
 # Internal modules
 from pytassim.state import StateError
@@ -46,8 +48,18 @@ class BaseAssimilation(object):
     assimilation, one needs to overwrite
     :py:meth:`~pytassim.assimilation.base.BaseAssimilation.update_state`.
     """
-    def __init__(self):
-        pass
+    def __init__(self, gpu=False):
+        self.gpu = gpu
+        self.dtype = torch.double
+
+    def _states_to_torch(self, *states):
+        if self.gpu:
+            torch_states = [torch.tensor(s, dtype=self.dtype).cuda()
+                            for s in states]
+        else:
+            torch_states = [torch.tensor(s, dtype=self.dtype)
+                            for s in states]
+        return torch_states
 
     @staticmethod
     def _validate_state(state):
@@ -131,6 +143,26 @@ class BaseAssimilation(object):
             except NotImplementedError:
                 pass
         return obs_equivalent, filtered_observations
+
+    @staticmethod
+    def _prepare_obs(observations):
+        state_stacked_list = []
+        cov_stacked_list = []
+        for obs in observations:
+            stacked_obs = obs['observations'].stack(
+                obs_id=('time', 'obs_grid_1')
+            )
+            len_time = len(obs.time)
+            # Cannot use indexing or tiling due to possible rank deficiency
+            stacked_cov = [obs['covariance'].values] * len_time
+            stacked_cov = scipy.linalg.block_diag(*stacked_cov)
+            state_stacked_list.append(stacked_obs)
+            cov_stacked_list.append(stacked_cov)
+        state_concat = xr.concat(state_stacked_list, dim='obs_id')
+        state_values = state_concat.values
+        state_grid = state_concat.obs_grid_1.values
+        state_covariance = scipy.linalg.block_diag(*cov_stacked_list)
+        return state_values, state_covariance, state_grid
 
     @abc.abstractmethod
     def update_state(self, state, observations, analysis_time):

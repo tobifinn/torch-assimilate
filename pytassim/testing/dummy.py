@@ -28,6 +28,7 @@ import logging
 
 # External modules
 import numpy as np
+import torch
 
 # Internal modules
 
@@ -143,3 +144,9 @@ def dummy_distance(a, b):
     """
     distance = np.abs(a-b)
     return distance
+
+
+class DummyNeuralModule(torch.nn.Module):
+    @staticmethod
+    def assimilate(state, *args):
+        return state

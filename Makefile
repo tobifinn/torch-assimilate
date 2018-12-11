@@ -3,7 +3,7 @@
 # gitlab.com/nobodyinperson/python3-numericalmodel
 
 SETUP.PY = ./setup.py
-PACKAGE_FOLDER = tfassim
+PACKAGE_FOLDER = pytassim
 DOCS_FOLDER = docs
 DOCS_API_FOLDER = docs/source/api
 DOCS_HTML_FOLDER = docs/build/html
@@ -11,7 +11,7 @@ INIT.PY = $(shell find $(PACKAGE_FOLDER) -maxdepth 1 -type f -name '__init__.py'
 RST_SOURCES = $(shell find $(DOCS_FOLDER) -type f -iname '*.rst')
 PYTHON_SOURCES = $(shell find $(PACKAGE_FOLDER) -type f -iname '*.py')
 
-VERSION = $(shell python -c "import pytassimm;import sys;sys.stdout.write(pytassim.__version__)")
+VERSION = $(shell python -c "import pytassim;import sys;sys.stdout.write(pytassim.__version__)")
 
 .PHONY: all
 all: wheel docs

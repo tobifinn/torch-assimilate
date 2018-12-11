@@ -1,9 +1,9 @@
 #!/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Created on 23.11.18
+# Created on 12/11/18
 #
-# Created for torch-assim
+# Created for torch-assimilate
 #
 # @author: Tobias Sebastian Finn, tobias.sebastian.finn@uni-hamburg.de
 #
@@ -25,9 +25,10 @@
 
 # System modules
 import logging
-import abc
+import unittest
 
 # External modules
+import torch
 
 # Internal modules
 
@@ -35,24 +36,8 @@ import abc
 logger = logging.getLogger(__name__)
 
 
-class BaseIntegrator(object):
-    def __init__(self, model, dt):
-        self._dt = None
-        self._model = None
-        self.model = model
-        self.dt = dt
-
-    @property
-    def dt(self):
-        return self._dt
-
-    @dt.setter
-    def dt(self, new_dt):
-        self._dt = new_dt
-
-    @abc.abstractmethod
-    def _calc_inc(self, state):
-        pass
-
-    def integrate(self, state):
-        pass
+def if_gpu_decorator(func):     # pragma: no cover
+    @unittest.skipIf(not torch.cuda.is_available(), "no GPU")
+    def newfunc(self, *args, **kwargs):
+        func(self, *args, **kwargs)
+    return newfunc
