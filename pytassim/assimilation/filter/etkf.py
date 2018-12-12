@@ -80,9 +80,8 @@ class ETKFilter(FilterAssimilation):
         or CPU (False): Default is None. For small models, estimation of the
         weights on CPU is faster than on GPU!.
     """
-    def __init__(self, smoothing=False, inf_factor=1.0, gpu=False):
-        super().__init__(gpu=gpu)
-        self.smoothing = smoothing
+    def __init__(self, smoother=False, inf_factor=1.0, gpu=False):
+        super().__init__(smoother=smoother, gpu=gpu)
         self.inf_factor = inf_factor
         self._back_prec = None
 
@@ -123,11 +122,7 @@ class ETKFilter(FilterAssimilation):
         )[:-1]
         torch_states = self._states_to_torch(*prepared_states)
         w_mean, w_perts = self._gen_weights(*torch_states)
-        if not self.smoothing:
-            analysis_state = state.sel(time=[analysis_time, ])
-        else:
-            analysis_state = state
-        state_mean, state_perts = analysis_state.state.split_mean_perts()
+        state_mean, state_perts = state.state.split_mean_perts()
         analysis = self._apply_weights(w_mean, w_perts, state_mean, state_perts)
         analysis = analysis.transpose('var_name', 'time', 'ensemble', 'grid')
         return analysis

@@ -59,11 +59,13 @@ class NeuralAssimilation(BaseAssimilation):
         or CPU (False). Default value is False, indicating computations on CPU.
         This flag transfers also given model to CPU or GPU.
     """
-    def __init__(self, model, smoother=True, gpu=False):
-        super().__init__(gpu=gpu)
+    def __init__(self, model, smoother=True, gpu=False, pre_transform=None,
+                 post_transform=None):
+        super().__init__(smoother=smoother, gpu=gpu)
         self._model = None
-        self.smoother = smoother
         self.model = model
+        self.pre_transform = pre_transform
+        self.post_transform = post_transform
 
     @property
     def model(self):
@@ -117,17 +119,11 @@ class NeuralAssimilation(BaseAssimilation):
             analysis has same coordinates as given ``state``. If filtering mode
             is on, then the time axis has only one element.
         """
-        if self.smoother:
-            back_state = state
-        else:
-            back_state = state.sel(time=[analysis_time, ])
-            observations = [obs.sel(time=[analysis_time, ])
-                            for obs in observations]
         obs_state, obs_cov, _ = self._prepare_obs(observations)
-        prepared_torch = self._states_to_torch(back_state.values, obs_state,
+        prepared_torch = self._states_to_torch(state.values, obs_state,
                                                obs_cov)
         torch_analysis = self.model.assimilate(*prepared_torch)
         if self.gpu:
             torch_analysis = torch_analysis.cpu()
-        analysis = back_state.copy(deep=True, data=torch_analysis.numpy())
+        analysis = state.copy(deep=True, data=torch_analysis.numpy())
         return analysis

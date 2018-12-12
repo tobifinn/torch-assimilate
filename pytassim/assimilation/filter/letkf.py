@@ -86,9 +86,9 @@ class LETKFilter(ETKFilter):
         or CPU (False): Default is None. For small models, estimation of the
         weights on CPU is faster than on GPU!.
     """
-    def __init__(self, smoothing=False, localization=None, inf_factor=1.0,
+    def __init__(self, smoother=False, localization=None, inf_factor=1.0,
                  gpu=False):
-        super().__init__(smoothing=smoothing, inf_factor=inf_factor, gpu=gpu)
+        super().__init__(smoother=smoother, inf_factor=inf_factor, gpu=gpu)
         self.localization = localization
 
     def update_state(self, state, observations, analysis_time):
@@ -125,22 +125,18 @@ class LETKFilter(ETKFilter):
             is on, then the time axis has only one element.
         """
         prepared_states = self._prepare(state, observations)
-        if not self.smoothing:
-            back_state = state.sel(time=[analysis_time, ])
-        else:
-            back_state = state
         analysis = []
         for grid_ind in state.grid.values:
             prepared_l = self._localize(grid_ind, prepared_states)
             torch_state_l = self._states_to_torch(*prepared_l)
             w_mean_l, w_perts_l = self._gen_weights(*torch_state_l)
-            back_state_l = back_state.sel(grid=grid_ind)
+            back_state_l = state.sel(grid=grid_ind)
             state_mean_l, state_perts_l = back_state_l.state.split_mean_perts()
             ana_l = self._apply_weights(w_mean_l, w_perts_l, state_mean_l,
                                         state_perts_l)
             analysis.append(ana_l)
         analysis = xr.concat(analysis, dim='grid')
-        analysis['grid'] = back_state['grid']
+        analysis['grid'] = state['grid']
         analysis = analysis.transpose('var_name', 'time', 'ensemble', 'grid')
         return analysis
 
