@@ -104,7 +104,7 @@ class BaseAssimilation(object):
                 warnings.warn(
                     'Given analysis time {0:s} is not within state, used '
                     'instead nearest neighbor {1:s}'.format(
-                        str(analysis_time), str(valid_time)
+                        str(analysis_time), str(valid_time.values)
                     ),
                     category=UserWarning
                 )
@@ -258,10 +258,11 @@ class BaseAssimilation(object):
             observations = [obs.sel(time=[analysis_time, ])
                             for obs in observations]
         if self.pre_transform:
-            back_state, observations = self.pre_transform(back_state,
-                                                          observations)
+            for trans in self.pre_transform:
+                back_state, observations = trans.pre(back_state, observations)
         analysis = self.update_state(back_state, observations, analysis_time)
         if self.post_transform:
-            analysis = self.post_transform(analysis)
+            for trans in self.post_transform:
+                back_state, observations = trans.post(back_state, observations)
         self._validate_state(analysis)
         return analysis
