@@ -53,10 +53,11 @@ class TestAnalyticalSolution(unittest.TestCase):
     def setUp(self):
         self.algorithm = ETKFilter()
         self.algorithm._set_back_prec(2)
-        state, obs = self._create_matrices()
-        innov = (obs['observations']-state.mean('ensemble')).values.reshape(-1)
-        hx_perts = state.values.reshape(1, 2)
-        obs_cov = obs['covariance'].values
+        self.state, self.obs = self._create_matrices()
+        innov = (self.obs['observations']-self.state.mean('ensemble'))
+        innov = innov.values.reshape(-1)
+        hx_perts = self.state.values.reshape(1, 2)
+        obs_cov = self.obs['covariance'].values
         prepared_states = [innov, hx_perts, obs_cov]
         torch_states = self.algorithm._states_to_torch(*prepared_states)
         self.innov, self.hx_perts, self.obs_cov = torch_states
@@ -162,6 +163,32 @@ class TestAnalyticalSolution(unittest.TestCase):
         return_perts = return_perts.numpy()
         ret_cov = np.matmul(return_perts, return_perts.T)
         np.testing.assert_array_almost_equal(ret_cov, right_cov)
+
+    def test_apply_weights_ens_mean(self):
+        wa, w_perts = self.algorithm._gen_weights(self.innov, self.hx_perts,
+                                                  self.obs_cov)
+        state_mean, state_perts = self.state.state.split_mean_perts()
+        del_ana_mean = np.matmul(
+            state_perts.transpose('var_name', 'time', 'grid', 'ensemble'),
+            wa.numpy()
+        )
+        ana_mean = state_mean + del_ana_mean
+        ret_state = self.algorithm._apply_weights(wa, w_perts, state_mean,
+                                                  state_perts)
+        xr.testing.assert_equal(ret_state.mean('ensemble'), ana_mean)
+
+    def test_apply_weights_perts(self):
+        wa, w_perts = self.algorithm._gen_weights(self.innov, self.hx_perts,
+                                                  self.obs_cov)
+        state_mean, state_perts = self.state.state.split_mean_perts()
+        del_ana_perts = np.matmul(
+            state_perts.transpose('var_name', 'time', 'grid', 'ensemble'),
+            w_perts.numpy()
+        )
+        ret_state = self.algorithm._apply_weights(wa, w_perts, state_mean,
+                                                  state_perts)
+        ret_ana_perts = ret_state - ret_state.mean('ensemble')
+        np.testing.assert_equal(ret_ana_perts, del_ana_perts)
 
 
 class TestETKFilter(unittest.TestCase):
@@ -566,7 +593,8 @@ class TestETKFilter(unittest.TestCase):
         w_mean, w_perts = self.algorithm._gen_weights(*prepared_states[:-1])
         weights = w_mean + w_perts
         state_mean, state_perts = self.state.state.split_mean_perts()
-        ana_perts = self.algorithm._weights_matmul(state_perts, weights.numpy())
+        ana_perts = self.algorithm._weights_matmul(state_perts,
+                                                   weights.t().numpy())
         analysis = state_mean + ana_perts
         ret_analysis = self.algorithm._apply_weights(w_mean, w_perts,
                                                      state_mean, state_perts)
@@ -592,8 +620,7 @@ class TestETKFilter(unittest.TestCase):
         prepared_states = self.algorithm._prepare(self.state, obs_tuple)
         prepared_states = [torch.tensor(s) for s in prepared_states]
         w_mean, w_perts = self.algorithm._gen_weights(*prepared_states[:-1])
-        back_state = self.state.sel(time=[ana_time, ])
-        state_mean, state_perts = back_state.state.split_mean_perts()
+        state_mean, state_perts = self.state.state.split_mean_perts()
         analysis = self.algorithm._apply_weights(w_mean, w_perts, state_mean,
                                                  state_perts)
         analysis = analysis.transpose('var_name', 'time', 'ensemble', 'grid')

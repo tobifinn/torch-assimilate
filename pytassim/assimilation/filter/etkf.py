@@ -238,7 +238,7 @@ class ETKFilter(FilterAssimilation):
     @staticmethod
     def _det_square_root_eigen(evals_inv, evects, evects_inv):
         ens_size = evals_inv.size()[0]
-        w_perts = torch.sqrt((ens_size - 1) * evals_inv)
+        w_perts = ((ens_size - 1) * evals_inv) ** 0.5
         w_perts = torch.matmul(evects, torch.diagflat(w_perts))
         w_perts = torch.matmul(w_perts, evects_inv)
         return w_perts
@@ -357,10 +357,11 @@ class ETKFilter(FilterAssimilation):
         analysis : :py:class:`xarray.DataArray`
             The estimated analysis based on given state and weights.
         """
+        combined_weights = (w_mean + w_perts).t()
         if self.gpu:
-            combined_weights = (w_mean + w_perts).cpu()
-        else:
-            combined_weights = (w_mean + w_perts)
-        ana_perts = self._weights_matmul(state_pert, combined_weights.numpy())
+            combined_weights = combined_weights.cpu()
+        ana_perts = self._weights_matmul(
+            state_pert, combined_weights.numpy()
+        )
         analysis = state_mean + ana_perts
         return analysis
