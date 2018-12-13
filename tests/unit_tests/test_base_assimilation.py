@@ -122,6 +122,7 @@ class TestBaseAssimilation(unittest.TestCase):
     @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
            side_effect=dummy_update_state, autospec=True)
     def test_assimilate_uses_latest_state_time(self, _):
+        self.algorithm.smoother = True
         latest_time = self.state.time[-1]
         with patch('pytassim.assimilation.base.BaseAssimilation.'
                    '_get_analysis_time', return_value=latest_time) as time_mock:
@@ -149,6 +150,7 @@ class TestBaseAssimilation(unittest.TestCase):
     @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
            side_effect=dummy_update_state, autospec=True)
     def test_assimilate_calls_update_state(self, update_mock):
+        self.algorithm.smoother = True
         _ = self.algorithm.assimilate(self.state, self.obs, None)
         latest_time = self.state.time[-1]
         update_mock.assert_called_once()
@@ -159,6 +161,7 @@ class TestBaseAssimilation(unittest.TestCase):
     @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
            side_effect=dummy_update_state, autospec=True)
     def test_assimilate_converts_single_obs_to_tuple(self, update_mock):
+        self.algorithm.smoother = True
         _ = self.algorithm.assimilate(self.state, self.obs, None)
         self.assertIsInstance(update_mock.call_args[0][2], tuple)
 
