@@ -48,9 +48,12 @@ class BaseAssimilation(object):
     assimilation, one needs to overwrite
     :py:meth:`~pytassim.assimilation.base.BaseAssimilation.update_state`.
     """
-    def __init__(self, smoother=False, gpu=False):
+    def __init__(self, smoother=False, gpu=False, pre_transform=None,
+                 post_transform=None):
         self.smoother = smoother
         self.gpu = gpu
+        self.pre_transform = pre_transform
+        self.post_transform = post_transform
         self.dtype = torch.double
 
     def _states_to_torch(self, *states):
@@ -254,6 +257,11 @@ class BaseAssimilation(object):
             back_state = state.sel(time=[analysis_time, ])
             observations = [obs.sel(time=[analysis_time, ])
                             for obs in observations]
+        if self.pre_transform:
+            back_state, observations = self.pre_transform(back_state,
+                                                          observations)
         analysis = self.update_state(back_state, observations, analysis_time)
+        if self.post_transform:
+            analysis = self.post_transform(analysis)
         self._validate_state(analysis)
         return analysis

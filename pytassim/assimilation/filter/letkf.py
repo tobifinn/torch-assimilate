@@ -86,9 +86,11 @@ class LETKFilter(ETKFilter):
         or CPU (False): Default is None. For small models, estimation of the
         weights on CPU is faster than on GPU!.
     """
-    def __init__(self, smoother=False, localization=None, inf_factor=1.0,
-                 gpu=False):
-        super().__init__(smoother=smoother, inf_factor=inf_factor, gpu=gpu)
+    def __init__(self, localization=None, inf_factor=1.0, smoother=True,
+                 gpu=False, pre_transform=None, post_transform=None):
+        super().__init__(inf_factor=inf_factor, smoother=smoother, gpu=gpu,
+                         pre_transform=pre_transform,
+                         post_transform=post_transform)
         self.localization = localization
 
     def update_state(self, state, observations, analysis_time):

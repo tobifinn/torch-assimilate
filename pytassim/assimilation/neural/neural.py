@@ -61,7 +61,9 @@ class NeuralAssimilation(BaseAssimilation):
     """
     def __init__(self, model, smoother=True, gpu=False, pre_transform=None,
                  post_transform=None):
-        super().__init__(smoother=smoother, gpu=gpu)
+        super().__init__(smoother=smoother, gpu=gpu,
+                         pre_transform=pre_transform,
+                         post_transform=post_transform)
         self._model = None
         self.model = model
         self.pre_transform = pre_transform
