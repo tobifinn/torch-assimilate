@@ -80,8 +80,11 @@ class ETKFilter(FilterAssimilation):
         or CPU (False): Default is None. For small models, estimation of the
         weights on CPU is faster than on GPU!.
     """
-    def __init__(self, smoother=False, inf_factor=1.0, gpu=False):
-        super().__init__(smoother=smoother, gpu=gpu)
+    def __init__(self, inf_factor=1.0, smoother=True, gpu=False,
+                 pre_transform=None, post_transform=None):
+        super().__init__(smoother=smoother, gpu=gpu,
+                         pre_transform=pre_transform,
+                         post_transform=post_transform)
         self.inf_factor = inf_factor
         self._back_prec = None
 
@@ -245,7 +248,7 @@ class ETKFilter(FilterAssimilation):
         evals, evects = torch.symeig(precision, eigenvectors=True, upper=False)
         evals[evals < 0] = 0
         evals_inv = 1 / evals
-        evects_inv = torch.inverse(evects)
+        evects_inv = evects.t()
         return evals, evects, evals_inv, evects_inv
 
     def _gen_weights(self, innov, hx_perts, obs_cov, obs_weights=1):
