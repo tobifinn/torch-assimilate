@@ -38,7 +38,7 @@ from pytassim.testing import dummy_model
 
 logging.basicConfig(level=logging.DEBUG)
 
-BASE_PATH = os.path.dirname(os.path.realpath(__file__))
+BASE_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
 
 class TestBaseIntegrator(unittest.TestCase):
