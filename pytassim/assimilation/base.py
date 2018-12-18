@@ -263,6 +263,6 @@ class BaseAssimilation(object):
         analysis = self.update_state(back_state, observations, analysis_time)
         if self.post_transform:
             for trans in self.post_transform:
-                back_state, observations = trans.post(back_state, observations)
+                analysis = trans.post(analysis, back_state, observations)
         self._validate_state(analysis)
         return analysis
