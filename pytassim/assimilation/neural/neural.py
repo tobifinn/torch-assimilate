@@ -25,6 +25,7 @@
 
 # System modules
 import logging
+from copy import deepcopy
 
 # External modules
 
@@ -48,7 +49,8 @@ class NeuralAssimilation(BaseAssimilation):
         This model is used to assimilate given observations into given state.
         The model needs an ``assimilate`` method, where state, flattened
         observations and flattened observation covariance is given. This model
-        is transferred to specified device.
+        is transferred to specified device. Attention, a new clone of this
+        model is created.
     smoother : bool, optional
         This bool indicates if given `state` and `observations` should be
         localized to given `analysis_time`. If True, full state and all
@@ -66,8 +68,6 @@ class NeuralAssimilation(BaseAssimilation):
                          post_transform=post_transform)
         self._model = None
         self.model = model
-        self.pre_transform = pre_transform
-        self.post_transform = post_transform
 
     @property
     def model(self):
@@ -77,11 +77,12 @@ class NeuralAssimilation(BaseAssimilation):
     def model(self, new_model):
         if not hasattr(new_model, 'assimilate'):
             raise TypeError('Given model is not a valid assimilation model!')
-        new_model = new_model.type(self.dtype)
+        cloned_model = deepcopy(new_model)
+        cloned_model = cloned_model.type(self.dtype)
         if self.gpu:
-            self._model = new_model.cuda()
+            self._model = cloned_model.cuda()
         else:
-            self._model = new_model.cpu()
+            self._model = cloned_model.cpu()
 
     def update_state(self, state, observations, analysis_time):
         """

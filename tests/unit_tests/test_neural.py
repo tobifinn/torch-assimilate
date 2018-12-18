@@ -175,6 +175,19 @@ class TestNeuralAssimilation(unittest.TestCase):
         self.assertIsInstance(next(self.algorithm.model.parameters()),
                               torch.DoubleTensor)
 
+    def test_model_copies_weights_to_new_model(self):
+        self.module.linear = torch.nn.Linear(16, 8, bias=False)
+        self.module = self.module.type(self.algorithm.dtype)
+        parameter = torch.nn.Parameter(
+            torch.ones_like(self.module.linear.weight)
+        )
+        self.module.linear.weight = parameter
+        torch.testing.assert_allclose(self.module.linear.weight, parameter)
+        self.algorithm.model = self.module
+        torch.testing.assert_allclose(
+            self.algorithm.model.linear.weight, parameter
+        )
+
 
 if __name__ == '__main__':
     unittest.main()
