@@ -30,35 +30,32 @@ import logging
 import torch
 
 # Internal modules
-from ..linear_net import create_net
+from pytassim.neural_models.linear_net import create_net
 
 
 logger = logging.getLogger(__name__)
 
 
-class Discriminator(torch.nn.Module):
+class StandardDisc(torch.nn.Module):
     """
     Standard discriminator for generative adversarial networks. This
-    discriminator
-    """
-    def __init__(self, in_size, out_size=1, hidden_size=16, disc_dims=(64, ),
-                 batch_norm=False):
-        super().__init__()
-        self.in_size = in_size
-        self.hidden_size = hidden_size
-        self.out_size = out_size
-        self.disc_dims = disc_dims
-        self.batch_norm = batch_norm
+    discriminator takes input data and returns processed data based on specified
+    neural network. This discriminator can be also used as base discriminator to
+    implement other types of discriminators for generative adversarial networks.
 
+    Parameters
+    ----------
+    net : :py:class:`pytorch.nn.Module`
+        This network is used for this discriminator.
+    """
+    def __init__(self, net,):
+        super().__init__()
+        self.net = net
         self.loss_func = torch.nn.BCEWithLogitsLoss()
 
-        self.net = create_net(self.in_size, hidden_size, disc_dims, batch_norm)
-        self.out_layer = torch.nn.Sequential(
-            torch.nn.Linear(hidden_size, out_size),
-        )
-
-    def get_targets(self, batch_size, fill_val=1.0, tensor_type=None):
-        targets = torch.full((batch_size, self.out_size), fill_val,
+    @staticmethod
+    def get_targets(batch_size, fill_val=1.0, tensor_type=None):
+        targets = torch.full((batch_size, 1), fill_val,
                              requires_grad=False)
         if tensor_type is not None:
             targets = targets.to(tensor_type)
@@ -69,6 +66,5 @@ class Discriminator(torch.nn.Module):
         return loss
 
     def forward(self, in_data):
-        hidden_data = self.net(in_data)
-        out_data = self.out_layer(hidden_data)
+        out_data = self.net(in_data)
         return out_data

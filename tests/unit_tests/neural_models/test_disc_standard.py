@@ -30,10 +30,9 @@ import os
 # External modules
 import xarray as xr
 import torch
-import numpy as np
 
 # Internal modules
-from pytassim.neural_models.avb_linear.disc import Discriminator
+from pytassim.neural_models.discriminators.standard import StandardDisc
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -42,13 +41,14 @@ BASE_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
 
 
-class TestAVBLinDisc(unittest.TestCase):
+class TestDiscStandard(unittest.TestCase):
     def setUp(self):
         state_path = os.path.join(DATA_PATH, 'test_state.nc')
         self.state = xr.open_dataarray(state_path).load()
         obs_path = os.path.join(DATA_PATH, 'test_single_obs.nc')
         self.obs = xr.open_dataset(obs_path).load()
-        self.disc = Discriminator(1)
+        net = torch.nn.Linear(16, 1)
+        self.disc = StandardDisc(net)
 
     def test_loss_function_is_bce_with_logits(self):
         self.assertIsInstance(self.disc.loss_func, torch.nn.BCEWithLogitsLoss)
@@ -63,13 +63,6 @@ class TestAVBLinDisc(unittest.TestCase):
         batch_size = 128
         target = torch.full((batch_size, 1), 5)
         returned_target = self.disc.get_targets(batch_size, fill_val=5)
-        torch.testing.assert_allclose(returned_target, target)
-
-    def test_get_targets_uses_out_size(self):
-        batch_size = 128
-        self.disc.out_size = 2
-        target = torch.ones((batch_size, 2))
-        returned_target = self.disc.get_targets(batch_size)
         torch.testing.assert_allclose(returned_target, target)
 
     def test_get_targets_sets_required_grad_to_false(self):
@@ -100,7 +93,7 @@ class TestAVBLinDisc(unittest.TestCase):
     def test_forward_uses_net_and_outlayer(self):
         batch_size = 128
         in_data = torch.empty((batch_size, 16)).normal_(0, 1)
-        out_data = self.disc.out_layer(self.disc.net(in_data))
+        out_data = self.disc.net(in_data)
         returned_data = self.disc.forward(in_data)
         torch.testing.assert_allclose(returned_data, out_data)
 
