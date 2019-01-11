@@ -32,7 +32,7 @@ import xarray as xr
 import torch
 
 # Internal modules
-from pytassim.neural_models.discriminators.standard import StandardDisc
+from pytassim.toolbox.discriminator.standard import StandardDisc
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -47,7 +47,7 @@ class TestDiscStandard(unittest.TestCase):
         self.state = xr.open_dataarray(state_path).load()
         obs_path = os.path.join(DATA_PATH, 'test_single_obs.nc')
         self.obs = xr.open_dataset(obs_path).load()
-        net = torch.nn.Linear(16, 1)
+        net = torch.nn.Linear(40, 1)
         self.disc = StandardDisc(net)
 
     def test_loss_function_is_bce_with_logits(self):
@@ -92,7 +92,7 @@ class TestDiscStandard(unittest.TestCase):
 
     def test_forward_uses_net_and_outlayer(self):
         batch_size = 128
-        in_data = torch.empty((batch_size, 16)).normal_(0, 1)
+        in_data = torch.empty((batch_size, 40)).normal_(0, 1)
         out_data = self.disc.net(in_data)
         returned_data = self.disc.forward(in_data)
         torch.testing.assert_allclose(returned_data, out_data)
