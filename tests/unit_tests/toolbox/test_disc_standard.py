@@ -26,10 +26,12 @@ Created for torch-assimilate
 import unittest
 import logging
 import os
+from unittest.mock import MagicMock, call
 
 # External modules
 import xarray as xr
 import torch
+import numpy as np
 
 # Internal modules
 from pytassim.toolbox.discriminator.standard import StandardDisc
@@ -47,8 +49,20 @@ class TestDiscStandard(unittest.TestCase):
         self.state = xr.open_dataarray(state_path).load()
         obs_path = os.path.join(DATA_PATH, 'test_single_obs.nc')
         self.obs = xr.open_dataset(obs_path).load()
-        net = torch.nn.Linear(40, 1)
+        net = torch.nn.Linear(40, 1).double()
         self.disc = StandardDisc(net)
+
+    @property
+    def obs_torch(self):
+        obs_vals = self.obs['observations'].values
+        obs_torch = torch.from_numpy(obs_vals).double()
+        return obs_torch
+
+    def inject_missing(self):
+        self.disc.loss_func = torch.nn.BCEWithLogitsLoss()
+        self.disc.optimizer = torch.optim.SGD(
+            self.disc.trainable_params, lr=0.1
+        )
 
     def test_loss_function_is_bce_with_logits(self):
         self.assertIsInstance(self.disc.loss_func, torch.nn.BCEWithLogitsLoss)
@@ -92,7 +106,7 @@ class TestDiscStandard(unittest.TestCase):
 
     def test_forward_uses_net_and_outlayer(self):
         batch_size = 128
-        in_data = torch.empty((batch_size, 40)).normal_(0, 1)
+        in_data = torch.empty((batch_size, 40)).normal_(0, 1).double()
         out_data = self.disc.net(in_data)
         returned_data = self.disc.forward(in_data)
         torch.testing.assert_allclose(returned_data, out_data)
@@ -125,6 +139,145 @@ class TestDiscStandard(unittest.TestCase):
             param.requires_grad = False
         with self.assertRaises(ValueError):
             self.disc.check_trainable()
+
+    def test_train_sets_network_to_train(self):
+        self.inject_missing()
+        self.disc.net.train = MagicMock()
+        _ = self.disc.train(self.obs_torch, self.obs_torch)
+        self.disc.net.train.assert_called_once()
+
+    def test_train_checks_if_trainable(self):
+        self.inject_missing()
+        self.disc.check_trainable = MagicMock()
+        _ = self.disc.train(self.obs_torch, self.obs_torch)
+        self.disc.check_trainable.assert_called_once()
+
+    def test_train_sets_optimizer_zero_grad(self):
+        self.inject_missing()
+        self.disc.optimizer.zero_grad = MagicMock()
+        _ = self.disc.train(self.obs_torch, self.obs_torch)
+        self.disc.optimizer.zero_grad.assert_called_once()
+
+    def test_train_uses_forward_for_real_data(self):
+        self.inject_missing()
+        fake = self.obs_torch + 1
+        real_return = self.disc.forward(self.obs_torch)
+        fake_return = self.disc.forward(fake)
+        self.disc.forward = MagicMock(side_effect=[real_return, fake_return])
+        _ = self.disc.train(real_data=self.obs_torch, fake_data=fake, test=123)
+        self.assertEqual(len(self.disc.forward.call_args_list[0][0]), 1)
+        torch.testing.assert_allclose(self.disc.forward.call_args_list[0][0][0],
+                                      self.obs_torch)
+        self.assertEqual(len(self.disc.forward.call_args_list[0][1]), 1)
+        self.assertDictEqual(self.disc.forward.call_args_list[0][1],
+                             {'test': 123})
+
+    def test_train_uses_disc_loss_for_real_loss(self):
+        self.inject_missing()
+        fake = self.obs_torch + 1
+        real_return = self.disc.forward(self.obs_torch)
+        fake_return = self.disc.forward(fake)
+        real_labels = self.disc.get_targets(3, 1.0, real_return)
+        fake_labels = self.disc.get_targets(3, 0.0, real_return)
+        self.disc.forward = MagicMock(side_effect=[real_return, fake_return])
+        self.disc.get_targets = MagicMock(
+            side_effect=[real_labels, fake_labels]
+        )
+        self.disc.disc_loss = MagicMock(
+            return_value=MagicMock(spec_set=torch.zeros((1, )).to(real_return))
+        )
+        _ = self.disc.train(real_data=self.obs_torch, fake_data=fake, test=123)
+
+        self.assertEqual(len(self.disc.disc_loss.call_args_list[0][0]), 2)
+        torch.testing.assert_allclose(
+            self.disc.disc_loss.call_args_list[0][0][0], real_return
+        )
+        torch.testing.assert_allclose(
+            self.disc.disc_loss.call_args_list[0][0][1], real_labels
+        )
+
+    def test_train_backwards_real_loss(self):
+        self.inject_missing()
+        fake_data = self.obs_torch + 1
+
+        real_loss = MagicMock(spec_set=torch.zeros((1, )).to(self.obs_torch))
+        fake_loss = MagicMock(spec_set=torch.zeros((1, )).to(self.obs_torch))
+
+        self.disc.disc_loss = MagicMock(side_effect=[real_loss, fake_loss])
+        real_loss.backward = MagicMock()
+
+        _ = self.disc.train(real_data=self.obs_torch, fake_data=fake_data)
+        real_loss.backward.assert_called_once()
+
+    def test_train_uses_forward_for_fake_data(self):
+        self.inject_missing()
+        fake = self.obs_torch + 1
+        real_return = self.disc.forward(self.obs_torch)
+        fake_return = self.disc.forward(fake)
+        self.disc.forward = MagicMock(side_effect=[real_return, fake_return])
+        _ = self.disc.train(real_data=self.obs_torch, fake_data=fake, test=123)
+        self.assertEqual(len(self.disc.forward.call_args_list[1][0]), 1)
+        torch.testing.assert_allclose(self.disc.forward.call_args_list[1][0][0],
+                                      fake)
+        self.assertEqual(len(self.disc.forward.call_args_list[1][1]), 1)
+        self.assertDictEqual(self.disc.forward.call_args_list[1][1],
+                             {'test': 123})
+
+    def test_train_uses_disc_loss_for_fake_loss(self):
+        self.inject_missing()
+        fake = self.obs_torch + 1
+        real_return = self.disc.forward(self.obs_torch)
+        fake_return = self.disc.forward(fake)
+        real_labels = self.disc.get_targets(3, 1.0, real_return)
+        fake_labels = self.disc.get_targets(3, 0.0, real_return)
+        self.disc.forward = MagicMock(side_effect=[real_return, fake_return])
+        self.disc.get_targets = MagicMock(
+            side_effect=[real_labels, fake_labels]
+        )
+        self.disc.disc_loss = MagicMock(
+            return_value=MagicMock(spec_set=torch.zeros((1, )).to(real_return))
+        )
+        _ = self.disc.train(real_data=self.obs_torch, fake_data=fake, test=123)
+
+        self.assertEqual(len(self.disc.disc_loss.call_args_list[1][0]), 2)
+        torch.testing.assert_allclose(
+            self.disc.disc_loss.call_args_list[1][0][0], fake_return
+        )
+        torch.testing.assert_allclose(
+            self.disc.disc_loss.call_args_list[1][0][1], fake_labels
+        )
+
+    def test_train_backwards_fake_loss(self):
+        self.inject_missing()
+        fake_data = self.obs_torch + 1
+        real_loss = MagicMock(spec_set=torch.zeros((1, )).to(self.obs_torch))
+        fake_loss = MagicMock(spec_set=torch.zeros((1, )).to(self.obs_torch))
+        self.disc.disc_loss = MagicMock(side_effect=[real_loss, fake_loss])
+        fake_loss.backward = MagicMock()
+        _ = self.disc.train(real_data=self.obs_torch, fake_data=fake_data)
+        fake_loss.backward.assert_called_once()
+
+    def test_train_calls_optimizer_step(self):
+        self.inject_missing()
+        fake_data = self.obs_torch + 1
+        self.disc.optimizer.step = MagicMock()
+        _ = self.disc.train(real_data=self.obs_torch, fake_data=fake_data)
+        self.disc.optimizer.step.assert_called_once()
+
+    def test_returns_losses(self):
+        self.inject_missing()
+        fake_data = self.obs_torch + 1
+
+        real_loss = MagicMock(spec_set=torch.ones((1, 1)).to(self.obs_torch))
+        fake_loss = MagicMock(spec_set=torch.ones((1, 1)).to(self.obs_torch))
+        total_loss = real_loss + fake_loss
+        self.disc.disc_loss = MagicMock(side_effect=[real_loss, fake_loss])
+
+        returned_losses = self.disc.train(real_data=self.obs_torch,
+                                          fake_data=fake_data)
+        torch.testing.assert_allclose(returned_losses[0], total_loss)
+        self.assertEqual(returned_losses[1], real_loss)
+        self.assertEqual(returned_losses[2], fake_loss)
 
 
 if __name__ == '__main__':
