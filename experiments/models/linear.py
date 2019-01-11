@@ -29,27 +29,13 @@ import logging
 # External modules
 import torch
 
-from sacred import Ingredient
-
 # Internal modules
 
 
 logger = logging.getLogger(__name__)
 
 
-linear_ingredient = Ingredient('linear')
-
-
-@linear_ingredient.config
-def config():
-    obs_size = 20
-    grid_size = 40
-    noise_size = 5
-    hidden_size = (64, )
-
-
 class Discriminator(torch.nn.Module):
-    @linear_ingredient.capture
     def __init__(self, obs_size=20, grid_size=40, hidden_size=(64, )):
         super().__init__()
 
@@ -71,7 +57,6 @@ class Discriminator(torch.nn.Module):
 
 
 class InferenceNet(torch.nn.Module):
-    @linear_ingredient.capture
     def __init__(self,  obs_size=20, grid_size=40, noise_size=5,
                  hidden_size=(64, )):
         super().__init__()
