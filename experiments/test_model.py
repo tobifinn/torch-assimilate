@@ -169,7 +169,7 @@ def test_model(model, dataset, summary_writer, global_step, _rnd, _run):
         post_transform = None
 
     neural_assimilation = NeuralAssimilation(
-        model=model, gpu=True, pre_transform=pre_transform,
+        model=model.inference_net, gpu=True, pre_transform=pre_transform,
         post_transform=post_transform
     )
 

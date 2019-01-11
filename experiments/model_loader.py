@@ -32,7 +32,7 @@ import torch
 from sacred import Ingredient
 
 # Internal modules
-from .models.linear import Discriminator, InferenceNet
+from models.linear import Discriminator, InferenceNet
 from pytassim.toolbox import Autoencoder, LossWrapper, StandardDisc
 
 

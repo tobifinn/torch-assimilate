@@ -82,7 +82,7 @@ def plot_generator(model, dataset, device, _rnd, _run):
     obs_expanded = obs.expand(ens_size, -1)
     truth = sample['truth'].view(1, -1)
 
-    forward_states = model.forward(back_ens, back_ens, obs_expanded)
+    forward_states = model.forward(observation=obs_expanded, prior=back_ens)
     analysed_ens = forward_states[0]
 
     plot_prior = back_ens.detach().cpu().numpy()

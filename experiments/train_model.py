@@ -47,7 +47,7 @@ from tqdm import tqdm
 
 # Internal modules
 from data_loader import data_ingredient, load_data
-from models_linear import model_ingredient, Model
+from model_loader import model_ingredient, get_models
 from eval_utils import write_figures, get_metrics, write_metrics
 from test_model import test_model
 
@@ -94,6 +94,7 @@ def config():
     load_path = None
     batch_size = 64
     epochs = 100
+    disc_steps = 1
 
 
 def out_as_str(model_out):
@@ -118,8 +119,8 @@ def log_metric(model_output, step, _run, valid=False):
 
 
 @exp.capture
-def train_model(model, train_data, valid_data, assim_ds, summary_writers,
-                log_path, batch_size, epochs, _log, _run, _rnd):
+def train_model(models, train_data, valid_data, assim_ds, summary_writers,
+                log_path, batch_size, disc_steps, epochs, _log, _run, _rnd):
     _log.info('Starting to train the model')
     model_path = os.path.join(log_path, 'models')
     save_path = os.path.join(model_path, '{0:s}_{1:s}'.format(
@@ -136,10 +137,11 @@ def train_model(model, train_data, valid_data, assim_ds, summary_writers,
         valid_data, batch_size=batch_size, shuffle=True, num_workers=2
     )
 
-    write_figures(model, valid_data, device, summary_writers['test'],
+    autoencoder, discriminator = models
+    write_figures(autoencoder, valid_data, device, summary_writers['test'],
                   0, _rnd, _run)
 
-    test_model(model, assim_ds, summary_writers['test'], 0, _rnd, _run)
+    test_model(autoencoder, assim_ds, summary_writers['test'], 0, _rnd, _run)
 
     iters_p_epoch = len(train_data)//batch_size - 1
     n_iters = 0
@@ -151,39 +153,44 @@ def train_model(model, train_data, valid_data, assim_ds, summary_writers,
             prior_ens_0 = train_sample['prior_ens_0'].float().to(device)
             prior_ens_1 = train_sample['prior_ens_1'].float().to(device)
             obs = train_sample['obs'].float().to(device)
-            losses_disc = model.trainstep_disc(
-                prior_ens_0, prior_ens_1, obs
-            )
-            if n_iters % model.disc_steps == 0:
-                losses_gen = model.trainstep_gen(
-                        prior_ens_0, prior_ens_1, obs,)
 
-            e_pbar.set_postfix(loss_gen=losses_gen['tot_loss'].item(),
-                               loss_disc=losses_disc['tot_loss'].item())
+            analysis, recon_obs = autoencoder.forward(
+                observation=obs, prior=prior_ens_0
+            )
+            losses_disc = discriminator.train(
+                prior_ens_1, analysis, observation=obs, prior=prior_ens_0
+            )
+            if n_iters % disc_steps == 0:
+                losses_gen = autoencoder.train(
+                    observation=obs, prior=prior_ens_0
+                )
+
+            e_pbar.set_postfix(loss_gen=losses_gen[0].item(),
+                               loss_disc=losses_disc[0].item())
 
             summary_writers['train'].add_scalar(
-                'loss/disc', losses_disc['tot_loss'].item(),
+                'loss/disc', losses_disc[0].item(),
                 global_step=n_iters+1
             )
             summary_writers['train'].add_scalar(
-                'loss/gen', losses_gen['tot_loss'].item(),
+                'loss/gen', losses_gen[0].item(),
                 global_step=n_iters+1
             )
-            if n_iters % 500 == 0:
-                summary_writers['train'].add_scalar(
-                    'gen/sigma_0_l1',
-                    model.enc_net.data_net[0][0].weights_sigma.item(),
-                    global_step=n_iters+1
-                )
-                summary_writers['train'].add_scalar(
-                    'disc/sigma_0_l1',
-                    model.disc_prior.net[0][0].weights_sigma.item(),
-                    global_step=n_iters+1
-                )
-                write_metrics(summary_writers['train'], losses_disc, n_iters,
-                              'disc')
-                write_metrics(summary_writers['train'], losses_gen, n_iters,
-                              'gen')
+            # if n_iters % 500 == 0:
+            #     summary_writers['train'].add_scalar(
+            #         'gen/sigma_0_l1',
+            #         model.enc_net.data_net[0][0].weights_sigma.item(),
+            #         global_step=n_iters+1
+            #     )
+            #     summary_writers['train'].add_scalar(
+            #         'disc/sigma_0_l1',
+            #         model.disc_prior.net[0][0].weights_sigma.item(),
+            #         global_step=n_iters+1
+            #     )
+            #     write_metrics(summary_writers['train'], losses_disc, n_iters,
+            #                   'disc')
+            #     write_metrics(summary_writers['train'], losses_gen, n_iters,
+            #                   'gen')
             e_pbar.update()
             n_iters += 1
 
@@ -194,11 +201,18 @@ def train_model(model, train_data, valid_data, assim_ds, summary_writers,
                 prior_ens_1 = valid_sample['prior_ens_1'].float().to(device)
                 obs = valid_sample['obs'].float().to(device)
 
-                test_loss_disc = model.eval_disc(prior_ens_0, prior_ens_1, obs)
-                test_loss_gen = model.eval_gen(prior_ens_0, prior_ens_1, obs)
+                analysis, recon_obs = autoencoder.forward(
+                    observation=obs, prior=prior_ens_0
+                )
+                losses_disc = discriminator.eval(
+                    prior_ens_1, analysis, observation=obs, prior=prior_ens_0
+                )
+                losses_gen = autoencoder.eval(
+                    observation=obs, prior=prior_ens_0
+                )
 
-                test_loss['gen'].append(test_loss_gen['tot_loss'].item())
-                test_loss['disc'].append(test_loss_disc['tot_loss'].item())
+                test_loss['gen'].append(losses_gen[0].item())
+                test_loss['disc'].append(losses_disc[0].item())
 
             test_loss = {k: np.mean(l) for k, l in test_loss.items()}
             summary_writers['test'].add_scalar(
@@ -210,15 +224,15 @@ def train_model(model, train_data, valid_data, assim_ds, summary_writers,
                 global_step=n_iters
             )
 
-        write_figures(model, valid_data, device, summary_writers['test'],
+        write_figures(autoencoder, valid_data, device, summary_writers['test'],
                       n_iters, _rnd, _run)
-        test_model(model, assim_ds, summary_writers['test'],
+        test_model(autoencoder, assim_ds, summary_writers['test'],
                    n_iters, _rnd, _run)
         if test_loss['gen'] < best_loss:
             model_path = os.path.join(
                 save_path, 'model_latest_{0:d}.pt'.format(epoch)
             )
-            torch.save(model, model_path)
+            torch.save(autoencoder.inference_net, model_path)
             best_loss = test_loss['gen']
 
         tot_pbar.set_postfix(loss_gen=test_loss['gen'],
@@ -243,19 +257,18 @@ def run_experiment(log_path, _run, _log, _rnd):
     train_dataset, valid_dataset, assim_dataset = load_data()
     _log.info('Loaded the data')
 
-    model = Model().to(device)
-    for k, i in enumerate(train_dataset.obs_operator._sel_obs_points):
-        model.dec_net.weight.data[k, i] = 1.
-    _log.info('Num model parameters:{0:d}'.format(count_parameters(model)))
+    autoencoder, discriminator = get_models(train_dataset)
+    autoencoder.inference_net.to(device)
+    autoencoder.obs_operator.to(device)
+    discriminator.net.to(device)
     _log.info('Compiled the model')
 
     train_writer = tensorboardX.SummaryWriter(summary_dir + '/train')
     test_writer = tensorboardX.SummaryWriter(summary_dir + '/test')
-    train_model(model, train_data=train_dataset, valid_data=valid_dataset,
-                assim_ds=assim_dataset,
+    train_model((autoencoder, discriminator), train_data=train_dataset,
+                valid_data=valid_dataset, assim_ds=assim_dataset,
                 summary_writers={'train': train_writer, 'test': test_writer})
 
     _log.info('Finished training of {0:s}_{1:s}'.format(
        _run.experiment_info['name'], _run.start_time.strftime('%Y%m%d%H%M')
     ))
-
