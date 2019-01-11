@@ -200,11 +200,11 @@ class StandardDisc(object):
         fake_data : :py:class:`torch.Tensor`
             This tensor is used as fake data input to train this discriminator.
             This fake data should have the same tensor type as the real data.
-        args : iterable(any), optional
+        *args : iterable(any), optional
             This variable length list of tensors is used as additional arguments
             to train the network. These additional arguments are passed to the
             forward method of the network.
-        kwargs : dict(str, any), optional
+        **kwargs : dict(str, any), optional
             These additional keyword arguments are used as additional arguments
             to train the network. These additional keyword arguments are passed
             to the forward method of the network.
@@ -257,11 +257,11 @@ class StandardDisc(object):
             This tensor is used as fake data input to evaluate this
             discriminator. This fake data should have the same tensor type as
             the real data.
-        args : iterable(any), optional
+        *args : iterable(any), optional
             This variable length list of tensors is used as additional arguments
             to evaluate the network. These additional arguments are passed to
             the forward method of the network.
-        kwargs : dict(str, any), optional
+        **kwargs : dict(str, any), optional
             These additional keyword arguments are used as additional arguments
             to evaluate the network. These additional keyword arguments are
             passed to the forward method of the network.
@@ -298,11 +298,11 @@ class StandardDisc(object):
             These fake data are used to estimate the critics value of this
             discriminator. The first dimension of this tensor is used as batch
             size.
-        args : iterable(any), optional
+        *args : iterable(any), optional
             This variable length list of tensors is used as additional arguments
             to evaluate the network. These additional arguments are passed to
             the forward method of the network.
-        kwargs : dict(str, any), optional
+        **kwargs : dict(str, any), optional
             These additional keyword arguments are used as additional arguments
             to evaluate the network. These additional keyword arguments are
             passed to the forward method of the network.
@@ -333,11 +333,11 @@ class StandardDisc(object):
         recon_obs : :py:torch:`torch.Tensor`
             The reconstruction loss is estimated based on these reconstructed
             observations.
-        args : iterable(any), optional
+        *args : iterable(any), optional
             This variable length list of tensors is used as additional arguments
             to evaluate the network. These additional arguments are passed to
             the forward method of the network.
-        kwargs : dict(str, any), optional
+        **kwargs : dict(str, any), optional
             These additional keyword arguments are used as additional arguments
             to evaluate the network. These additional keyword arguments are
             passed to the forward method of the network.
@@ -366,11 +366,11 @@ class StandardDisc(object):
         ----------
         analysis : :py:torch:`torch.Tensor`
             The background loss is estimated based on this estimated analysis.
-        args : iterable(any), optional
+        *args : iterable(any), optional
             This variable length list of tensors is used as additional arguments
             to evaluate the network. These additional arguments are passed to
             the forward method of the network.
-        kwargs : dict(str, any), optional
+        **kwargs : dict(str, any), optional
             These additional keyword arguments are used as additional arguments
             to evaluate the network. These additional keyword arguments are
             passed to the forward method of the network.
