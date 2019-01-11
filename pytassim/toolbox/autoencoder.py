@@ -174,6 +174,26 @@ class Autoencoder(object):
         recon_obs = self.obs_operator(analysis)
         return analysis, recon_obs
 
+    def _get_train_losses(self, observation, prior=None, prior_ensemble=None,
+                          noise=None):
+        analysis, recon_obs = self.forward(
+            observation=observation, prior=prior, prior_ensemble=prior_ensemble,
+            noise=noise
+        )
+
+        back_loss = self.back_loss.back_loss(
+            analysis, observation=observation, prior=prior,
+            prior_ensemble=prior_ensemble, noise=noise
+        )
+
+        recon_loss = self.recon_loss.recon_loss(
+            recon_obs, observation=observation, prior=prior,
+            prior_ensemble=prior_ensemble, noise=noise
+        )
+
+        total_loss = back_loss + recon_loss
+        return total_loss, back_loss, recon_loss
+
     def train(self, observation, prior=None, prior_ensemble=None, noise=None):
         """
         This method is used to train this autoencoder with given parameters and
@@ -223,24 +243,63 @@ class Autoencoder(object):
         self.obs_operator.train()
         self.optimizer.zero_grad()
 
-        analysis, recon_obs = self.forward(
+        total_loss, back_loss, recon_loss = self._get_train_losses(
             observation=observation, prior=prior, prior_ensemble=prior_ensemble,
             noise=noise
         )
-
-        back_loss = self.back_loss.back_loss(
-            analysis, observation=observation, prior=prior,
-            prior_ensemble=prior_ensemble, noise=noise
-        )
         back_loss.backward()
-
-        recon_loss = self.recon_loss.recon_loss(
-            recon_obs, observation=observation, prior=prior,
-            prior_ensemble=prior_ensemble, noise=noise
-        )
         recon_loss.backward()
 
         self.optimizer.step()
+        return total_loss, back_loss, recon_loss
 
-        total_loss = back_loss + recon_loss
+    def eval(self, observation, prior=None, prior_ensemble=None, noise=None):
+        """
+        Evaluate this autoencoder with given observations and other arguments.
+
+        Parameters
+        ----------
+        observation : :py:class:`torch.Tensor`
+            This is the observation, which is mandatory and used to estimate the
+            analysis.
+        prior : :py:class:`torch.Tensor` or None, optional
+            This is the prior, which can be used as deterministic prior
+            information about the latent state. If this prior is None, it will
+            not be used by the inference network. Default is None.
+        prior_ensemble : :py:class:`torch.Tensor` or None, optional
+            This is the ensemble prior, which can be used as stochastic prior
+            information about the latent state. If this prior is None, it will
+            not be used by the inference network. Default is None.
+        noise : :py:class:`torch.Tensor` or None, optional
+            This random noise can be used to artifically inflate the resulting
+            analysis or to translate a deterministic network into a stochastic
+            one. If this noise is None, it will be not used by the inference
+            network. Default is None.
+
+        Returns
+        -------
+        tot_loss : :py:class:`torch.Tensor`
+            This is the total loss of this autoencoder, which was used to train
+            the models.
+        back_loss : :py:class:`torch.Tensor`
+            This is the background loss of this autoencoder, which compares
+            analysis with prior and tries to draw the inference network to the
+            prior.
+        recon_loss : :py:class:`torch.Tensor`
+            This is the reconstruction loss of this autoencoder, which compares
+            the reconstructed observation based on estimated analysis and tries
+            to draw this reconstructed observation to given observation.
+
+        Warnings
+        --------
+        To evaluate this autoencoder, `back_loss` and `recon_loss` has to be
+        set!
+        """
+        self.inference_net.eval()
+        self.obs_operator.eval()
+
+        total_loss, back_loss, recon_loss = self._get_train_losses(
+            observation=observation, prior=prior, prior_ensemble=prior_ensemble,
+            noise=noise
+        )
         return total_loss, back_loss, recon_loss

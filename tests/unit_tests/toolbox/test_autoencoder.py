@@ -249,6 +249,26 @@ class TestAutoencoder(unittest.TestCase):
         torch.testing.assert_allclose(returned_losses[1], back_loss)
         torch.testing.assert_allclose(returned_losses[2], recon_loss)
 
+    def test_eval_sets_nets_to_eval(self):
+        self.inject_missing()
+        self.autoencoder.inference_net.eval = MagicMock(return_value=None)
+        self.autoencoder.obs_operator.eval = MagicMock(return_value=None)
+        _ = self.autoencoder.eval(self.obs_torch)
+        self.autoencoder.inference_net.eval.assert_called_once()
+        self.autoencoder.obs_operator.eval.assert_called_once()
+
+    def test_eval_uses_train_losses(self):
+        self.inject_missing()
+        self.autoencoder._get_train_losses = MagicMock(
+            return_value=(1, 2, 3)
+        )
+        data_dict = dict(
+            observation=self.obs_torch, prior=1, prior_ensemble=2, noise=3
+        )
+        returned_losses = self.autoencoder.eval(data_dict)
+        self.assertTupleEqual(returned_losses, (1, 2, 3))
+        self.autoencoder._get_train_losses.assert_called_once()
+
 
 if __name__ == '__main__':
     unittest.main()
