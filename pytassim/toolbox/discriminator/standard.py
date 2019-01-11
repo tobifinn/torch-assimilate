@@ -174,6 +174,20 @@ class StandardDisc(object):
         out_data = self.net(*args, **kwargs)
         return out_data
 
+    def _get_train_losses(self, real_data, fake_data, *args, **kwargs):
+        batch_size = real_data.size()[0]
+
+        real_critic = self.forward(real_data, *args, **kwargs)
+        real_labels = self.get_targets(batch_size, 1.0, real_data)
+        real_loss = self.disc_loss(real_critic, real_labels)
+
+        fake_critic = self.forward(fake_data, *args, **kwargs)
+        fake_labels = self.get_targets(batch_size, 0.0, real_data)
+        fake_loss = self.disc_loss(fake_critic, fake_labels)
+
+        total_loss = real_loss + fake_loss
+        return total_loss, real_loss, fake_loss
+
     def train(self, real_data, fake_data, *args, **kwargs):
         """
         Train this discriminator on given real data and fake data.
@@ -219,25 +233,58 @@ class StandardDisc(object):
         self.net.train()
         self.optimizer.zero_grad()
 
-        batch_size = real_data.size()[0]
+        total_loss, real_loss, fake_loss = self._get_train_losses(
+            real_data, fake_data, *args, **kwargs
+        )
 
-        real_critic = self.forward(real_data, *args, **kwargs)
-        real_labels = self.get_targets(batch_size, 1.0, real_data)
-        real_loss = self.disc_loss(real_critic, real_labels)
         real_loss.backward()
-
-        fake_critic = self.forward(fake_data, *args, **kwargs)
-        fake_labels = self.get_targets(batch_size, 0.0, real_data)
-        fake_loss = self.disc_loss(fake_critic, fake_labels)
         fake_loss.backward()
 
         self.optimizer.step()
 
-        total_loss = real_loss + fake_loss
         return total_loss, real_loss, fake_loss
 
     def eval(self, real_data, fake_data, *args, **kwargs):
-        pass
+        """
+        Evaluate this discriminator on given real data and fake data.
+
+        Parameters
+        ----------
+        real_data : :py:class:`torch.Tensor`
+            This tensor is used as real data input for this discriminator. The
+            first dimension is also used as batch size, to generate the targets.
+        fake_data : :py:class:`torch.Tensor`
+            This tensor is used as fake data input to evaluate this
+            discriminator. This fake data should have the same tensor type as
+            the real data.
+        args : iterable(any), optional
+            This variable length list of tensors is used as additional arguments
+            to train the network. These additional arguments are passed to the
+            forward method of the network.
+        kwargs : dict(str, any), optional
+            These additional keyword arguments are used as additional arguments
+            to train the network. These additional keyword arguments are passed
+            to the forward method of the network.
+
+        Returns
+        -------
+        tot_loss : :py:class:`torch.Tensor`
+            This is the total loss of this discriminator and is a combination of
+            the fake and real loss. This total loss tensor has the same tensor
+            type as given `real_data`. Normally, this is
+            :math:`real_loss` + `fake_loss`.
+        real_loss : :py:class:`torch.Tensor`
+            This is the discriminator loss of the real data. This real data loss
+            has the same tensor type as given `real_data`.
+        fake_loss : :py:class:`torch.Tensor`
+            This is the discriminator loss of the fake data. This fake data loss
+            has the same tensor type as given `real_data`.
+        """
+        self.net.eval()
+        total_loss, real_loss, fake_loss = self._get_train_losses(
+            real_data, fake_data, *args, **kwargs
+        )
+        return total_loss, real_loss, fake_loss
 
     def gen_loss(self, fake_data, *args, **kwargs):
         pass
