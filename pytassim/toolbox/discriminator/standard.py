@@ -259,12 +259,12 @@ class StandardDisc(object):
             the real data.
         args : iterable(any), optional
             This variable length list of tensors is used as additional arguments
-            to train the network. These additional arguments are passed to the
-            forward method of the network.
+            to evaluate the network. These additional arguments are passed to
+            the forward method of the network.
         kwargs : dict(str, any), optional
             These additional keyword arguments are used as additional arguments
-            to train the network. These additional keyword arguments are passed
-            to the forward method of the network.
+            to evaluate the network. These additional keyword arguments are
+            passed to the forward method of the network.
 
         Returns
         -------
@@ -287,10 +287,105 @@ class StandardDisc(object):
         return total_loss, real_loss, fake_loss
 
     def gen_loss(self, fake_data, *args, **kwargs):
-        pass
+        """
+        This loss can be used to train a generator based on critic values of
+        this discriminator. In this discriminator, it is the cross-entropy of
+        the probability that fake data is discriminated as real data.
+
+        Parameters
+        ----------
+        fake_data : :py:class:`torch.Tensor`
+            These fake data are used to estimate the critics value of this
+            discriminator. The first dimension of this tensor is used as batch
+            size.
+        args : iterable(any), optional
+            This variable length list of tensors is used as additional arguments
+            to evaluate the network. These additional arguments are passed to
+            the forward method of the network.
+        kwargs : dict(str, any), optional
+            These additional keyword arguments are used as additional arguments
+            to evaluate the network. These additional keyword arguments are
+            passed to the forward method of the network.
+
+        Returns
+        -------
+        gen_loss : py:class:`torch.Tensor`
+            The estimated generator loss based on given data and trained
+            network. This generator loss has the same tensor type as given
+            `fake_data`.
+        """
+        self.net.eval()
+
+        batch_size = fake_data.size()[0]
+
+        fake_critic = self.forward(fake_data, *args, **kwargs)
+        real_labels = self.get_targets(batch_size, 1.0, fake_data)
+        gen_loss = self.disc_loss(fake_critic, real_labels)
+        return gen_loss
 
     def recon_loss(self, recon_obs, *args, **kwargs):
-        pass
+        """
+        This reconstruction loss is used for the autoencoder to nudge the
+        reconstructed observations to the real observations.
+
+        Parameters
+        ----------
+        recon_obs : :py:torch:`torch.Tensor`
+            The reconstruction loss is estimated based on these reconstructed
+            observations.
+        args : iterable(any), optional
+            This variable length list of tensors is used as additional arguments
+            to evaluate the network. These additional arguments are passed to
+            the forward method of the network.
+        kwargs : dict(str, any), optional
+            These additional keyword arguments are used as additional arguments
+            to evaluate the network. These additional keyword arguments are
+            passed to the forward method of the network.
+
+        Returns
+        -------
+        recon_loss : :py:class:`torch.Tensor`
+            This reconstruction loss is estimated on given reconstructed
+            observations and the trained network. This reconstruction loss has
+            the same tensor type as `recon_obs`.
+
+        Notes
+        -----
+        This method passes `recon_obs` as fake data to `gen_loss`, which
+        estimates the reconstruction loss.
+        """
+        recon_loss = self.gen_loss(recon_obs, *args, **kwargs)
+        return recon_loss
 
     def back_loss(self, analysis, *args, **kwargs):
-        pass
+        """
+        This background loss is used for the autoencoder to nudge the analysis
+        to the prior.
+
+        Parameters
+        ----------
+        analysis : :py:torch:`torch.Tensor`
+            The background loss is estimated based on this estimated analysis.
+        args : iterable(any), optional
+            This variable length list of tensors is used as additional arguments
+            to evaluate the network. These additional arguments are passed to
+            the forward method of the network.
+        kwargs : dict(str, any), optional
+            These additional keyword arguments are used as additional arguments
+            to evaluate the network. These additional keyword arguments are
+            passed to the forward method of the network.
+
+        Returns
+        -------
+        back_loss : :py:class:`torch.Tensor`
+            This background loss is estimated on given analysis and the trained
+            network. This background loss has the same tensor type as
+            `recon_obs`.
+
+        Notes
+        -----
+        This method passes `analysis` as fake data to `gen_loss`, which
+        estimates the background loss.
+        """
+        back_loss = self.gen_loss(analysis, *args, **kwargs)
+        return back_loss
