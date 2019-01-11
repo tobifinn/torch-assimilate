@@ -53,7 +53,7 @@ class StandardDisc(object):
     net : :py:class:`pytorch.nn.Module`
         This network is used for this discriminator. This network is also
         updated during training.
-    loss_func : py:class:`pytorch.nn.Module`
+    loss_func : callable
         This loss function should be an initialized loss function from
         :py:mod:`torch.nn`.
     """
@@ -61,6 +61,22 @@ class StandardDisc(object):
         self.net = net
         self.loss_func = torch.nn.BCEWithLogitsLoss()
         self.optimizer = None
+
+    @property
+    def trainable_params(self):
+        trainable_params = [p for p in self.net.parameters() if p.requires_grad]
+        return trainable_params
+
+    def check_trainable(self):
+        if not hasattr(self.loss_func, '__call__'):
+            raise TypeError('Set loss function is not a valid callable '
+                            'loss function!')
+
+        if not isinstance(self.optimizer, torch.optim.Optimizer):
+            raise TypeError('Set optimizer is not a valid torch optimizer!')
+        if not self.trainable_params:
+            raise ValueError('This discriminator has no trainable parameters '
+                             'and cannot be trained!')
 
     @staticmethod
     def get_targets(batch_size, fill_val=1.0, tensor_type=None):
@@ -143,3 +159,18 @@ class StandardDisc(object):
         """
         out_data = self.net(*args, **kwargs)
         return out_data
+
+    def train(self, real_data, fake_data, *args, **kwargs):
+        pass
+
+    def eval(self, real_data, fake_data, *args, **kwargs):
+        pass
+
+    def gen_loss(self, fake_data, *args, **kwargs):
+        pass
+
+    def recon_loss(self, recon_obs, *args, **kwargs):
+        pass
+
+    def back_loss(self, analysis, *args, **kwargs):
+        pass

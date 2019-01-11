@@ -97,6 +97,35 @@ class TestDiscStandard(unittest.TestCase):
         returned_data = self.disc.forward(in_data)
         torch.testing.assert_allclose(returned_data, out_data)
 
+    def test_trainable_params_returns_net_params(self):
+        network_params = self.disc.net.parameters()
+        self.assertListEqual(list(network_params), self.disc.trainable_params)
+
+    def test_trainable_params_skips_if_grad_not_needed(self):
+        self.disc.net.bias.requires_grad = False
+        network_params = [p for p in self.disc.net.parameters()
+                          if p.requires_grad]
+        self.assertListEqual(network_params, self.disc.trainable_params)
+
+    def test_check_trainable_checks_if_loss_func_is_callable(self):
+        self.disc.loss_func = '123'
+        with self.assertRaises(TypeError):
+            self.disc.check_trainable()
+
+    def test_check_trainable_checks_if_optimizer_set(self):
+        self.disc.loss_func = torch.nn.BCEWithLogitsLoss()
+        with self.assertRaises(TypeError):
+            self.disc.check_trainable()
+
+    def test_check_trainable_checks_if_trainable_params(self):
+        self.disc.loss_func = torch.nn.BCEWithLogitsLoss()
+        self.disc.optimizer = torch.optim.SGD(self.disc.trainable_params,
+                                              lr=0.1)
+        for param in self.disc.net.parameters():
+            param.requires_grad = False
+        with self.assertRaises(ValueError):
+            self.disc.check_trainable()
+
 
 if __name__ == '__main__':
     unittest.main()
