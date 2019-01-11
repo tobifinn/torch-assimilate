@@ -96,3 +96,12 @@ class IdentityOperator(BaseOperator):
             in_array = in_array.sel(var_name='x')
         obs_state = in_array.sel(grid=self._sel_obs_points)
         return obs_state
+
+    def torch_operator(self):
+        operator = torch.nn.Linear(self.len_grid, len(self._sel_obs_points))
+        for param in operator.parameters():
+            param.requires_grad = False
+        operator.weight.data = torch.zeros_like(operator.weight.data)
+        for k, i in enumerate(self._sel_obs_points):
+            operator.weight.data[k, i] = 1.
+        return operator

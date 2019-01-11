@@ -59,6 +59,10 @@ class BaseOperator(object):
     def obs_op(self, in_array, *args, **kwargs):
         pass
 
+    @abc.abstractmethod
+    def torch_operator(self):
+        pass
+
     @property
     def get_obs_method(self):
         def observation_operator(cls, state):
