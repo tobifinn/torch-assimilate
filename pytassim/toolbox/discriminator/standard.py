@@ -46,7 +46,16 @@ class StandardDisc(object):
     ----------
     net : :py:class:`pytorch.nn.Module`
         This network is used for this discriminator. This network is also
+        updated during training. This network should take
+
+    Attributes
+    ----------
+    net : :py:class:`pytorch.nn.Module`
+        This network is used for this discriminator. This network is also
         updated during training.
+    loss_func : py:class:`pytorch.nn.Module`
+        This loss function should be an initialized loss function from
+        :py:mod:`torch.nn`.
     """
     def __init__(self, net,):
         self.net = net
@@ -86,9 +95,51 @@ class StandardDisc(object):
         return targets
 
     def disc_loss(self, in_data, labels):
+        """
+        This discriminator loss takes the in_data and labels and returns the
+        discriminator loss.
+
+        Parameters
+        ----------
+        in_data : :py:class:`torch.Tensor`
+            This is the discriminator output, outputted by `forward`. In this
+            discriminator, this are logits, which are translated into
+            probabilities.
+        labels : :py:class:`torch.Tensor`
+            These are the labels, which are used to determine the loss function
+            value for this discriminator. In this discriminator, this is a
+            probability label. These labels should have the same tensor type as
+            `in_data`.
+
+        Returns
+        -------
+        loss : :py:class:`torch.Tensor`
+            The loss for given input data and labels. In this discriminator, it
+            is the cross-entropy between estimated probability and labels. This
+            loss has the same tensor type as given `in_data`.
+        """
         loss = self.loss_func(in_data, labels)
         return loss
 
-    def forward(self, in_data):
-        out_data = self.net(in_data)
+    def forward(self, *args, **kwargs):
+        """
+        This method calls set net to generate a discriminator critic output,
+        which can be compared to targets.
+
+        Parameters
+        ----------
+        *args : iterable of :py:class:`torch.Tensor`
+            These variable length arguments are passed to set discriminator
+            network.
+        **kwargs : dict(str, :py:class:`torch.Tensor`)
+            These variable length keyword arguments are passed to set
+            discriminator network additional keyword arguments.
+
+        Returns
+        -------
+        out_data : :py:class:`torch.Tensor`
+            The estimated discriminator critic, which can be compared to
+            targets.
+        """
+        out_data = self.net(*args, **kwargs)
         return out_data

@@ -73,10 +73,12 @@ class Autoencoder(object):
     obs_operator : :py:class:`torch.nn.Module`
         This observation operator network is used to translate from model space
         into observation space.
-    recon_loss : child of :py:class:`pytassim.toolbox.loss.BaseLoss`
+    recon_loss : child of :py:class:`pytassim.toolbox.loss.BaseLoss` or
+    child of :py:class:`pytassim.toolbox.discriminator.standard.StandardDisc`
         This reconstruction loss instance should have a `recon_loss` method,
         which compares the reconstructed observations and the real observations.
-    back_loss : child of :py:class:`pytassim.toolbox.loss.BaseLoss`
+    back_loss : child of :py:class:`pytassim.toolbox.loss.BaseLoss` or
+    child of :py:class:`pytassim.toolbox.discriminator.standard.StandardDisc`
         This background loss instance should have a `back_loss` method, which
         compared the analysis with another given or estimated quantities.
     optimizer : child of :py:class:`torch.optim.Optimizer`
