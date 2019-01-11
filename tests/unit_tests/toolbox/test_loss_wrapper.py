@@ -61,7 +61,7 @@ class TestLossWrapper(unittest.TestCase):
     def test_recon_loss_passes_recon_obs_and_obs_to_loss(self):
         self.loss_wrapper._loss = MagicMock(return_value=10)
         recon_loss = self.loss_wrapper.recon_loss(
-            recon_obs=1, observation=2, prior=3, prior_ens=4, noise=5
+            recon_obs=1, observation=2, prior=3, prior_ensemble=4, noise=5
         )
         self.assertEqual(recon_loss, 10)
         self.loss_wrapper._loss.assert_called_once_with(input=1, target=2)
@@ -69,7 +69,7 @@ class TestLossWrapper(unittest.TestCase):
     def test_back_loss_passes_analysis_and_prior_to_loss(self):
         self.loss_wrapper._loss = MagicMock(return_value=10)
         back_loss = self.loss_wrapper.back_loss(
-            analysis=1, observation=2, prior=3, prior_ens=4, noise=5
+            analysis=1, observation=2, prior=3, prior_ensemble=4, noise=5
         )
         self.assertEqual(back_loss, 10)
         self.loss_wrapper._loss.assert_called_once_with(input=1, target=3)
@@ -77,7 +77,7 @@ class TestLossWrapper(unittest.TestCase):
     def test_back_loss_passes_analysis_and_ens_if_no_prior(self):
         self.loss_wrapper._loss = MagicMock(return_value=10)
         back_loss = self.loss_wrapper.back_loss(
-            analysis=1, observation=2, prior=None, prior_ens=4, noise=5
+            analysis=1, observation=2, prior=None, prior_ensemble=4, noise=5
         )
         self.assertEqual(back_loss, 10)
         self.loss_wrapper._loss.assert_called_once_with(input=1, target=4)
@@ -86,7 +86,8 @@ class TestLossWrapper(unittest.TestCase):
         self.loss_wrapper._loss = MagicMock(return_value=10)
         with self.assertRaises(ValueError):
             _ = self.loss_wrapper.back_loss(
-                analysis=1, observation=2, prior=None, prior_ens=None, noise=5
+                analysis=1, observation=2, prior=None, prior_ensemble=None,
+                noise=5
             )
 
 

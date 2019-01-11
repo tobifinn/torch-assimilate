@@ -95,7 +95,8 @@ class LossWrapper(object):
         recon_loss = self.loss(input=recon_obs, target=observation)
         return recon_loss
 
-    def back_loss(self, analysis, prior=None, prior_ens=None, *args, **kwargs):
+    def back_loss(self, analysis, prior=None, prior_ensemble=None, *args,
+                  **kwargs):
         """
         This background loss is used for the autoencoder to nudge the analysis
         to the prior.
@@ -106,9 +107,9 @@ class LossWrapper(object):
             The background loss is estimated based on this estimated analysis.
         prior : :py:torch:`torch.Tensor` or None, optional
             This prior tensor can be used to estimate the background loss for
-            analyses without ensembles. If this is None, then `prior_ens` is
-            used. Default is None.
-        prior_ens : :py:torch:`torch.Tensor` or None, optional
+            analyses without ensembles. If this is None, then `prior_ensemble`
+            is used. Default is None.
+        prior_ensemble : :py:torch:`torch.Tensor` or None, optional
             This ensemble prior tensor can be used to estimate the background
             loss for analyses with ensembles. If `prior` is None, this prior is
             used. Default is None.
@@ -126,21 +127,22 @@ class LossWrapper(object):
         Raises
         ------
         ValueError:
-            If neither `prior` or `prior_ens` is given as argument.
+            If neither `prior` or `prior_ensemble` is given as argument.
 
         Notes
         -----
         This uses set loss function to estimate the background loss. Given
-        analysis is used as input, while given `prior` or `prior_ens` is used
-        as target. Either `prior` or `prior_ens` has to be given as argument!
+        analysis is used as input, while given `prior` or `prior_ensemble` is
+        used as target. Either `prior` or `prior_ensemble` has to be given as
+        argument!
         """
         if prior is not None:
             back_loss = self.loss(input=analysis, target=prior)
-        elif prior_ens is not None:
-            back_loss = self.loss(input=analysis, target=prior_ens)
+        elif prior_ensemble is not None:
+            back_loss = self.loss(input=analysis, target=prior_ensemble)
         else:
             raise ValueError(
-                'Either a determinstic `prior` or an ensemble `prior_ens` have '
-                'to be given for background loss!')
+                'Either a determinstic `prior` or an ensemble `prior_ensemble` '
+                'have to be given for background loss!')
         return back_loss
 
