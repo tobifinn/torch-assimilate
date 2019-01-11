@@ -168,7 +168,7 @@ class Autoencoder(object):
             operator based on estimated analysis.
         """
         analysis = self.inference_net(
-            observation, prior=prior, prior_ensemble=prior_ensemble,
+            observation=observation, prior=prior, prior_ensemble=prior_ensemble,
             noise=noise
         )
         recon_obs = self.obs_operator(analysis)
