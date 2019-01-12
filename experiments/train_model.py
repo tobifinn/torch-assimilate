@@ -169,11 +169,11 @@ def train_model(models, train_data, valid_data, assim_ds, summary_writers,
             )
             if n_iters % 250 == 0:
                 summary_writers['train'].add_scalar('gen/tot_loss', losses_gen[0].item(), global_step=n_iters+1)
-                summary_writers['train'].add_scalar('gen/back_loss', losses_gen[1].item(), global_step=n_iters+1)
-                summary_writers['train'].add_scalar('gen/recon_loss', losses_gen[2].item(), global_step=n_iters+1)
+                summary_writers['train'].add_scalar('gen/loss_back', losses_gen[1].item(), global_step=n_iters+1)
+                summary_writers['train'].add_scalar('gen/loss_recon', losses_gen[2].item(), global_step=n_iters+1)
                 summary_writers['train'].add_scalar('disc/tot_loss', losses_disc[0].item(), global_step=n_iters+1)
-                summary_writers['train'].add_scalar('disc/real_loss', losses_disc[1].item(), global_step=n_iters+1)
-                summary_writers['train'].add_scalar('disc/fake_loss', losses_disc[2].item(), global_step=n_iters+1)
+                summary_writers['train'].add_scalar('disc/loss_real', losses_disc[1].item(), global_step=n_iters+1)
+                summary_writers['train'].add_scalar('disc/loss_fake', losses_disc[2].item(), global_step=n_iters+1)
                 _run.log_scalar('train.disc.loss', losses_disc[0].item(), n_iters+1)
                 _run.log_scalar('train.disc.real', losses_disc[1].item(), n_iters+1)
                 _run.log_scalar('train.disc.fake', losses_disc[2].item(), n_iters+1)
@@ -226,8 +226,8 @@ def train_model(models, train_data, valid_data, assim_ds, summary_writers,
         torch.save(autoencoder.inference_net, model_path)
         if test_loss['gen'] < best_loss:
             best_loss = test_loss['gen']
-            _run.info['best_model']['path'] = model_path
-            _run.info['best_model']['loss'] = best_loss
+            _run.info['best_model.path'] = model_path
+            _run.info['best_model.loss'] = best_loss
 
         tot_pbar.set_postfix(loss_gen=test_loss['gen'],
                              loss_disc=test_loss['disc'])
@@ -242,7 +242,7 @@ def count_parameters(model):
 @exp.capture
 @exp.automain
 def run_experiment(log_path, _run, _log, _rnd):
-    summary_dir = os.path.join(
+    summary_dir = os.path.join( 
         log_path, 'tensorboard', '{0:s}_{1:s}'.format(
             _run.experiment_info['name'],
             _run.start_time.strftime('%Y%m%d%H%M')

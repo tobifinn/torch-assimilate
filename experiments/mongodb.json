@@ -3,5 +3,5 @@
   "password": "sacred",
   "port": 27017,
   "server": "localhost",
-  "database": "Sacred"
+  "database": "torch-assimilate"
 }
