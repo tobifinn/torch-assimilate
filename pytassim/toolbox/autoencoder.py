@@ -247,7 +247,8 @@ class Autoencoder(object):
             observation=observation, prior=prior, prior_ensemble=prior_ensemble,
             noise=noise
         )
-        total_loss.backward()
+        back_loss.backward(retain_graph=True)
+        recon_loss.backward()
 
         self.optimizer.step()
         return total_loss, back_loss, recon_loss
