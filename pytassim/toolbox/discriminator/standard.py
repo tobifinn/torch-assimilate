@@ -314,8 +314,6 @@ class StandardDisc(object):
             network. This generator loss has the same tensor type as given
             `fake_data`.
         """
-        self.net.eval()
-
         batch_size = fake_data.size()[0]
 
         fake_critic = self.forward(fake_data, *args, **kwargs)
