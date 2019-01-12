@@ -48,7 +48,7 @@ def config():
         gen=0.0001,
         disc=0.0002,
     )
-    obs_size = 20
+    obs_size = 8
     grid_size = 40
     noise_size = 5
     hidden_size = (64, )
@@ -60,8 +60,9 @@ def get_models(dataset, learning_rates, obs_size, grid_size, noise_size,
     obs_operator = dataset.obs_operator.torch_operator()
     inference_net = InferenceNet(obs_size=obs_size, grid_size=grid_size,
                                  noise_size=noise_size, hidden_size=hidden_size)
-    discriminator = Discriminator(obs_size=obs_size, grid_size=grid_size,
-                                  hidden_size=hidden_size)
+    disc_net = Discriminator(obs_size=obs_size, grid_size=grid_size,
+                             hidden_size=hidden_size)
+    discriminator = StandardDisc(net=disc_net)
     discriminator.optimizer = torch.optim.RMSprop(
         discriminator.trainable_params, lr=learning_rates['disc']
     )

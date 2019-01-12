@@ -237,7 +237,7 @@ class StandardDisc(object):
             real_data, fake_data, *args, **kwargs
         )
 
-        real_loss.backward()
+        real_loss.backward(retain_graph=True)
         fake_loss.backward()
 
         self.optimizer.step()

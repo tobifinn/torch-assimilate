@@ -70,6 +70,9 @@ class InferenceNet(torch.nn.Module):
             curr_size = neurons
         layers.append(torch.nn.Linear(curr_size, 40))
 
+        self.noise_size = noise_size
+        self.grid_size = grid_size
+
         self.data_net = torch.nn.Sequential(*layers)
         self.noise_net = torch.nn.Sequential(
             torch.nn.Linear(noise_size, 64, bias=False),
