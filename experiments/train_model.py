@@ -149,7 +149,7 @@ def train_model(models, train_data, valid_data, assim_ds, summary_writers,
                 observation=obs, prior=prior_ens_0
             )
             losses_disc = discriminator.train(
-                prior_ens_1, analysis, observation=obs, prior=prior_ens_0
+                prior_ens_1, analysis.detach(), observation=obs, prior=prior_ens_0
             )
             if n_iters % disc_steps == 0:
                 losses_gen = autoencoder.train(
@@ -194,7 +194,7 @@ def train_model(models, train_data, valid_data, assim_ds, summary_writers,
                     observation=obs, prior=prior_ens_0
                 )
                 losses_disc = discriminator.eval(
-                    prior_ens_1, analysis, observation=obs, prior=prior_ens_0
+                    prior_ens_1, analysis.detach(), observation=obs, prior=prior_ens_0
                 )
                 losses_gen = autoencoder.eval(
                     observation=obs, prior=prior_ens_0
