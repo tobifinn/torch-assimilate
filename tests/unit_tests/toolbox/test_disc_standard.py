@@ -377,12 +377,6 @@ class TestDiscStandard(unittest.TestCase):
         self.assertEqual(returned_losses[1], real_loss)
         self.assertEqual(returned_losses[2], fake_loss)
 
-    def test_gen_loss_sets_net_to_eval(self):
-        self.inject_missing()
-        self.disc.net.eval = MagicMock()
-        _ = self.disc.gen_loss(self.obs_torch)
-        self.disc.net.eval.assert_called_once()
-
     def test_gen_loss_uses_forward_for_fake_data(self):
         self.inject_missing()
         fake_return = self.disc.forward(self.obs_torch)
