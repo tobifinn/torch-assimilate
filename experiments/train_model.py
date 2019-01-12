@@ -79,13 +79,13 @@ exp = Experiment(
     ingredients=[data_ingredient, model_ingredient]
 )
 
-# try:
-#    exp.observers.append(get_mongo_observer('mongodb.json'))
-# except pymongo.errors.ServerSelectionTimeoutError as e:
-#    logger.warning('######### WARNING #########\n'
-#                   'Run will not be saved in a database, because MongoDB '
-#                   'server is not available!')
-# exp.captured_out_filter = apply_backspaces_and_linefeeds
+try:
+   exp.observers.append(get_mongo_observer('mongodb.json'))
+except pymongo.errors.ServerSelectionTimeoutError as e:
+   logger.warning('######### WARNING #########\n'
+                  'Run will not be saved in a database, because MongoDB '
+                  'server is not available!')
+exp.captured_out_filter = apply_backspaces_and_linefeeds
 
 
 @exp.config
@@ -95,15 +95,6 @@ def config():
     batch_size = 64
     epochs = 100
     disc_steps = 1
-
-
-def out_as_str(model_out):
-    loss_list = ['{0:s}:{1:.04f}'.format(key, val)
-                 for key, val in model_out['losses'].items()]
-    metric_list = ['{0:s}:{1:.04f}'.format(key, val)
-                   for key, val in model_out['metrics'].items()]
-    out_list = loss_list + metric_list
-    return ','.join(out_list)
 
 
 @exp.capture
@@ -176,21 +167,19 @@ def train_model(models, train_data, valid_data, assim_ds, summary_writers,
                 'loss/gen', losses_gen[0].item(),
                 global_step=n_iters+1
             )
-            # if n_iters % 500 == 0:
-            #     summary_writers['train'].add_scalar(
-            #         'gen/sigma_0_l1',
-            #         model.enc_net.data_net[0][0].weights_sigma.item(),
-            #         global_step=n_iters+1
-            #     )
-            #     summary_writers['train'].add_scalar(
-            #         'disc/sigma_0_l1',
-            #         model.disc_prior.net[0][0].weights_sigma.item(),
-            #         global_step=n_iters+1
-            #     )
-            #     write_metrics(summary_writers['train'], losses_disc, n_iters,
-            #                   'disc')
-            #     write_metrics(summary_writers['train'], losses_gen, n_iters,
-            #                   'gen')
+            if n_iters % 250 == 0:
+                summary_writers['train'].add_scalar('gen/tot_loss', losses_gen[0].item(), global_step=n_iters+1)
+                summary_writers['train'].add_scalar('gen/back_loss', losses_gen[1].item(), global_step=n_iters+1)
+                summary_writers['train'].add_scalar('gen/recon_loss', losses_gen[2].item(), global_step=n_iters+1)
+                summary_writers['train'].add_scalar('disc/tot_loss', losses_disc[0].item(), global_step=n_iters+1)
+                summary_writers['train'].add_scalar('disc/real_loss', losses_disc[1].item(), global_step=n_iters+1)
+                summary_writers['train'].add_scalar('disc/fake_loss', losses_disc[2].item(), global_step=n_iters+1)
+                _run.log_scalar('train.disc.loss', losses_disc[0].item(), n_iters+1)
+                _run.log_scalar('train.disc.real', losses_disc[1].item(), n_iters+1)
+                _run.log_scalar('train.disc.fake', losses_disc[2].item(), n_iters+1)
+                _run.log_scalar('train.gen.loss', losses_gen[0].item(), n_iters+1)
+                _run.log_scalar('train.gen.back', losses_gen[1].item(), n_iters+1)
+                _run.log_scalar('train.gen.recon', losses_gen[2].item(), n_iters+1)
             e_pbar.update()
             n_iters += 1
 
@@ -223,17 +212,22 @@ def train_model(models, train_data, valid_data, assim_ds, summary_writers,
                 'loss/gen', test_loss['gen'],
                 global_step=n_iters
             )
+            _run.log_scalar('valid.disc.loss', test_loss['disc'], n_iters)
+            _run.log_scalar('valid.gen.loss', test_loss['gen'], n_iters)
+            _run.result = test_loss['gen']
 
         write_figures(autoencoder, valid_data, device, summary_writers['test'],
                       n_iters, _rnd, _run)
         test_model(autoencoder, assim_ds, summary_writers['test'],
                    n_iters, _rnd, _run)
+        model_path = os.path.join(
+            save_path, 'model_latest_{0:d}.pt'.format(epoch)
+        )
+        torch.save(autoencoder.inference_net, model_path)
         if test_loss['gen'] < best_loss:
-            model_path = os.path.join(
-                save_path, 'model_latest_{0:d}.pt'.format(epoch)
-            )
-            torch.save(autoencoder.inference_net, model_path)
             best_loss = test_loss['gen']
+            _run.info['best_model']['path'] = model_path
+            _run.info['best_model']['loss'] = best_loss
 
         tot_pbar.set_postfix(loss_gen=test_loss['gen'],
                              loss_disc=test_loss['disc'])
