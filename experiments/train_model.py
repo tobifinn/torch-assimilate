@@ -145,9 +145,9 @@ def train_model(models, train_data, valid_data, assim_ds, summary_writers,
             prior_ens_1 = train_sample['prior_ens_1'].float().to(device)
             obs = train_sample['obs'].float().to(device)
 
-            analysis, recon_obs = autoencoder.forward(
+            analysis = autoencoder.inference_net.forward(
                 observation=obs, prior=prior_ens_0
-            )
+            ).detach()
             losses_disc = discriminator.train(
                 prior_ens_1, analysis, observation=obs, prior=prior_ens_0
             )
@@ -190,9 +190,9 @@ def train_model(models, train_data, valid_data, assim_ds, summary_writers,
                 prior_ens_1 = valid_sample['prior_ens_1'].float().to(device)
                 obs = valid_sample['obs'].float().to(device)
 
-                analysis, recon_obs = autoencoder.forward(
+                analysis = autoencoder.inference_net.forward(
                     observation=obs, prior=prior_ens_0
-                )
+                ).detach()
                 losses_disc = discriminator.eval(
                     prior_ens_1, analysis, observation=obs, prior=prior_ens_0
                 )
