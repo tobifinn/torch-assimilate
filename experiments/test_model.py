@@ -46,7 +46,7 @@ from pytassim.assimilation.neural import NeuralAssimilation
 from pytassim.transform.normalize import Normalizer
 from pytassim.assimilation.filter import LETKFilter
 from pytassim.localization import GaspariCohn
-from pytassim.model.forward_model import forward_model
+from pytassim.model.lorenz_96.forward_model import forward_model
 from pytassim.model import Lorenz96
 from pytassim.model.integration import RK4Integrator
 

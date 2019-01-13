@@ -35,9 +35,7 @@ import numpy as np
 # Internal modules
 from pytassim.model import Lorenz96
 from pytassim.model.integration import RK4Integrator
-from pytassim.model.forward_model import forward_model
-from pytassim.generator import observation_generator
-
+from pytassim.model.lorenz_96.forward_model import forward_model
 
 logger = logging.getLogger(__name__)
 
