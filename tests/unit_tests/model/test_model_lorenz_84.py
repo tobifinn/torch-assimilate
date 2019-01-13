@@ -38,7 +38,7 @@ from pytassim.model.lorenz_84 import Lorenz84
 rnd = np.random.RandomState(42)
 logging.basicConfig(level=logging.DEBUG)
 
-BASE_PATH = os.path.dirname(os.path.realpath(__file__))
+BASE_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
 
 class TestLorenz84(unittest.TestCase):

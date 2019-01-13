@@ -80,9 +80,11 @@ class ETKFilter(FilterAssimilation):
         or CPU (False): Default is None. For small models, estimation of the
         weights on CPU is faster than on GPU!.
     """
-    def __init__(self, smoothing=False, inf_factor=1.0, gpu=False):
-        super().__init__(gpu=gpu)
-        self.smoothing = smoothing
+    def __init__(self, inf_factor=1.0, smoother=True, gpu=False,
+                 pre_transform=None, post_transform=None):
+        super().__init__(smoother=smoother, gpu=gpu,
+                         pre_transform=pre_transform,
+                         post_transform=post_transform)
         self.inf_factor = inf_factor
         self._back_prec = None
 
@@ -123,11 +125,7 @@ class ETKFilter(FilterAssimilation):
         )[:-1]
         torch_states = self._states_to_torch(*prepared_states)
         w_mean, w_perts = self._gen_weights(*torch_states)
-        if not self.smoothing:
-            analysis_state = state.sel(time=[analysis_time, ])
-        else:
-            analysis_state = state
-        state_mean, state_perts = analysis_state.state.split_mean_perts()
+        state_mean, state_perts = state.state.split_mean_perts()
         analysis = self._apply_weights(w_mean, w_perts, state_mean, state_perts)
         analysis = analysis.transpose('var_name', 'time', 'ensemble', 'grid')
         return analysis
@@ -240,7 +238,7 @@ class ETKFilter(FilterAssimilation):
     @staticmethod
     def _det_square_root_eigen(evals_inv, evects, evects_inv):
         ens_size = evals_inv.size()[0]
-        w_perts = torch.sqrt((ens_size - 1) * evals_inv)
+        w_perts = ((ens_size - 1) * evals_inv) ** 0.5
         w_perts = torch.matmul(evects, torch.diagflat(w_perts))
         w_perts = torch.matmul(w_perts, evects_inv)
         return w_perts
@@ -250,7 +248,7 @@ class ETKFilter(FilterAssimilation):
         evals, evects = torch.symeig(precision, eigenvectors=True, upper=False)
         evals[evals < 0] = 0
         evals_inv = 1 / evals
-        evects_inv = torch.inverse(evects)
+        evects_inv = evects.t()
         return evals, evects, evals_inv, evects_inv
 
     def _gen_weights(self, innov, hx_perts, obs_cov, obs_weights=1):
@@ -359,10 +357,11 @@ class ETKFilter(FilterAssimilation):
         analysis : :py:class:`xarray.DataArray`
             The estimated analysis based on given state and weights.
         """
+        combined_weights = (w_mean + w_perts).t()
         if self.gpu:
-            combined_weights = (w_mean + w_perts).cpu()
-        else:
-            combined_weights = (w_mean + w_perts)
-        ana_perts = self._weights_matmul(state_pert, combined_weights.numpy())
+            combined_weights = combined_weights.cpu()
+        ana_perts = self._weights_matmul(
+            state_pert, combined_weights.numpy()
+        )
         analysis = state_mean + ana_perts
         return analysis

@@ -45,8 +45,150 @@ from pytassim.testing import dummy_obs_operator, if_gpu_decorator
 
 logging.basicConfig(level=logging.DEBUG)
 
-BASE_PATH = os.path.dirname(os.path.realpath(__file__))
+BASE_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
+
+
+class TestAnalyticalSolution(unittest.TestCase):
+    def setUp(self):
+        self.algorithm = ETKFilter()
+        self.algorithm._set_back_prec(2)
+        self.state, self.obs = self._create_matrices()
+        innov = (self.obs['observations']-self.state.mean('ensemble'))
+        innov = innov.values.reshape(-1)
+        hx_perts = self.state.values.reshape(1, 2)
+        obs_cov = self.obs['covariance'].values
+        prepared_states = [innov, hx_perts, obs_cov]
+        torch_states = self.algorithm._states_to_torch(*prepared_states)
+        self.innov, self.hx_perts, self.obs_cov = torch_states
+
+    def _create_matrices(self):
+        ens_obs = np.array([0.5, -0.5])
+        obs = np.array([0.2, ])
+        obs_var = np.array([0.5, ])
+        grid = np.array([0, ])
+        time = np.array([0, ])
+        var_name = np.array([0, ])
+        ensemble = np.arange(2)
+        state = xr.DataArray(
+            ens_obs.reshape(1, 1, 2, 1),
+            coords=dict(
+                time=time,
+                var_name=var_name,
+                ensemble=ensemble,
+                grid=grid
+            ),
+            dims=('var_name', 'time', 'ensemble', 'grid')
+        )
+        obs_da = xr.DataArray(
+            obs.reshape(1, 1),
+            coords=dict(
+                time=time,
+                obs_grid_1=grid
+            ),
+            dims=('time', 'obs_grid_1')
+        )
+        obs_cov_da = xr.DataArray(
+            obs_var.reshape(1, 1),
+            coords=dict(
+                obs_grid_1=grid,
+                obs_grid_2=grid
+            ),
+            dims=('obs_grid_1', 'obs_grid_2')
+        )
+        obs_ds = xr.Dataset(
+            {
+                'observations': obs_da,
+                'covariance': obs_cov_da
+            }
+        )
+        return state, obs_ds
+
+    def test_compute_c(self):
+        right_c = np.array([[1, -1]]).T
+        ret_c = self.algorithm._compute_c(self.hx_perts, self.obs_cov)
+        np.testing.assert_equal(ret_c.numpy(), right_c)
+
+    def test_calc_precision(self):
+        right_prec = np.array([
+            [1.5, -0.5],
+            [-0.5, 1.5]
+        ])
+        ret_c = self.algorithm._compute_c(self.hx_perts, self.obs_cov)
+        ret_prec = self.algorithm._calc_precision(ret_c, self.hx_perts)
+        np.testing.assert_equal(ret_prec.numpy(), right_prec)
+
+    def test_right_cov(self):
+        ret_c = self.algorithm._compute_c(self.hx_perts, self.obs_cov)
+        ret_prec = self.algorithm._calc_precision(ret_c, self.hx_perts)
+        ret_evd = self.algorithm._eigendecomp(ret_prec)
+        evals, evects, evals_inv, evects_inv = ret_evd
+
+        cov_analysed = torch.matmul(evects, torch.diagflat(evals_inv))
+        cov_analysed = torch.matmul(cov_analysed, evects_inv)
+
+        right_cov = np.array([
+            [0.75, 0.25],
+            [0.25, 0.75]
+        ])
+
+        np.testing.assert_array_almost_equal(cov_analysed, right_cov)
+
+    def test_right_wa(self):
+        correct_gain = np.array([0.5, -0.5])
+        correct_wa = correct_gain * 0.2
+        ret_wa, _ = self.algorithm._gen_weights(self.innov, self.hx_perts,
+                                                self.obs_cov)
+        np.testing.assert_array_almost_equal(ret_wa.numpy(), correct_wa)
+
+    def test_right_w_eigendecomposition(self):
+        ret_c = self.algorithm._compute_c(self.hx_perts, self.obs_cov)
+        ret_prec = self.algorithm._calc_precision(ret_c, self.hx_perts).numpy()
+        evals, evects = np.linalg.eigh(ret_prec)
+        evals_inv_sqrt = np.diagflat(np.sqrt(1/evals))
+        w_pert = np.dot(evals_inv_sqrt, evects.T)
+        w_pert = np.dot(evects, w_pert)
+
+        _, ret_perts = self.algorithm._gen_weights(self.innov, self.hx_perts,
+                                                   self.obs_cov)
+        np.testing.assert_array_almost_equal(ret_perts.numpy(), w_pert)
+
+    def test_right_w_perts(self):
+        right_cov = np.array([
+            [0.75, 0.25],
+            [0.25, 0.75]
+        ])
+        _, return_perts = self.algorithm._gen_weights(self.innov, self.hx_perts,
+                                                      self.obs_cov)
+        return_perts = return_perts.numpy()
+        ret_cov = np.matmul(return_perts, return_perts.T)
+        np.testing.assert_array_almost_equal(ret_cov, right_cov)
+
+    def test_apply_weights_ens_mean(self):
+        wa, w_perts = self.algorithm._gen_weights(self.innov, self.hx_perts,
+                                                  self.obs_cov)
+        state_mean, state_perts = self.state.state.split_mean_perts()
+        del_ana_mean = np.matmul(
+            state_perts.transpose('var_name', 'time', 'grid', 'ensemble'),
+            wa.numpy()
+        )
+        ana_mean = state_mean + del_ana_mean
+        ret_state = self.algorithm._apply_weights(wa, w_perts, state_mean,
+                                                  state_perts)
+        xr.testing.assert_equal(ret_state.mean('ensemble'), ana_mean)
+
+    def test_apply_weights_perts(self):
+        wa, w_perts = self.algorithm._gen_weights(self.innov, self.hx_perts,
+                                                  self.obs_cov)
+        state_mean, state_perts = self.state.state.split_mean_perts()
+        del_ana_perts = np.matmul(
+            state_perts.transpose('var_name', 'time', 'grid', 'ensemble'),
+            w_perts.numpy()
+        )
+        ret_state = self.algorithm._apply_weights(wa, w_perts, state_mean,
+                                                  state_perts)
+        ret_ana_perts = ret_state - ret_state.mean('ensemble')
+        np.testing.assert_equal(ret_ana_perts, del_ana_perts)
 
 
 class TestETKFilter(unittest.TestCase):
@@ -451,7 +593,8 @@ class TestETKFilter(unittest.TestCase):
         w_mean, w_perts = self.algorithm._gen_weights(*prepared_states[:-1])
         weights = w_mean + w_perts
         state_mean, state_perts = self.state.state.split_mean_perts()
-        ana_perts = self.algorithm._weights_matmul(state_perts, weights.numpy())
+        ana_perts = self.algorithm._weights_matmul(state_perts,
+                                                   weights.t().numpy())
         analysis = state_mean + ana_perts
         ret_analysis = self.algorithm._apply_weights(w_mean, w_perts,
                                                      state_mean, state_perts)
@@ -477,8 +620,7 @@ class TestETKFilter(unittest.TestCase):
         prepared_states = self.algorithm._prepare(self.state, obs_tuple)
         prepared_states = [torch.tensor(s) for s in prepared_states]
         w_mean, w_perts = self.algorithm._gen_weights(*prepared_states[:-1])
-        back_state = self.state.sel(time=[ana_time, ])
-        state_mean, state_perts = back_state.state.split_mean_perts()
+        state_mean, state_perts = self.state.state.split_mean_perts()
         analysis = self.algorithm._apply_weights(w_mean, w_perts, state_mean,
                                                  state_perts)
         analysis = analysis.transpose('var_name', 'time', 'ensemble', 'grid')

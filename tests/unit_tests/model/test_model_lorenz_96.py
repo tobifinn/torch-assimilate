@@ -37,7 +37,7 @@ from pytassim.model.lorenz_96 import torch_roll, Lorenz96
 
 rnd = np.random.RandomState(42)
 
-BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 
 logging.basicConfig(level=logging.DEBUG)
 

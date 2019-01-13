@@ -25,6 +25,7 @@
 
 # System modules
 import logging
+from copy import deepcopy
 
 # External modules
 
@@ -48,7 +49,8 @@ class NeuralAssimilation(BaseAssimilation):
         This model is used to assimilate given observations into given state.
         The model needs an ``assimilate`` method, where state, flattened
         observations and flattened observation covariance is given. This model
-        is transferred to specified device.
+        is transferred to specified device. Attention, a new clone of this
+        model is created.
     smoother : bool, optional
         This bool indicates if given `state` and `observations` should be
         localized to given `analysis_time`. If True, full state and all
@@ -59,10 +61,12 @@ class NeuralAssimilation(BaseAssimilation):
         or CPU (False). Default value is False, indicating computations on CPU.
         This flag transfers also given model to CPU or GPU.
     """
-    def __init__(self, model, smoother=True, gpu=False):
-        super().__init__(gpu=gpu)
+    def __init__(self, model, smoother=True, gpu=False, pre_transform=None,
+                 post_transform=None):
+        super().__init__(smoother=smoother, gpu=gpu,
+                         pre_transform=pre_transform,
+                         post_transform=post_transform)
         self._model = None
-        self.smoother = smoother
         self.model = model
 
     @property
@@ -73,10 +77,12 @@ class NeuralAssimilation(BaseAssimilation):
     def model(self, new_model):
         if not hasattr(new_model, 'assimilate'):
             raise TypeError('Given model is not a valid assimilation model!')
+        cloned_model = deepcopy(new_model)
+        cloned_model = cloned_model.type(self.dtype)
         if self.gpu:
-            self._model = new_model.cuda()
+            self._model = cloned_model.cuda()
         else:
-            self._model = new_model.cpu()
+            self._model = cloned_model.cpu()
 
     def update_state(self, state, observations, analysis_time):
         """
@@ -116,17 +122,11 @@ class NeuralAssimilation(BaseAssimilation):
             analysis has same coordinates as given ``state``. If filtering mode
             is on, then the time axis has only one element.
         """
-        if self.smoother:
-            back_state = state
-        else:
-            back_state = state.sel(time=[analysis_time, ])
-            observations = [obs.sel(time=[analysis_time, ])
-                            for obs in observations]
         obs_state, obs_cov, _ = self._prepare_obs(observations)
-        prepared_torch = self._states_to_torch(back_state.values, obs_state,
+        prepared_torch = self._states_to_torch(state.values, obs_state,
                                                obs_cov)
         torch_analysis = self.model.assimilate(*prepared_torch)
         if self.gpu:
             torch_analysis = torch_analysis.cpu()
-        analysis = back_state.copy(deep=True, data=torch_analysis.numpy())
+        analysis = state.copy(deep=True, data=torch_analysis.numpy())
         return analysis

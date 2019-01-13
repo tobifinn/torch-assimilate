@@ -38,7 +38,7 @@ from pytassim.model.integration.rk4 import RK4Integrator
 
 logging.basicConfig(level=logging.DEBUG)
 
-BASE_PATH = os.path.dirname(os.path.realpath(__file__))
+BASE_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
 
 def dummy_model(state):

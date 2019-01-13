@@ -40,7 +40,7 @@ from pytassim.testing import DummyNeuralModule, if_gpu_decorator
 
 logging.basicConfig(level=logging.DEBUG)
 
-BASE_PATH = os.path.dirname(os.path.realpath(__file__))
+BASE_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
 
 
@@ -139,39 +139,6 @@ class TestNeuralAssimilation(unittest.TestCase):
                                                   ana_time)
         xr.testing.assert_identical(ret_ana, analysis)
 
-    def test_if_not_smoother_use_analysis_time(self):
-        self.algorithm.smoother = False
-        ana_time = self.state.time[-1].values
-        obs_tuple = (self.obs, self.obs)
-        obs_state, obs_cov, _ = self.algorithm._prepare_obs(obs_tuple)
-        analysis = self.state.sel(time=[ana_time, ])
-        ret_ana = self.algorithm.update_state(self.state, obs_tuple,
-                                              ana_time)
-        xr.testing.assert_identical(ret_ana, analysis)
-
-    def test_if_not_smoother_constrains_back_obs(self):
-        self.algorithm.smoother = False
-        ana_time = self.state.time[-1].values
-        timed_obs = self.obs.sel(time=[ana_time, ])
-        analysis = self.state.sel(time=[ana_time, ])
-        timed_obs_tuple = (timed_obs, timed_obs)
-        obs_state, obs_cov, _ = self.algorithm._prepare_obs(timed_obs_tuple)
-        torch_states = self.algorithm._states_to_torch(
-            analysis.values, obs_state, obs_cov
-        )
-        trg = 'pytassim.testing.dummy.DummyNeuralModule.assimilate'
-        with patch(trg, return_value=torch_states[0]) as assimilate_patch:
-            obs_tuple = (self.obs, self.obs)
-            ret_ana = self.algorithm.update_state(self.state, obs_tuple,
-                                                  ana_time)
-        torch.testing.assert_allclose(assimilate_patch.call_args[0][0],
-                                      torch_states[0])
-        torch.testing.assert_allclose(assimilate_patch.call_args[0][1],
-                                      torch_states[1])
-        torch.testing.assert_allclose(assimilate_patch.call_args[0][2],
-                                      torch_states[2])
-        xr.testing.assert_identical(ret_ana, analysis)
-
     def test_module_gets_private_module(self):
         self.algorithm._model = 123
         self.assertEqual(self.algorithm.model, 123)
@@ -200,6 +167,26 @@ class TestNeuralAssimilation(unittest.TestCase):
         self.algorithm.gpu = True
         self.algorithm.model = self.module
         self.assertTrue(next(self.algorithm.model.parameters()).is_cuda)
+
+    def test_module_casts_to_dtype(self):
+        self.module.linear = torch.nn.Linear(16, 8)
+        self.module = self.module.type(torch.float16)
+        self.algorithm.model = self.module
+        self.assertIsInstance(next(self.algorithm.model.parameters()),
+                              torch.DoubleTensor)
+
+    def test_model_copies_weights_to_new_model(self):
+        self.module.linear = torch.nn.Linear(16, 8, bias=False)
+        self.module = self.module.type(self.algorithm.dtype)
+        parameter = torch.nn.Parameter(
+            torch.ones_like(self.module.linear.weight)
+        )
+        self.module.linear.weight = parameter
+        torch.testing.assert_allclose(self.module.linear.weight, parameter)
+        self.algorithm.model = self.module
+        torch.testing.assert_allclose(
+            self.algorithm.model.linear.weight, parameter
+        )
 
 
 if __name__ == '__main__':

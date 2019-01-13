@@ -48,8 +48,12 @@ class BaseAssimilation(object):
     assimilation, one needs to overwrite
     :py:meth:`~pytassim.assimilation.base.BaseAssimilation.update_state`.
     """
-    def __init__(self, gpu=False):
+    def __init__(self, smoother=False, gpu=False, pre_transform=None,
+                 post_transform=None):
+        self.smoother = smoother
         self.gpu = gpu
+        self.pre_transform = pre_transform
+        self.post_transform = post_transform
         self.dtype = torch.double
 
     def _states_to_torch(self, *states):
@@ -100,7 +104,7 @@ class BaseAssimilation(object):
                 warnings.warn(
                     'Given analysis time {0:s} is not within state, used '
                     'instead nearest neighbor {1:s}'.format(
-                        str(analysis_time), str(valid_time)
+                        str(analysis_time), str(valid_time.values)
                     ),
                     category=UserWarning
                 )
@@ -247,6 +251,18 @@ class BaseAssimilation(object):
         self._validate_state(state)
         self._validate_observations(observations)
         analysis_time = self._get_analysis_time(state, analysis_time)
-        analysis = self.update_state(state, observations, analysis_time)
+        if self.smoother:
+            back_state = state
+        else:
+            back_state = state.sel(time=[analysis_time, ])
+            observations = [obs.sel(time=[analysis_time, ])
+                            for obs in observations]
+        if self.pre_transform:
+            for trans in self.pre_transform:
+                back_state, observations = trans.pre(back_state, observations)
+        analysis = self.update_state(back_state, observations, analysis_time)
+        if self.post_transform:
+            for trans in self.post_transform:
+                analysis = trans.post(analysis, back_state, observations)
         self._validate_state(analysis)
         return analysis

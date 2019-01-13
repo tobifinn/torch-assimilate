@@ -43,7 +43,7 @@ from pytassim.testing import dummy_obs_operator, DummyLocalization
 
 logging.basicConfig(level=logging.DEBUG)
 
-BASE_PATH = os.path.dirname(os.path.realpath(__file__))
+BASE_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
 
 
@@ -101,17 +101,6 @@ class TestLETKF(unittest.TestCase):
         with patch(trg, return_value=localized_state) as apply_patch:
             _ = self.algorithm.update_state(self.state, obs_tuple, ana_time)
         self.assertEqual(apply_patch.call_count, nr_grid_points)
-        for i, grid_ind in enumerate(self.state.grid):
-            state_l = back_state.sel(grid=grid_ind)
-            mean_l, perts_l = state_l.state.split_mean_perts()
-            torch.testing.assert_allclose(apply_patch.call_args_list[i][0][0],
-                                          weights[0])
-            torch.testing.assert_allclose(apply_patch.call_args_list[i][0][1],
-                                          weights[1])
-            xr.testing.assert_equal(apply_patch.call_args_list[i][0][2],
-                                    mean_l)
-            xr.testing.assert_equal(apply_patch.call_args_list[i][0][3],
-                                    perts_l)
 
     def test_update_state_returns_valid_state(self):
         obs_tuple = (self.obs, self.obs)
@@ -147,8 +136,8 @@ class TestLETKF(unittest.TestCase):
         self.assertEqual(loc_patch.call_count, nr_grid_points)
 
     def test_wo_localization_letkf_equals_etkf_smoothing(self):
-        etkf = ETKFilter(smoothing=True)
-        self.algorithm.smoothing = True
+        etkf = ETKFilter(smoother=True)
+        self.algorithm.smoother = True
         obs_tuple = (self.obs, self.obs)
         etkf_analysis = etkf.assimilate(self.state, obs_tuple)
         letkf_analysis = self.algorithm.assimilate(self.state, obs_tuple)
