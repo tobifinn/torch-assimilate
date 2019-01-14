@@ -141,8 +141,11 @@ def train_model(models, train_data, valid_data, assim_ds, summary_writers,
     for epoch in range(epochs):
         e_pbar = tqdm(total=iters_p_epoch, desc='Epoch', leave=False)
         for nr_sample, train_sample in enumerate(train_generator):
+            rand_ind = torch.randperm(batch_size)
             prior_ens_0 = train_sample['prior_ens_0'].float().to(device)
-            prior_ens_1 = train_sample['prior_ens_1'].float().to(device)
+            prior_ens_1 = train_sample['prior_ens_1'][rand_ind].float().to(
+                device
+            )
             obs = train_sample['obs'].float().to(device)
 
             analysis = autoencoder.inference_net.forward(
