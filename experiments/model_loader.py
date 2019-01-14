@@ -46,7 +46,7 @@ model_ingredient = Ingredient('model')
 def config():
     learning_rates = dict(
         gen=0.0001,
-        disc=0.0002,
+        disc=0.0001,
     )
     obs_size = 8
     grid_size = 40
