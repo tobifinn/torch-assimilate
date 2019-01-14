@@ -138,6 +138,7 @@ def train_model(models, train_data, valid_data, assim_ds, summary_writers,
     n_iters = 0
     best_loss = 99999999999
     tot_pbar = tqdm(total=epochs, desc='Total')
+    curr_loss = None
     for epoch in range(epochs):
         e_pbar = tqdm(total=iters_p_epoch, desc='Epoch', leave=False)
         for nr_sample, train_sample in enumerate(train_generator):
@@ -218,6 +219,14 @@ def train_model(models, train_data, valid_data, assim_ds, summary_writers,
             _run.log_scalar('valid.disc.loss', test_loss['disc'], n_iters)
             _run.log_scalar('valid.gen.loss', test_loss['gen'], n_iters)
             _run.result = test_loss['gen']
+
+        if isinstance(curr_loss, float):
+            sign = float(losses_gen[1] > curr_loss)
+            lr_change = sign * 0.00001
+            _log.info('Changed learning rate by {0:.0f}'.format(sign))
+            for param_group in autoencoder.optimizer.param_groups:
+                param_group['lr'] += lr_change
+            curr_loss = losses_gen[1]
 
         write_figures(autoencoder, valid_data, device, summary_writers['test'],
                       n_iters, _rnd, _run)
