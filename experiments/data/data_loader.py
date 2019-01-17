@@ -26,6 +26,7 @@
 # System modules
 import logging
 import os
+import sys
 
 # External modules
 import xarray as xr
@@ -36,8 +37,13 @@ import torchvision
 from sacred import Ingredient
 
 # Internal modules
+sys.path.append(
+    os.path.join(os.path.dirname(__file__), '../..', 'experiments')
+)
+
 from pytassim.obs_ops.identity import IdentityOperator, obs_ingredient
-from datasets import Lorenz96PreparedDataset, Lorenz96AssimDataset
+from experiments.data.datasets import Lorenz96PreparedDataset, \
+    Lorenz96AssimDataset
 
 
 logger = logging.getLogger(__name__)
