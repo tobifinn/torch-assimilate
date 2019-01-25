@@ -44,32 +44,35 @@ def mse(a, b):
     return torch.mean(torch.sqrt((a.float() - b.float()) ** 2))
 
 
-def get_metrics(model, obs_oper, analysis, recon_obs, crit_prior_prior,
-                crit_prior_ana, prior_ens_0, prior_ens_1, obs, truth,):
-    pseudo_obs_ens_1 = model.decoder(prior_ens_1)
-    recon_prior_ens_1 = model.encoder(prior_ens_0, pseudo_obs_ens_1)
+def get_metrics(autoencoder, prior_ens_0, prior_ens_1, obs, truth,):
+    analysis, recon_obs = autoencoder.forward(
+        observation=obs, prior=prior_ens_0
+    )
+    pseudo_obs_ens_1 = autoencoder.obs_operator(prior_ens_1)
+    recon_prior_ens_1 = autoencoder.inference_net(
+        observation=pseudo_obs_ens_1, prior=prior_ens_0,
+    )
     prior_ens_1_mse = mse(recon_prior_ens_1, prior_ens_1)
-    obs_mse = mse(recon_obs, obs)
     mean_absolute_increment = torch.mean(
         torch.abs(
             analysis.float() - prior_ens_0.float()
         )
     )
-    encoder_disc_loss = model.bce_loss(
-        crit_prior_ana, torch.ones_like(crit_prior_ana)
-    )
     truth_mse = mse(analysis, truth)
 
     metrics = {
-        'crit_prior_prior': torch.mean(crit_prior_prior).item(),
-        'crit_prior_ana': torch.mean(crit_prior_ana).item(),
-        'mean_absolute_increment': mean_absolute_increment.item(),
-        'loss_prior_recon_mse': prior_ens_1_mse.item(),
-        'loss_obs_recon_mse': obs_mse.item(),
-        'loss_enc_disc': encoder_disc_loss.item(),
-        'loss_ana_truth_mse': truth_mse.item()
+        'gen/mean_absolute_increment': mean_absolute_increment.item(),
+        'gen/loss_backward_mse': prior_ens_1_mse.item(),
+        'gen/loss_analysis_mse': truth_mse.item()
     }
     return metrics
+
+
+def write_metrics(summary_writer, metrics, global_step):
+    for name, vals in metrics.items():
+        summary_writer.add_scalar(
+            name, np.mean(vals), global_step=global_step
+        )
 
 
 def plot_generator(model, dataset, device, _rnd, _run):
@@ -137,12 +140,4 @@ def write_figures(model, data, device, summary_writer, global_step, _rnd, _run):
     for name, fig in figures.items():
         summary_writer.add_figure(
             name, fig, global_step=global_step, close=True
-        )
-
-
-def write_metrics(summary_writer, metrics, global_step, desc='metric'):
-    for name, vals in metrics.items():
-        summary_writer.add_scalar(
-            '{0:s}/{1:s}'.format(desc, str(name)), np.mean(vals.item()),
-            global_step=global_step
         )

@@ -24,8 +24,9 @@
 #
 
 # System modules
-import logging
+import sys
 import os
+import logging
 import time
 import json
 
@@ -36,7 +37,6 @@ import numpy as np
 
 from sacred import Experiment
 from sacred.observers import MongoObserver
-from sacred.stflow import LogFileWriter
 from sacred.utils import apply_backspaces_and_linefeeds
 
 import pymongo
@@ -46,10 +46,15 @@ import tensorboardX
 from tqdm import tqdm
 
 # Internal modules
-from data_loader import data_ingredient, load_data
+sys.path.append(
+    os.path.join(os.path.dirname(__file__), '../..', 'experiments')
+)
+
 from model_loader import model_ingredient, get_models
-from eval_utils import write_figures, get_metrics, write_metrics
-from test_model import test_model
+from data_loader import data_ingredient, load_data
+from experiments.utils.eval_utils import write_figures, get_metrics, \
+    write_metrics
+from experiments.utils.test_model import test_model
 
 
 logger = logging.getLogger(__name__)
@@ -80,7 +85,7 @@ exp = Experiment(
 )
 
 try:
-   exp.observers.append(get_mongo_observer('mongodb.json'))
+   exp.observers.append(get_mongo_observer('../mongodb.json'))
 except pymongo.errors.ServerSelectionTimeoutError as e:
    logger.warning('######### WARNING #########\n'
                   'Run will not be saved in a database, because MongoDB '
@@ -141,9 +146,15 @@ def train_model(models, train_data, valid_data, assim_ds, summary_writers,
     for epoch in range(epochs):
         e_pbar = tqdm(total=iters_p_epoch, desc='Epoch', leave=False)
         for nr_sample, train_sample in enumerate(train_generator):
-            prior_ens_0 = train_sample['prior_ens_0'].float().to(device)
-            prior_ens_1 = train_sample['prior_ens_1'].float().to(device)
+            rand_ind = torch.randperm(batch_size)
+            prior_ens_0 = train_sample['prior_ens_0'][rand_ind].float().to(
+                device
+            )
+            prior_ens_1 = train_sample['prior_ens_1'][rand_ind].float().to(
+                device
+            )
             obs = train_sample['obs'].float().to(device)
+            truth = train_sample['truth'].float().to(device)
 
             analysis = autoencoder.inference_net.forward(
                 observation=obs, prior=prior_ens_0
@@ -168,18 +179,16 @@ def train_model(models, train_data, valid_data, assim_ds, summary_writers,
                 global_step=n_iters+1
             )
             if n_iters % 250 == 0:
-                summary_writers['train'].add_scalar('gen/tot_loss', losses_gen[0].item(), global_step=n_iters+1)
-                summary_writers['train'].add_scalar('gen/loss_back', losses_gen[1].item(), global_step=n_iters+1)
-                summary_writers['train'].add_scalar('gen/loss_recon', losses_gen[2].item(), global_step=n_iters+1)
-                summary_writers['train'].add_scalar('disc/tot_loss', losses_disc[0].item(), global_step=n_iters+1)
-                summary_writers['train'].add_scalar('disc/loss_real', losses_disc[1].item(), global_step=n_iters+1)
-                summary_writers['train'].add_scalar('disc/loss_fake', losses_disc[2].item(), global_step=n_iters+1)
-                _run.log_scalar('train.disc.loss', losses_disc[0].item(), n_iters+1)
-                _run.log_scalar('train.disc.real', losses_disc[1].item(), n_iters+1)
-                _run.log_scalar('train.disc.fake', losses_disc[2].item(), n_iters+1)
-                _run.log_scalar('train.gen.loss', losses_gen[0].item(), n_iters+1)
-                _run.log_scalar('train.gen.back', losses_gen[1].item(), n_iters+1)
-                _run.log_scalar('train.gen.recon', losses_gen[2].item(), n_iters+1)
+                metrics = get_metrics(autoencoder, prior_ens_0, prior_ens_1,
+                                      obs, truth)
+                metrics['gen/tot_loss'] = losses_gen[0].item()
+                metrics['gen/loss_back'] = losses_gen[1].item()
+                metrics['gen/loss_recon'] = losses_gen[2].item()
+                metrics['disc/tot_loss'] = losses_disc[0].item()
+                metrics['disc/loss_real'] = losses_disc[1].item()
+                metrics['disc/loss_fake'] = losses_disc[2].item()
+                write_metrics(summary_writers['train'], metrics, n_iters+1)
+
             e_pbar.update()
             n_iters += 1
 
