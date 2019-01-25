@@ -51,7 +51,7 @@ sys.path.append(
 )
 
 from model_loader import model_ingredient, get_models
-from experiments.data.data_loader import data_ingredient, load_data
+from data_loader import data_ingredient, load_data
 from experiments.utils.eval_utils import write_figures, get_metrics, \
     write_metrics
 from experiments.utils.test_model import test_model
