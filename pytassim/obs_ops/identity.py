@@ -98,7 +98,8 @@ class IdentityOperator(BaseOperator):
         return obs_state
 
     def torch_operator(self):
-        operator = torch.nn.Linear(self.len_grid, len(self._sel_obs_points))
+        operator = torch.nn.Linear(self.len_grid, len(self._sel_obs_points),
+                                   bias=False)
         for param in operator.parameters():
             param.requires_grad = False
         operator.weight.data = torch.zeros_like(operator.weight.data)
