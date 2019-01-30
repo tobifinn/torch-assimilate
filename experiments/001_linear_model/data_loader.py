@@ -29,8 +29,6 @@ import os
 import sys
 
 # External modules
-import xarray as xr
-import numpy as np
 import torch
 import torchvision
 
@@ -41,7 +39,8 @@ sys.path.append(
     os.path.join(os.path.dirname(__file__), '../..', 'experiments')
 )
 
-from pytassim.obs_ops.identity import IdentityOperator, obs_ingredient
+from pytassim.model.lorenz_96.obs_ops.identity import IdentityOperator, \
+    obs_ingredient
 from experiments.data.datasets import Lorenz96PreparedDataset, \
     Lorenz96AssimDataset
 
@@ -57,7 +56,7 @@ def config():
     normalize = True
     base_data_path = '/scratch/local1/Data/neural_nets/neural_assim/data'
     rnd_pdf = 'normal'
-    rnd_kwargs = dict()
+    rnd_kwargs = dict(scale=0.5)
 
 
 class NormalizeSamples(object):
@@ -148,12 +147,12 @@ def load_data(base_data_path, normalize, _run, _rnd, rnd_pdf, rnd_kwargs):
 
     test_dataset = Lorenz96PreparedDataset(
         valid_truth_path, valid_ens_path, rnd=_rnd, transform=transformers,
-        obs_operator=obs_operator, rnd_pdf=rnd_pdf, rnd_kwargs=rnd_kwargs
+        obs_operator=obs_operator, rnd_pdf=rnd_pdf, rnd_kwargs=rnd_kwargs,
     )
 
     assim_dataset = Lorenz96AssimDataset(
         _rnd, start_days=1000, end_days=200, dt_days=0.25,
         dt_obs=2, nr_grids=40, forcing=7.9, obs_operator=obs_operator,
-        rnd_pdf=rnd_pdf, rnd_kwargs=rnd_kwargs
+        rnd_pdf=rnd_pdf, rnd_kwargs=rnd_kwargs, obs_var=0.25
     )
     return train_dataset, test_dataset, assim_dataset
