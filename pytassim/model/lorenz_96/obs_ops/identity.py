@@ -44,7 +44,7 @@ obs_ingredient = Ingredient('obs')
 
 
 @obs_ingredient.config
-def config():
+def config():               # pragma: no cover
     obs_points = [0, 5, 10, 15, 20, 25, 30, 35]
 
 
@@ -57,9 +57,6 @@ class IdentityOperator(BaseOperator):
 
         Parameters
         ----------
-        sess : :py:class:`tensorflow.Session`
-            If this observation operator is called, the graph will be added to
-            this session.
         obs_points : list(int), int or None
             Observed grid points. If this is int, then this number of grid
             points are drawn from grid. If this is a list, observed grid points
