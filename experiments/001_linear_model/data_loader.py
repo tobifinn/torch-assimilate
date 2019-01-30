@@ -39,8 +39,7 @@ sys.path.append(
     os.path.join(os.path.dirname(__file__), '../..', 'experiments')
 )
 
-from pytassim.model.lorenz_96.obs_ops.identity import IdentityOperator, \
-    obs_ingredient
+from pytassim.model.lorenz_96.obs_ops.identity import IdentityOperator
 from experiments.data.datasets import Lorenz96PreparedDataset, \
     Lorenz96AssimDataset
 
@@ -48,7 +47,7 @@ from experiments.data.datasets import Lorenz96PreparedDataset, \
 logger = logging.getLogger(__name__)
 
 
-data_ingredient = Ingredient('data', ingredients=[obs_ingredient, ])
+data_ingredient = Ingredient('data')
 
 
 @data_ingredient.config
@@ -57,6 +56,12 @@ def config():
     base_data_path = '/scratch/local1/Data/neural_nets/neural_assim/data'
     rnd_pdf = 'normal'
     rnd_kwargs = dict(scale=0.5)
+    obs_points = [0, 5, 10, 15, 20, 25, 30, 35]
+
+
+@data_ingredient.capture
+def get_operator(obs_points=None, len_grid=40, _rnd=None):
+    return IdentityOperator(obs_points, len_grid, _rnd)
 
 
 class NormalizeSamples(object):
@@ -108,8 +113,7 @@ def load_data(base_data_path, normalize, _run, _rnd, rnd_pdf, rnd_kwargs):
     valid_ens_path = os.path.join(base_data_path, 'test_ens.nc')
     valid_truth_path = os.path.join(base_data_path, 'test_vr1.nc')
 
-    obs_operator = IdentityOperator(obs_points=_run.config['obs']['obs_points'],
-                                    random_state=_rnd)
+    obs_operator = get_operator()
 
     train_dataset = Lorenz96PreparedDataset(
         train_truth_path, train_ens_path, rnd=_rnd, obs_operator=obs_operator,
