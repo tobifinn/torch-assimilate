@@ -104,6 +104,11 @@ class TestIdentityOps(unittest.TestCase):
 
         np.testing.assert_almost_equal(ret_obs, pseudo_obs)
 
+    def test_torch_operator_parameter_no_req_gradient(self):
+        torch_op = self.operator.torch_operator()
+        for param in torch_op.parameters():
+            self.assertFalse(param.requires_grad)
+
 
 if __name__ == '__main__':
     unittest.main()
