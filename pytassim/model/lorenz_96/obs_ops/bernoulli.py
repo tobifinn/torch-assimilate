@@ -31,22 +31,11 @@ import numpy as np
 
 import torch
 
-from sacred import Ingredient
-
 # Internal modules
 from .identity import IdentityOperator
 
 
 logger = logging.getLogger(__name__)
-
-
-obs_ingredient = Ingredient('bernoulli')
-
-
-@obs_ingredient.config
-def config():
-    obs_points = [0, 5, 10, 15, 20, 25, 30, 35]
-    shift = 5
 
 
 class BernoulliOperator(IdentityOperator):
