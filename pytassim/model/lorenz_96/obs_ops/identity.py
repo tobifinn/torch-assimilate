@@ -31,8 +31,6 @@ import numpy as np
 
 import torch
 
-from sacred import Ingredient
-
 # Internal modules
 from .base_ops import BaseOperator
 
@@ -40,16 +38,7 @@ from .base_ops import BaseOperator
 logger = logging.getLogger(__name__)
 
 
-obs_ingredient = Ingredient('obs')
-
-
-@obs_ingredient.config
-def config():               # pragma: no cover
-    obs_points = [0, 5, 10, 15, 20, 25, 30, 35]
-
-
 class IdentityOperator(BaseOperator):
-    @obs_ingredient.capture
     def __init__(self, obs_points=None, len_grid=40, random_state=None):
         """
         This linear observation operator is an identity observation operator,

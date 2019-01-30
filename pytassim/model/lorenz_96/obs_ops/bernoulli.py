@@ -40,7 +40,7 @@ from .identity import IdentityOperator
 logger = logging.getLogger(__name__)
 
 
-obs_ingredient = Ingredient('obs')
+obs_ingredient = Ingredient('bernoulli')
 
 
 @obs_ingredient.config
@@ -50,7 +50,6 @@ def config():
 
 
 class BernoulliOperator(IdentityOperator):
-    @obs_ingredient.capture
     def __init__(self, shift=5, obs_points=None, len_grid=40,
                  random_state=None):
         super().__init__(obs_points=obs_points, len_grid=len_grid,
