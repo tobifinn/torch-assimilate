@@ -58,12 +58,12 @@ def config():
     grid_size = 40
     noise_size = 5
     hidden_size = (64, )
-    obs_err = 0.5
+    obs_err = 0.137
 
 
 @model_ingredient.capture
-def gaussian_nll(input, target, obs_err=0.5):
-    return 1/(2*obs_err ** 2) * torch.sum((input - target) ** 2)
+def gaussian_nll(input, target, obs_err=0.137):
+    return 1/(2*obs_err ** 2) * torch.mean((input - target) ** 2)
 
 
 @model_ingredient.capture
