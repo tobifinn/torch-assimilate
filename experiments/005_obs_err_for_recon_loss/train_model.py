@@ -100,6 +100,7 @@ def config():
     batch_size = 64
     epochs = 100
     disc_steps = 1
+    inst_noise = 0.4
 
 
 @exp.capture
@@ -116,7 +117,7 @@ def log_metric(model_output, step, _run, valid=False):
 
 @exp.capture
 def train_model(models, train_data, valid_data, assim_ds, summary_writers,
-                log_path, batch_size, disc_steps, epochs, _log, _run, _rnd):
+                log_path, batch_size, disc_steps, epochs, inst_noise, _log, _run, _rnd):
     _log.info('Starting to train the model')
     model_path = os.path.join(log_path, 'models')
     save_path = os.path.join(model_path, '{0:s}_{1:s}'.format(
@@ -159,8 +160,12 @@ def train_model(models, train_data, valid_data, assim_ds, summary_writers,
             analysis = autoencoder.inference_net.forward(
                 observation=obs, prior=prior_ens_0
             ).detach()
+
+            analysis_noise = inst_noise * torch.randn_like(analysis) + analysis
+            prior_noise = inst_noise * torch.randn_like(prior_ens_1) + \
+                          prior_ens_1
             losses_disc = discriminator.train(
-                prior_ens_1, analysis, observation=obs, prior=prior_ens_0
+                prior_noise, analysis_noise, observation=obs, prior=prior_ens_0
             )
             if n_iters % disc_steps == 0:
                 losses_gen = autoencoder.train(
