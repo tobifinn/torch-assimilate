@@ -188,7 +188,7 @@ class StandardDisc(object):
         total_loss = real_loss + fake_loss
         return total_loss, real_loss, fake_loss
 
-    def _set_grad(self, real_data, fake_data, *args, **kwargs):
+    def set_grad(self, real_data, fake_data, *args, **kwargs):
         self.check_trainable()
 
         self.net.train()
@@ -246,8 +246,8 @@ class StandardDisc(object):
         To train this discriminator, a valid loss function and optimizer has to
         be set and also this discriminator needs trainable parameters.
         """
-        total_loss, real_loss, fake_loss = self._set_grad(real_data, fake_data,
-                                                          *args, **kwargs)
+        total_loss, real_loss, fake_loss = self.set_grad(real_data, fake_data,
+                                                         *args, **kwargs)
         if closure is None:
             self.optimizer.step()
         else:

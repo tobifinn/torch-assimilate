@@ -194,7 +194,7 @@ class Autoencoder(object):
         total_loss = back_loss + recon_loss
         return total_loss, back_loss, recon_loss
 
-    def _set_grad(self, observation, prior=None, prior_ensemble=None,
+    def set_grad(self, observation, prior=None, prior_ensemble=None,
                   noise=None):
         self.check_trainable()
 
@@ -258,7 +258,7 @@ class Autoencoder(object):
         To train this autoencoder, loss functions in `back_loss` and
         `recon_loss` and an optimizer has to be set!
         """
-        total_loss, back_loss, recon_loss = self._set_grad(
+        total_loss, back_loss, recon_loss = self.set_grad(
             observation=observation, prior=prior, prior_ensemble=prior_ensemble,
             noise=noise
         )
