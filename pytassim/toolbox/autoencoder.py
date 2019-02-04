@@ -91,6 +91,7 @@ class Autoencoder(object):
         self.recon_loss = None
         self.back_loss = None
         self.optimizer = None
+        self.grad_optim = True
 
     @property
     def trainable_params(self):
@@ -258,14 +259,15 @@ class Autoencoder(object):
         To train this autoencoder, loss functions in `back_loss` and
         `recon_loss` and an optimizer has to be set!
         """
-        total_loss, back_loss, recon_loss = self.set_grad(
-            observation=observation, prior=prior, prior_ensemble=prior_ensemble,
-            noise=noise
-        )
+        if self.grad_optim:
+            total_loss, back_loss, recon_loss = self.set_grad(
+                observation=observation, prior=prior,
+                prior_ensemble=prior_ensemble, noise=noise
+            )
         if closure is None:
             self.optimizer.step()
         else:
-            self.optimizer.step(closure)
+            total_loss, back_loss, recon_loss = self.optimizer.step(closure)
         return total_loss, back_loss, recon_loss
 
     def eval(self, observation, prior=None, prior_ensemble=None, noise=None):

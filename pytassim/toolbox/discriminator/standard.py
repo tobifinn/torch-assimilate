@@ -61,6 +61,7 @@ class StandardDisc(object):
         self.net = net
         self.loss_func = torch.nn.BCEWithLogitsLoss()
         self.optimizer = None
+        self.grad_optim = True
 
     @property
     def trainable_params(self):
@@ -246,12 +247,14 @@ class StandardDisc(object):
         To train this discriminator, a valid loss function and optimizer has to
         be set and also this discriminator needs trainable parameters.
         """
-        total_loss, real_loss, fake_loss = self.set_grad(real_data, fake_data,
-                                                         *args, **kwargs)
+        if self.grad_optim:
+            total_loss, real_loss, fake_loss = self.set_grad(
+                real_data, fake_data, *args, **kwargs
+            )
         if closure is None:
             self.optimizer.step()
         else:
-            self.optimizer.step(closure)
+            total_loss, back_loss, recon_loss = self.optimizer.step(closure)
         return total_loss, real_loss, fake_loss
 
     def eval(self, real_data, fake_data, *args, **kwargs):
