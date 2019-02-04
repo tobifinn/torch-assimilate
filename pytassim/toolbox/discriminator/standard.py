@@ -254,7 +254,7 @@ class StandardDisc(object):
         if closure is None:
             self.optimizer.step()
         else:
-            total_loss, back_loss, recon_loss = self.optimizer.step(closure)
+            total_loss, real_loss, fake_loss = self.optimizer.step(closure)
         return total_loss, real_loss, fake_loss
 
     def eval(self, real_data, fake_data, *args, **kwargs):
