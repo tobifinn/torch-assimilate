@@ -188,7 +188,21 @@ class StandardDisc(object):
         total_loss = real_loss + fake_loss
         return total_loss, real_loss, fake_loss
 
-    def train(self, real_data, fake_data, *args, **kwargs):
+    def _set_grad(self, real_data, fake_data, *args, **kwargs):
+        self.check_trainable()
+
+        self.net.train()
+        self.optimizer.zero_grad()
+
+        total_loss, real_loss, fake_loss = self._get_train_losses(
+            real_data, fake_data, *args, **kwargs
+        )
+
+        real_loss.backward(retain_graph=True)
+        fake_loss.backward()
+        return total_loss, real_loss, fake_loss
+
+    def train(self, real_data, fake_data, closure=None, *args, **kwargs):
         """
         Train this discriminator on given real data and fake data.
 
@@ -200,6 +214,10 @@ class StandardDisc(object):
         fake_data : :py:class:`torch.Tensor`
             This tensor is used as fake data input to train this discriminator.
             This fake data should have the same tensor type as the real data.
+        closure : callable or None, optional
+            A closure that reevaluates the model and returns the loss. Optional
+            for most optimizers. If None, it will not be used during
+            optimization. Default is None.
         *args : iterable(any), optional
             This variable length list of tensors is used as additional arguments
             to train the network. These additional arguments are passed to the
@@ -228,20 +246,12 @@ class StandardDisc(object):
         To train this discriminator, a valid loss function and optimizer has to
         be set and also this discriminator needs trainable parameters.
         """
-        self.check_trainable()
-
-        self.net.train()
-        self.optimizer.zero_grad()
-
-        total_loss, real_loss, fake_loss = self._get_train_losses(
-            real_data, fake_data, *args, **kwargs
-        )
-
-        real_loss.backward(retain_graph=True)
-        fake_loss.backward()
-
-        self.optimizer.step()
-
+        total_loss, real_loss, fake_loss = self._set_grad(real_data, fake_data,
+                                                          *args, **kwargs)
+        if closure is None:
+            self.optimizer.step()
+        else:
+            self.optimizer.step(closure)
         return total_loss, real_loss, fake_loss
 
     def eval(self, real_data, fake_data, *args, **kwargs):
