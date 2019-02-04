@@ -73,7 +73,8 @@ class HeunMethod(Optimizer):
                 if not self.state['fast'] or state['pred_grad'] is None:
                     if p.grad is None:
                         continue
-                    state['pred_grad'] = p.grad.data.clone()
+                    else:
+                        state['pred_grad'] = p.grad.data.clone()
                 p.data.add_(-group['lr'], state['pred_grad'])
         loss = closure()
         for group in self.param_groups:
