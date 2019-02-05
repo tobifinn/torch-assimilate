@@ -31,8 +31,6 @@ import numpy as np
 
 import torch
 
-from sacred import Ingredient
-
 # Internal modules
 from .base_ops import BaseOperator
 
@@ -40,16 +38,7 @@ from .base_ops import BaseOperator
 logger = logging.getLogger(__name__)
 
 
-obs_ingredient = Ingredient('obs')
-
-
-@obs_ingredient.config
-def config():
-    obs_points = [0, 5, 10, 15, 20, 25, 30, 35]
-
-
 class IdentityOperator(BaseOperator):
-    @obs_ingredient.capture
     def __init__(self, obs_points=None, len_grid=40, random_state=None):
         """
         This linear observation operator is an identity observation operator,
@@ -57,9 +46,6 @@ class IdentityOperator(BaseOperator):
 
         Parameters
         ----------
-        sess : :py:class:`tensorflow.Session`
-            If this observation operator is called, the graph will be added to
-            this session.
         obs_points : list(int), int or None
             Observed grid points. If this is int, then this number of grid
             points are drawn from grid. If this is a list, observed grid points
@@ -98,7 +84,8 @@ class IdentityOperator(BaseOperator):
         return obs_state
 
     def torch_operator(self):
-        operator = torch.nn.Linear(self.len_grid, len(self._sel_obs_points))
+        operator = torch.nn.Linear(self.len_grid, len(self._sel_obs_points),
+                                   bias=False)
         for param in operator.parameters():
             param.requires_grad = False
         operator.weight.data = torch.zeros_like(operator.weight.data)

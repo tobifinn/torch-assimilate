@@ -157,6 +157,6 @@ def load_data(base_data_path, normalize, _run, _rnd, rnd_pdf, rnd_kwargs):
     assim_dataset = Lorenz96AssimDataset(
         _rnd, start_days=1000, end_days=200, dt_days=0.25,
         dt_obs=2, nr_grids=40, forcing=7.9, obs_operator=obs_operator,
-        rnd_pdf=rnd_pdf, rnd_kwargs=rnd_kwargs
+        rnd_pdf=rnd_pdf, rnd_kwargs=rnd_kwargs, obs_var=0.25
     )
     return train_dataset, test_dataset, assim_dataset

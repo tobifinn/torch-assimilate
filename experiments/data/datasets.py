@@ -91,12 +91,12 @@ class Lorenz96AssimDataset(torch.utils.data.Dataset):
             self.dt_obs
         )
         truth_sliced = truth.sel(time=obs_times)
-
-        obs = self.obs_operator(truth_sliced).squeeze()
         rnd_noise = getattr(self.rnd, self.rnd_pdf)(
-            size=obs.shape, **self.rnd_kwargs
+            size=truth_sliced.shape, **self.rnd_kwargs
         )
-        obs_state = obs + rnd_noise
+        truth_sliced = truth_sliced + rnd_noise
+
+        obs_state = self.obs_operator(truth_sliced).squeeze()
         obs_state = obs_state.rename(grid='obs_grid_1')
         obs_cov = xr.DataArray(
             data=self.obs_var * np.identity(len(obs_state.obs_grid_1)),
@@ -177,6 +177,10 @@ class Lorenz96PreparedDataset(torch.utils.data.Dataset):
         return obs_state
 
     def _create_obs(self):
-        raw_obs = self.obs_operator(self.truth_ds)
-        obs_state = self._prepare_obs(raw_obs, self.rnd_pdf, self.rnd_kwargs)
+        rnd_noise = getattr(self.rnd, self.rnd_pdf)(
+            size=self.truth_ds.shape, **self.rnd_kwargs
+        )
+        tmp_ds = self.truth_ds + rnd_noise
+        raw_obs = self.obs_operator(tmp_ds)
+        obs_state = raw_obs.rename(grid='obs_grid_1')
         return obs_state

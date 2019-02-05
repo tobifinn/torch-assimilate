@@ -91,6 +91,7 @@ class Autoencoder(object):
         self.recon_loss = None
         self.back_loss = None
         self.optimizer = None
+        self.grad_optim = True
 
     @property
     def trainable_params(self):
@@ -194,7 +195,24 @@ class Autoencoder(object):
         total_loss = back_loss + recon_loss
         return total_loss, back_loss, recon_loss
 
-    def train(self, observation, prior=None, prior_ensemble=None, noise=None):
+    def set_grad(self, observation, prior=None, prior_ensemble=None,
+                  noise=None):
+        self.check_trainable()
+
+        self.inference_net.train()
+        self.obs_operator.train()
+        self.optimizer.zero_grad()
+
+        total_loss, back_loss, recon_loss = self._get_train_losses(
+            observation=observation, prior=prior, prior_ensemble=prior_ensemble,
+            noise=noise
+        )
+        back_loss.backward(retain_graph=True)
+        recon_loss.backward()
+        return total_loss, back_loss, recon_loss
+
+    def train(self, observation, prior=None, prior_ensemble=None, noise=None,
+              closure=None):
         """
         This method is used to train this autoencoder with given parameters and
         set loss functions.
@@ -217,6 +235,10 @@ class Autoencoder(object):
             analysis or to translate a deterministic network into a stochastic
             one. If this noise is None, it will be not used by the inference
             network. Default is None.
+        closure : callable or None, optional
+            A closure that reevaluates the model and returns the loss. Optional
+            for most optimizers. If None, it will not be used during
+            optimization. Default is None.
 
         Returns
         -------
@@ -237,20 +259,15 @@ class Autoencoder(object):
         To train this autoencoder, loss functions in `back_loss` and
         `recon_loss` and an optimizer has to be set!
         """
-        self.check_trainable()
-
-        self.inference_net.train()
-        self.obs_operator.train()
-        self.optimizer.zero_grad()
-
-        total_loss, back_loss, recon_loss = self._get_train_losses(
-            observation=observation, prior=prior, prior_ensemble=prior_ensemble,
-            noise=noise
-        )
-        back_loss.backward(retain_graph=True)
-        recon_loss.backward()
-
-        self.optimizer.step()
+        if self.grad_optim:
+            total_loss, back_loss, recon_loss = self.set_grad(
+                observation=observation, prior=prior,
+                prior_ensemble=prior_ensemble, noise=noise
+            )
+        if closure is None:
+            self.optimizer.step()
+        else:
+            total_loss, back_loss, recon_loss = self.optimizer.step(closure)
         return total_loss, back_loss, recon_loss
 
     def eval(self, observation, prior=None, prior_ensemble=None, noise=None):
