@@ -50,17 +50,21 @@ class HeunMethod(Optimizer):
         params (iterable): iterable of parameters to optimize or dicts defining
             parameter groups
         lr (float): learning rate
+        alpha (float, optional): Weighting between gradients (default: 5/8)
         fast (bool, optional): If fast Heun should be used (default: True)
 
     __ ``to be published``
     """
-    def __init__(self, params, lr=required, fast=True):
+    def __init__(self, params, lr=required, alpha=5/8, fast=True):
         if lr is not required and lr < 0.0:
-            raise ValueError("Invalid learning rate: {}".format(lr))
+            raise ValueError("Invalid learning rate: {0}".format(lr))
+        if alpha > 1.0 or alpha < 0.0:
+            raise ValueError("Invalid alpha parameter: {0}".format(alpha))
 
         defaults = dict(lr=lr)
         super(HeunMethod, self).__init__(params, defaults)
         self.state['fast'] = fast
+        self.state['alpha'] = alpha
         for group in self.param_groups:
             for p in group['params']:
                 state = self.state[p]
@@ -84,7 +88,8 @@ class HeunMethod(Optimizer):
                     continue
                 else:
                     p.data.add_(group['lr'], state['pred_grad'])
-                    weighted_grad = (state['pred_grad'] + p.grad.data) / 2
+                    weighted_grad = (1-self.state['alpha']) * state['pred_grad']
+                    weighted_grad += self.state['alpha'] * p.grad.data
                     p.data.add_(-group['lr'], weighted_grad)
                     state['pred_grad'] = p.grad.data.clone()
         return loss
