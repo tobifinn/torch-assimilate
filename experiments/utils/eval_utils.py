@@ -59,13 +59,11 @@ def get_metrics(autoencoder, prior_ens_0, prior_ens_1, obs, truth,):
         )
     )
     truth_mse = mse(analysis, truth)
-    obs_mse = mse(recon_obs, obs)
 
     metrics = {
         'gen/mean_absolute_increment': mean_absolute_increment.item(),
         'gen/loss_backward_mse': prior_ens_1_mse.item(),
         'gen/loss_analysis_mse': truth_mse.item(),
-        'gen/obs_mse': obs_mse.item(),
     }
     return metrics
 
