@@ -113,6 +113,7 @@ class InferenceNet(torch.nn.Module):
 
 class GaussianDecoder(torch.nn.Module):
     def __init__(self, obs_operator, obs_size=20, grid_size=40,):
+        super().__init__()
         self.obs_operator = obs_operator
         self.obs_size = obs_size
         self.grid_size = grid_size
@@ -126,6 +127,7 @@ class GaussianDecoder(torch.nn.Module):
 
     def forward(self, *input):
         est_loc = self.obs_operator(*input)
-        est_scale = self.scale_net(*input)
+        est_logscale = self.scale_net(*input)
+        est_scale = torch.exp(est_logscale)
         normal_dist = torch.distributions.Normal(est_loc, est_scale)
         return normal_dist
