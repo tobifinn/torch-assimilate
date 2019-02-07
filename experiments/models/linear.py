@@ -109,3 +109,25 @@ class InferenceNet(torch.nn.Module):
         analysis = analysis.view_as(in_state)
         analysis = analysis.detach()
         return analysis
+
+
+class GaussianDecoder(torch.nn.Module):
+    def __init__(self, obs_operator, obs_size=20, grid_size=40,):
+        super().__init__()
+        self.obs_operator = obs_operator
+        self.obs_size = obs_size
+        self.grid_size = grid_size
+
+        self.scale_net = torch.nn.Sequential(
+            torch.nn.Linear(grid_size, 64, bias=False),
+            torch.nn.BatchNorm1d(64),
+            torch.nn.LeakyReLU(),
+            torch.nn.Linear(64, obs_size)
+        )
+
+    def forward(self, *input):
+        est_loc = self.obs_operator(*input)
+        est_logscale = self.scale_net(*input)
+        est_scale = torch.exp(est_logscale)
+        normal_dist = torch.distributions.Normal(est_loc, est_scale)
+        return normal_dist

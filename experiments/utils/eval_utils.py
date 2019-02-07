@@ -48,24 +48,22 @@ def get_metrics(autoencoder, prior_ens_0, prior_ens_1, obs, truth,):
     analysis, recon_obs = autoencoder.forward(
         observation=obs, prior=prior_ens_0
     )
-    pseudo_obs_ens_1 = autoencoder.obs_operator(prior_ens_1)
-    recon_prior_ens_1 = autoencoder.inference_net(
-        observation=pseudo_obs_ens_1, prior=prior_ens_0,
-    )
-    prior_ens_1_mse = mse(recon_prior_ens_1, prior_ens_1)
+    # pseudo_obs_ens_1 = autoencoder.obs_operator(prior_ens_1)
+    # recon_prior_ens_1 = autoencoder.inference_net(
+    #     observation=pseudo_obs_ens_1, prior=prior_ens_0,
+    # )
+    # prior_ens_1_mse = mse(recon_prior_ens_1, prior_ens_1)
     mean_absolute_increment = torch.mean(
         torch.abs(
             analysis.float() - prior_ens_0.float()
         )
     )
     truth_mse = mse(analysis, truth)
-    obs_mse = mse(recon_obs, obs)
 
     metrics = {
         'gen/mean_absolute_increment': mean_absolute_increment.item(),
-        'gen/loss_backward_mse': prior_ens_1_mse.item(),
+        # 'gen/loss_backward_mse': prior_ens_1_mse.item(),
         'gen/loss_analysis_mse': truth_mse.item(),
-        'gen/obs_mse': obs_mse.item(),
     }
     return metrics
 
