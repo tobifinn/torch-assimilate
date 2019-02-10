@@ -166,14 +166,14 @@ def train_model(models, train_data, valid_data, assim_ds, summary_writers,
             )
 
             # Gradient penalty
-            alpha = torch.rand(prior_ens_0.shape[0],
+            alpha = torch.rand(prior_ens_0.shape[0], 1,
                                dtype=prior_ens_0.dtype).cuda()
-            int_ana = torch.matmul(alpha, prior_ens_0) + \
-                      torch.matmul((1-alpha), analysis)
-
-            print(int_ana.shape)
+            int_ana = torch.mul(alpha, prior_ens_0) + \
+                      torch.mul((1-alpha), analysis)
+            int_ana.requires_grad_()
             disc_int_ana = discriminator.forward(int_ana, observation=obs)
-            penalty = zero_lam * zero_grad_penalty(disc_int_ana, int_ana)
+            penalty = zero_grad_penalty(disc_int_ana, int_ana).mean()
+            penalty = zero_lam * penalty
             penalty.backward()
             discriminator.optimizer.step()
 
