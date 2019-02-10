@@ -38,7 +38,8 @@ sys.path.append(
     os.path.join(os.path.dirname(__file__), '../..', 'experiments')
 )
 
-from experiments.models.linear import Discriminator, InferenceNet
+from experiments.models.linear import Discriminator
+from experiments.models.res_linear import ResidualInferenceNet
 from pytassim.toolbox import Autoencoder, LossWrapper, StandardDisc
 from pytassim.toolbox.heun import HeunMethod
 
@@ -58,7 +59,7 @@ def config():
     obs_size = 8
     grid_size = 40
     noise_size = 5
-    hidden_size = (64, )
+    hidden_size = (64, 128)
     obs_err = 0.137
 
 
@@ -71,8 +72,10 @@ def gaussian_nll(input, target, obs_err=0.137):
 def get_models(dataset, learning_rates, obs_size, grid_size, noise_size,
                hidden_size):
     obs_operator = dataset.obs_operator.torch_operator()
-    inference_net = InferenceNet(obs_size=obs_size, grid_size=grid_size,
-                                 noise_size=noise_size, hidden_size=hidden_size)
+    inference_net = ResidualInferenceNet(
+        obs_size=obs_size, grid_size=grid_size, noise_size=noise_size, hidden_size=hidden_size
+    )
+    print([k for k, p in inference_net.named_parameters()])
     disc_net = Discriminator(obs_size=obs_size, grid_size=grid_size,
                              hidden_size=hidden_size)
     discriminator = StandardDisc(net=disc_net)
