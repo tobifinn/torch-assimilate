@@ -75,7 +75,6 @@ def get_models(dataset, learning_rates, obs_size, grid_size, noise_size,
     inference_net = ResidualInferenceNet(
         obs_size=obs_size, grid_size=grid_size, noise_size=noise_size, hidden_size=hidden_size
     )
-    print([k for k, p in inference_net.named_parameters()])
     disc_net = Discriminator(obs_size=obs_size, grid_size=grid_size,
                              hidden_size=hidden_size)
     discriminator = StandardDisc(net=disc_net)
