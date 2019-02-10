@@ -38,6 +38,8 @@ logger = logging.getLogger(__name__)
 class ResidualFiLM(torch.nn.Module):
     def __init__(self, in_size, hidden_size, batch_norm=True):
         super().__init__()
+        self.in_size = in_size
+        self.hidden_size = hidden_size
         if batch_norm:
             self.lin1 = torch.nn.Sequential(
                 torch.nn.Linear(in_size, hidden_size, bias=False),
@@ -75,16 +77,16 @@ class ResidualInferenceNet(torch.nn.Module):
             torch.nn.BatchNorm1d(64),
             torch.nn.LeakyReLU()
         )
-        self.films_layers = []
-        self.res_blocks = []
-        curr_res_in = grid_size
+        self.gamma_layers = torch.nn.ModuleList()
+        self.beta_layers = torch.nn.ModuleList()
+        self.res_blocks = torch.nn.ModuleList()
         for size in hidden_size:
             gamma = torch.nn.Linear(64, size, bias=True)
             beta = torch.nn.Linear(64, size, bias=True)
-            res_block = ResidualFiLM(curr_res_in, size)
-            self.films_layers.append((gamma, beta))
+            res_block = ResidualFiLM(grid_size, size)
+            self.gamma_layers.append(gamma)
+            self.beta_layers.append(beta)
             self.res_blocks.append(res_block)
-            curr_res_in = size
 
         self.noise_feature = torch.nn.Sequential(
             torch.nn.Linear(noise_size, 64, bias=False),
@@ -112,13 +114,13 @@ class ResidualInferenceNet(torch.nn.Module):
         obs_features = self.obs_features(observation)
 
         analysis = prior
-        for i, res_block in self.res_blocks[:-1]:
-            obs_gamma = self.films_layers[i][0](obs_features)
-            obs_beta = self.films_layers[i][1](obs_features)
+        for i, res_block in enumerate(self.res_blocks[:-1]):
+            obs_gamma = self.gamma_layers[i](obs_features)
+            obs_beta = self.beta_layers[i](obs_features)
             analysis = res_block(analysis, gamma=obs_gamma, beta=obs_beta)
 
-        obs_gamma = self.films_layers[-1][0](obs_features)
-        obs_beta = self.films_layers[-1][1](obs_features)
+        obs_gamma = self.gamma_layers[-1](obs_features)
+        obs_beta = self.beta_layers[-1](obs_features)
         noise_gamma = self.noise_gamma(noise_features)
         noise_beta = self.noise_beta(noise_features)
         last_gamma = noise_gamma * obs_gamma
