@@ -12,6 +12,7 @@ dependencies:
     - scipy
     - ipykernel
     - tqdm
+    - pytables
     - pip:
         - twine
         - sphinxcontrib-plantuml
