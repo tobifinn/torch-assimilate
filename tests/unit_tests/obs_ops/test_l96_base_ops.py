@@ -31,11 +31,10 @@ from unittest.mock import MagicMock
 # External modules
 import xarray as xr
 import numpy as np
-import torch
 
 # Internal module
 from pytassim.observation import Observation
-from pytassim.model.lorenz_96.obs_ops.base_ops import BaseOperator
+from pytassim.obs_ops.base_ops import BaseOperator
 
 
 logging.basicConfig(level=logging.DEBUG)
