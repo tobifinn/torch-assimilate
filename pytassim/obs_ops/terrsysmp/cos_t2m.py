@@ -136,4 +136,7 @@ class CosmoT2mOperator(BaseOperator):
         return lapse_rate
 
     def obs_op(self, in_array, *args, **kwargs):
-        pass
+        uncorr_t2m = self._localize_grid(in_array['T_2M'])
+        correction = self.height_diff * self._get_lapse_rate(in_array)
+        corr_t2m = uncorr_t2m.squeeze(dim='height_2m') + correction
+        return corr_t2m
