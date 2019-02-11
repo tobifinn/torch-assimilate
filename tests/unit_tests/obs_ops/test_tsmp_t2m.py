@@ -52,8 +52,7 @@ class TestCOST2m(unittest.TestCase):
             os.path.join(DATA_PATH, 'avail_stations.hd5'),
             'stations'
         )
-        cos_const = xr.open_dataset(os.path.join(DATA_PATH, 'cos_hhl.nc'))
-        self.hhl_file = cos_const['HHL']
+        self.hhl_file = xr.open_dataset(os.path.join(DATA_PATH, 'cos_hhl.nc'))
         self.cos_coords = np.loadtxt(os.path.join(DATA_PATH, 'cos_coords.txt'))
         self.obs_op = CosmoT2mOperator(self.station_df, self.cos_coords,
                                        self.hhl_file)
@@ -74,7 +73,7 @@ class TestCOST2m(unittest.TestCase):
 
     def test_calc_locs_uses_cos_coords(self):
         cos_lat_lon = self.cos_coords
-        cos_hhl = self.hhl_file.isel(level1=-1, time=0).values.reshape(-1, 1)
+        cos_hhl = self.hhl_file['HSURF'].isel(time=0).values.reshape(-1, 1)
         cos_llalt = np.concatenate([cos_lat_lon, cos_hhl], axis=-1)
         xyz = self.obs_op._get_cartesian(cos_llalt)
         self.obs_op._get_cartesian = MagicMock(return_value=xyz)
@@ -86,7 +85,7 @@ class TestCOST2m(unittest.TestCase):
 
     def test_get_cartesian_returns_cartesian_from_llalt(self):
         cos_lat_lon = self.cos_coords
-        cos_hhl = self.hhl_file.isel(level1=-1, time=0).values.reshape(-1, 1)
+        cos_hhl = self.hhl_file['HSURF'].isel(time=0).values.reshape(-1, 1)
         cos_llalt = np.concatenate([cos_lat_lon, cos_hhl], axis=-1)
 
         lat_rad = np.deg2rad(cos_lat_lon[:, 0])
@@ -101,7 +100,7 @@ class TestCOST2m(unittest.TestCase):
 
     def test_calc_locs_calls_get_neighbors_with_cos_station(self):
         cos_lat_lon = self.cos_coords
-        cos_hhl = self.hhl_file.isel(level1=-1, time=0).values.reshape(-1, 1)
+        cos_hhl = self.hhl_file['HSURF'].isel(time=0).values.reshape(-1, 1)
         cos_llalt = np.concatenate([cos_lat_lon, cos_hhl], axis=-1)
         cos_xyz = self.obs_op._get_cartesian(cos_llalt)
 
@@ -122,7 +121,7 @@ class TestCOST2m(unittest.TestCase):
 
     def test_calc_locs_returns_locs(self):
         cos_lat_lon = self.cos_coords
-        cos_hhl = self.hhl_file.isel(level1=-1, time=0).values.reshape(-1, 1)
+        cos_hhl = self.hhl_file['HSURF'].isel(time=0).values.reshape(-1, 1)
         cos_llalt = np.concatenate([cos_lat_lon, cos_hhl], axis=-1)
         cos_xyz = self.obs_op._get_cartesian(cos_llalt)
 
@@ -150,12 +149,12 @@ class TestCOST2m(unittest.TestCase):
 
     def test_calc_hdiff_returns_hdiff(self):
         station_height = self.station_df['Stations-\r\nhöhe'].values
-        cos_stacked = self.hhl_file.stack(grid=['rlat', 'rlon'])
-        cos_surf = cos_stacked.isel(level1=-1, time=0)
+        cos_stacked = self.hhl_file['HSURF'].stack(grid=['rlat', 'rlon'])
+        cos_surf = cos_stacked.isel(time=0)
         cos_height = cos_surf.values[self.obs_op.locs]
         height_diff = station_height - cos_height
 
-        ret_diff = self.obs_op._calc_h_diff(self.obs_op.locs)
+        ret_diff = self.obs_op._calc_h_diff()
         np.testing.assert_equal(ret_diff, height_diff)
 
     def test_height_diff_returns_private(self):
@@ -164,10 +163,10 @@ class TestCOST2m(unittest.TestCase):
 
     def test_height_diff_calls_calc(self):
         self.obs_op._h_diff = None
-        h_diff = self.obs_op._calc_h_diff(self.obs_op.locs)
+        h_diff = self.obs_op._calc_h_diff()
         self.obs_op._calc_h_diff = MagicMock(return_value=h_diff)
         _ = self.obs_op.height_diff
-        self.obs_op._calc_h_diff.assert_called_once_with(self.obs_op.locs)
+        self.obs_op._calc_h_diff.assert_called_once_with()
         np.testing.assert_equal(self.obs_op._h_diff, h_diff)
 
     def test_get_lapse_rate_returns_lapse_rate(self):
@@ -175,7 +174,8 @@ class TestCOST2m(unittest.TestCase):
         time_axis = xr.concat([time_axis, time_axis+1], dim='time')
         self.ens_file = self.ens_file.sel(time=time_axis, method='nearest')
 
-        heights_full = self.hhl_file - self.hhl_file.isel(level1=-1)
+        heights_full = self.hhl_file['HHL'] - \
+                       self.hhl_file['HHL'].isel(level1=-1)
         heights_full = heights_full.isel(level1=slice(None, -1))
         heights_stacked = heights_full.stack(grid=['rlat', 'rlon'])
         heights_loc = heights_stacked.isel(grid=self.obs_op.locs, time=0)

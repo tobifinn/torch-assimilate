@@ -76,7 +76,7 @@ class CosmoT2mOperator(BaseOperator):
     @property
     def height_diff(self):
         if self._h_diff is None:
-            self._h_diff = self._calc_h_diff(self.locs)
+            self._h_diff = self._calc_h_diff()
         return self._h_diff
 
     @staticmethod
@@ -95,7 +95,7 @@ class CosmoT2mOperator(BaseOperator):
         station_llalt = np.concatenate([station_lat_lon, station_alt], axis=-1)
         station_xyz = self._get_cartesian(station_llalt)
 
-        cosmo_alt = self.cosmo_height.isel(level1=-1, time=0).values
+        cosmo_alt = self.cosmo_height['HSURF'].isel(time=0).values
         cosmo_alt = cosmo_alt.reshape(-1, 1)
         cosmo_llalt = np.concatenate([self.cosmo_coords, cosmo_alt], axis=-1)
         cosmo_xyz = self._get_cartesian(cosmo_llalt)
@@ -103,10 +103,10 @@ class CosmoT2mOperator(BaseOperator):
         locs = self._get_neighbors(cosmo_xyz, station_xyz)
         return locs
 
-    def _calc_h_diff(self, locs):
+    def _calc_h_diff(self):
         station_height = self.station_df['Stations-\r\nhöhe'].values
-        cosmo_loc = self._localize_grid(self.cosmo_height)
-        cosmo_height = cosmo_loc.isel(level1=-1, time=0).values
+        cosmo_loc = self._localize_grid(self.cosmo_height['HSURF'])
+        cosmo_height = cosmo_loc.isel(time=0).values
         height_diff = station_height - cosmo_height
         return height_diff
 
@@ -122,7 +122,8 @@ class CosmoT2mOperator(BaseOperator):
         return localized_ds
 
     def _get_lapse_rate(self, cosmo_ds):
-        h_full = self.cosmo_height - self.cosmo_height.isel(level1=-1)
+        h_full = self.cosmo_height['HHL'] - \
+                 self.cosmo_height['HHL'].isel(level1=-1)
         h_full = h_full.isel(level1=slice(None, -1))
         h_loc = self._localize_grid(h_full).isel(time=0)
         h_diff = h_loc.isel(level1=self.lev_inds[1]) - \
