@@ -41,8 +41,7 @@ EARTH_RADIUS = 6371000
 
 
 class CosmoT2mOperator(BaseOperator):
-    def __init__(self, station_df, cosmo_coords, cosmo_height,
-                 lev_inds=(40, 35)):
+    def __init__(self, station_df, cosmo_coords, cosmo_height,):
         """
         This 2-metre-temperature observation operator is used as observation
         operator for COSMO data. This observation operator selects the nearest
@@ -60,15 +59,13 @@ class CosmoT2mOperator(BaseOperator):
         cosmo_height : :py:class:`xarray.DataArray`
             The constant cosmo height. This can be found in constant cosmo files
             as HHL.
-        lev_inds : tuple, optional
-            These level indices are used to estimate the lapse rate.
         """
         self._h_diff = None
         self._locs = None
         self.station_df = station_df
         self.cosmo_coords = cosmo_coords
         self.cosmo_height = cosmo_height
-        self.lev_inds = lev_inds
+        self.lev_inds = [35, 25]
 
     @property
     def locs(self):
@@ -108,9 +105,8 @@ class CosmoT2mOperator(BaseOperator):
 
     def _calc_h_diff(self, locs):
         station_height = self.station_df['Stations-\r\nhöhe'].values
-        cosmo_stacked = self.cosmo_height.stack(grid=['rlat', 'rlon'])
-        cosmo_surf = cosmo_stacked.isel(level1=-1, time=0)
-        cosmo_height = cosmo_surf.values[locs]
+        cosmo_loc = self._localize_grid(self.cosmo_height)
+        cosmo_height = cosmo_loc.isel(level1=-1, time=0).values
         height_diff = station_height - cosmo_height
         return height_diff
 
@@ -120,8 +116,24 @@ class CosmoT2mOperator(BaseOperator):
         _, locs = tree.query(trg_points, k=1)
         return locs
 
-    def get_lapse_rate(self, cosmo_ds):
-        pass
+    def _localize_grid(self, ds):
+        stacked_ds = ds.stack(grid=['rlat', 'rlon'])
+        localized_ds = stacked_ds.isel(grid=self.locs)
+        return localized_ds
+
+    def _get_lapse_rate(self, cosmo_ds):
+        h_full = self.cosmo_height - self.cosmo_height.isel(level1=-1)
+        h_full = h_full.isel(level1=slice(None, -1))
+        h_loc = self._localize_grid(h_full).isel(time=0)
+        h_diff = h_loc.isel(level1=self.lev_inds[1]) - \
+                 h_loc.isel(level1=self.lev_inds[0])
+
+        temp_loc = self._localize_grid(cosmo_ds['T'])
+        temp_diff = temp_loc.isel(level=self.lev_inds[1]) - \
+                    temp_loc.isel(level=self.lev_inds[0])
+
+        lapse_rate = temp_diff / h_diff
+        return lapse_rate
 
     def obs_op(self, in_array, *args, **kwargs):
         pass

@@ -170,6 +170,28 @@ class TestCOST2m(unittest.TestCase):
         self.obs_op._calc_h_diff.assert_called_once_with(self.obs_op.locs)
         np.testing.assert_equal(self.obs_op._h_diff, h_diff)
 
+    def test_get_lapse_rate_returns_lapse_rate(self):
+        time_axis = self.ens_file.time
+        time_axis = xr.concat([time_axis, time_axis+1], dim='time')
+        self.ens_file = self.ens_file.sel(time=time_axis, method='nearest')
+
+        heights_full = self.hhl_file - self.hhl_file.isel(level1=-1)
+        heights_full = heights_full.isel(level1=slice(None, -1))
+        heights_stacked = heights_full.stack(grid=['rlat', 'rlon'])
+        heights_loc = heights_stacked.isel(grid=self.obs_op.locs, time=0)
+        heights_diff = heights_loc.isel(level1=self.obs_op.lev_inds[1]) - \
+                       heights_loc.isel(level1=self.obs_op.lev_inds[0])
+
+        temp_stacked = self.ens_file['T'].stack(grid=['rlat', 'rlon'])
+        temp_loc = temp_stacked.isel(grid=self.obs_op._locs)
+        temp_diff = temp_loc.isel(level=self.obs_op.lev_inds[1]) - \
+                    temp_loc.isel(level=self.obs_op.lev_inds[0])
+
+        lapse_rate = temp_diff / heights_diff
+
+        ret_lapse_rate = self.obs_op._get_lapse_rate(self.ens_file)
+        xr.testing.assert_equal(ret_lapse_rate, lapse_rate)
+
 
 if __name__ == '__main__':
     unittest.main()
