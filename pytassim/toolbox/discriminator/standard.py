@@ -200,7 +200,7 @@ class StandardDisc(object):
         )
 
         real_loss.backward(retain_graph=True)
-        fake_loss.backward()
+        fake_loss.backward(retain_graph=True)
         return total_loss, real_loss, fake_loss
 
     def train(self, real_data, fake_data, closure=None, *args, **kwargs):
