@@ -41,7 +41,7 @@ EARTH_RADIUS = 6371000
 
 
 class CosmoT2mOperator(BaseOperator):
-    def __init__(self, station_df, cosmo_coords, cosmo_height,):
+    def __init__(self, station_df, cosmo_coords, cosmo_const,):
         """
         This 2-metre-temperature observation operator is used as observation
         operator for COSMO data. This observation operator selects the nearest
@@ -56,15 +56,18 @@ class CosmoT2mOperator(BaseOperator):
         cosmo_coords : :py:class:`numpy.ndarray`
             The cosmo coordinates as numpy array. The first axis should be the
             number of grid points, while the second axis is ('lat', 'lon').
-        cosmo_height : :py:class:`xarray.DataArray`
-            The constant cosmo height. This can be found in constant cosmo files
-            as HHL.
+        cosmo_const : :py:class:`xarray.Dataset`
+            The constant data file of cosmo. `HHL` within the constant data is
+            used to to estimate the lapse rate. `HSURF` within the constant data
+            is used correct for station height. If no `HHL` is available,
+            :py:meth:`~pytassim.obs_ops.terrsysmp.cos_t2m.CosmoT2mOperator.
+            get_lapse_rate` has to be overwritten.
         """
         self._h_diff = None
         self._locs = None
         self.station_df = station_df
         self.cosmo_coords = cosmo_coords
-        self.cosmo_height = cosmo_height
+        self.cosmo_const = cosmo_const
         self.lev_inds = [35, 25]
 
     @property
@@ -95,7 +98,7 @@ class CosmoT2mOperator(BaseOperator):
         station_llalt = np.concatenate([station_lat_lon, station_alt], axis=-1)
         station_xyz = self._get_cartesian(station_llalt)
 
-        cosmo_alt = self.cosmo_height['HSURF'].isel(time=0).values
+        cosmo_alt = self.cosmo_const['HSURF'].isel(time=0).values
         cosmo_alt = cosmo_alt.reshape(-1, 1)
         cosmo_llalt = np.concatenate([self.cosmo_coords, cosmo_alt], axis=-1)
         cosmo_xyz = self._get_cartesian(cosmo_llalt)
@@ -105,7 +108,7 @@ class CosmoT2mOperator(BaseOperator):
 
     def _calc_h_diff(self):
         station_height = self.station_df['Stations-\r\nhöhe'].values
-        cosmo_loc = self._localize_grid(self.cosmo_height['HSURF'])
+        cosmo_loc = self._localize_grid(self.cosmo_const['HSURF'])
         cosmo_height = cosmo_loc.isel(time=0).values
         height_diff = station_height - cosmo_height
         return height_diff
@@ -121,9 +124,9 @@ class CosmoT2mOperator(BaseOperator):
         localized_ds = stacked_ds.isel(grid=self.locs)
         return localized_ds
 
-    def _get_lapse_rate(self, cosmo_ds):
-        h_full = self.cosmo_height['HHL'] - \
-                 self.cosmo_height['HHL'].isel(level1=-1)
+    def get_lapse_rate(self, cosmo_ds):
+        h_full = self.cosmo_const['HHL'] - \
+                 self.cosmo_const['HHL'].isel(level1=-1)
         h_full = h_full.isel(level1=slice(None, -1))
         h_loc = self._localize_grid(h_full).isel(time=0)
         h_diff = h_loc.isel(level1=self.lev_inds[1]) - \
@@ -138,6 +141,6 @@ class CosmoT2mOperator(BaseOperator):
 
     def obs_op(self, in_array, *args, **kwargs):
         uncorr_t2m = self._localize_grid(in_array['T_2M'])
-        correction = self.height_diff * self._get_lapse_rate(in_array)
+        correction = self.height_diff * self.get_lapse_rate(in_array)
         corr_t2m = uncorr_t2m.squeeze(dim='height_2m') + correction
         return corr_t2m

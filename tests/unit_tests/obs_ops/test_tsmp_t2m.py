@@ -189,7 +189,7 @@ class TestCOST2m(unittest.TestCase):
 
         lapse_rate = temp_diff / heights_diff
 
-        ret_lapse_rate = self.obs_op._get_lapse_rate(self.ens_file)
+        ret_lapse_rate = self.obs_op.get_lapse_rate(self.ens_file)
         xr.testing.assert_equal(ret_lapse_rate, lapse_rate)
 
     def test_obs_op_returns_t2m(self):
@@ -198,7 +198,7 @@ class TestCOST2m(unittest.TestCase):
         self.ens_file = self.ens_file.sel(time=time_axis, method='nearest')
         uncorr_t2m = self.obs_op._localize_grid(self.ens_file['T_2M'])
         uncorr_t2m = uncorr_t2m.squeeze(dim='height_2m')
-        lapse_rate = self.obs_op._get_lapse_rate(self.ens_file)
+        lapse_rate = self.obs_op.get_lapse_rate(self.ens_file)
         correction = self.obs_op.height_diff * lapse_rate
         corr_t2m = uncorr_t2m + correction
 
