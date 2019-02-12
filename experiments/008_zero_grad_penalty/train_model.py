@@ -101,6 +101,7 @@ def config():
     batch_size = 64
     epochs = 100
     zero_lam = 10.0
+    disc_steps = 1
 
 
 @exp.capture
@@ -117,7 +118,7 @@ def log_metric(model_output, step, _run, valid=False):
 
 @exp.capture
 def train_model(models, train_data, valid_data, assim_ds, summary_writers,
-                log_path, batch_size, epochs, zero_lam, _log, _run,
+                log_path, batch_size, epochs, zero_lam, disc_steps, _log, _run,
                 _rnd):
 
     _log.info('Starting to train the model')
@@ -181,9 +182,10 @@ def train_model(models, train_data, valid_data, assim_ds, summary_writers,
             discriminator.optimizer.step()
 
             #### Autoencoder
-            losses_gen = autoencoder.train(
-                observation=obs, prior=prior_ens_0
-            )
+            if n_iters % disc_steps == 0:
+                losses_gen = autoencoder.train(
+                    observation=obs, prior=prior_ens_0
+                )
 
             e_pbar.set_postfix(loss_gen=losses_gen[0].item(),
                                loss_disc=losses_disc[0].item())
