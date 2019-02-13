@@ -67,9 +67,9 @@ def prepare_vgrid(ds, vcoord):
     else:
         vgrid_coords = vcoord.values
     ds = ds.assign_coords(vgrid=vgrid_coords)
-    if 'level1' in ds.coords:
+    if 'level1' in ds.dims:
         ds['level1'] = vcoord.values
-    if 'level' in ds.coords:
+    if 'level' in ds.dims:
         ds['level'] = ((vcoord.values+np.roll(vcoord.values, 1))/2)[1:]
     return ds
 
@@ -92,7 +92,8 @@ def replace_coords(ds):
     ds = ds.rename(rename_vertical)
 
     rename_horizontal = {'srlat': 'rlat', 'srlon': 'rlon'}
-    rename_horizontal = {k: v for k, v in rename_horizontal if k in ds.coords}
+    rename_horizontal = {k: v for k, v in rename_horizontal.items()
+                         if k in ds.coords}
     ds = ds.drop(rename_horizontal.keys())
     ds = ds.rename(rename_horizontal)
     return ds
