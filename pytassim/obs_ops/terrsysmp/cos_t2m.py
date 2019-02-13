@@ -110,7 +110,8 @@ class CosmoT2mOperator(BaseOperator):
 
     def _calc_h_diff(self):
         station_height = self.station_df['Stations-\r\nhöhe'].values
-        cosmo_loc = self._localize_grid(self.cosmo_const['HSURF'])
+        cosmo_hsurf = self.cosmo_const['HSURF'].stack(grid=['rlat', 'rlon'])
+        cosmo_loc = self._localize_grid(cosmo_hsurf)
         cosmo_height = cosmo_loc.isel(time=0).values
         height_diff = station_height - cosmo_height
         return height_diff
@@ -121,9 +122,18 @@ class CosmoT2mOperator(BaseOperator):
         _, locs = tree.query(trg_points, k=1)
         return locs
 
-    def _localize_grid(self, ds):
-        stacked_ds = ds.stack(grid=['rlat', 'rlon'])
-        localized_ds = stacked_ds.isel(grid=self.locs)
+    def _localize_grid(self, ds, height_ind=None):
+        grid_ind = ds.indexes['grid']
+        rlat = grid_ind.levels[0][self.locs[0]].values
+        rlon = grid_ind.levels[1][self.locs[1]].values
+        if 'vgrid' in grid_ind.names and height_ind is not None:
+            height = [grid_ind.levels[2][height_ind]] * len(rlat)
+            loc_list = list(zip(rlat, rlon, height))
+        elif 'vgrid' not in grid_ind.names:
+            loc_list = list(zip(rlat, rlon))
+        else:
+            raise ValueError('An height index has to be given to localize!')
+        localized_ds = ds.sel(grid=loc_list)
         return localized_ds
 
     def get_lapse_rate(self, cosmo_ds):

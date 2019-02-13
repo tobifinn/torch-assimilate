@@ -64,6 +64,30 @@ class TestCOST2m(unittest.TestCase):
         )
         cls.ens_file = preprocess_cosmo(ens_file, ['T_2M', 'T'])
 
+    def test_localize_grid_localize_grid_with_height(self):
+        locs = np.array(self.obs_op.locs)
+        grid_ind = self.ens_file.indexes['grid']
+        rlat = grid_ind.levels[0][locs[0]].values
+        rlon = grid_ind.levels[1][locs[1]].values
+        heights = [grid_ind.levels[2][50], ] * len(rlat)
+        sliced = self.ens_file.sel(grid=list(zip(rlat, rlon, heights)))
+        ret_loc = self.obs_op._localize_grid(self.ens_file, 50)
+        xr.testing.assert_identical(ret_loc, sliced)
+
+    def test_localize_grid_localize_grid_without_height(self):
+        temp_ens_file = self.ens_file.sel(vgrid=0)
+        locs = np.array(self.obs_op.locs)
+        grid_ind = temp_ens_file.indexes['grid']
+        rlat = grid_ind.levels[0][locs[0]].values
+        rlon = grid_ind.levels[1][locs[1]].values
+        sliced = temp_ens_file.sel(grid=list(zip(rlat, rlon)))
+        ret_loc = self.obs_op._localize_grid(temp_ens_file, 10)
+        xr.testing.assert_identical(ret_loc, sliced)
+
+    def test_localize_raises_value_error(self):
+        with self.assertRaises(ValueError):
+            _ = self.obs_op._localize_grid(self.ens_file)
+
     def test_calc_locs_uses_station_coords(self):
         station_lat_lon = self.station_df[['Breite', 'Länge']].values
         station_alt = self.station_df['Stations-\r\nhöhe'].values.reshape(-1, 1)
@@ -154,11 +178,10 @@ class TestCOST2m(unittest.TestCase):
 
     def test_calc_hdiff_returns_hdiff(self):
         station_height = self.station_df['Stations-\r\nhöhe'].values
-        cos_stacked = self.hhl_file['HSURF'].stack(grid=['rlat', 'rlon'])
-        cos_surf = cos_stacked.isel(time=0)
-        cos_height = cos_surf.values[self.obs_op.locs]
+        cos_stacked = self.hhl_file['HSURF'].isel(time=0)
+        cos_height = cos_stacked.values[self.obs_op.locs[0],
+                                        self.obs_op.locs[1]]
         height_diff = station_height - cos_height
-
         ret_diff = self.obs_op._calc_h_diff()
         np.testing.assert_equal(ret_diff, height_diff)
 
@@ -178,9 +201,9 @@ class TestCOST2m(unittest.TestCase):
         time_axis = self.ens_file.time
         time_axis = xr.concat([time_axis, time_axis+1], dim='time')
         self.ens_file = self.ens_file.sel(time=time_axis, method='nearest')
-        height = self.ens_file.vgrid
-        heights_diff = height.isel(vgrid=self.obs_op.lev_inds[1]) - \
-                       height.isel(vgrid=self.obs_op.lev_inds[0])
+        height = self.ens_file.indexes['grid'].get_level_values('vgrid')
+        heights_diff = height[self.obs_op.lev_inds[1]] - \
+                       height[self.obs_op.lev_inds[0]]
 
         print(heights_diff)
         temp_stacked = self.ens_file['T']
