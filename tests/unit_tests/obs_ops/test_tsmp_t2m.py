@@ -35,6 +35,7 @@ import numpy as np
 
 # Internal modules
 from pytassim.obs_ops.terrsysmp.cos_t2m import CosmoT2mOperator, EARTH_RADIUS
+from pytassim.model.terrsysmp import preprocess_cosmo
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -47,17 +48,21 @@ DATA_PATH = '/scratch/local1/Data/phd_thesis/test_data'
     not os.path.isdir(DATA_PATH), 'Data for TerrSysMP not available!'
 )
 class TestCOST2m(unittest.TestCase):
-    def setUp(self):
-        self.station_df = pd.read_hdf(
+    @classmethod
+    def setUpClass(cls):
+        cls.station_df = pd.read_hdf(
             os.path.join(DATA_PATH, 'avail_stations.hd5'),
             'stations'
         )
-        self.hhl_file = xr.open_dataset(os.path.join(DATA_PATH, 'cos_hhl.nc'))
-        self.cos_coords = np.loadtxt(os.path.join(DATA_PATH, 'cos_coords.txt'))
-        self.obs_op = CosmoT2mOperator(self.station_df, self.cos_coords,
-                                       self.hhl_file)
+        cls.hhl_file = xr.open_dataset(os.path.join(DATA_PATH, 'cos_hhl.nc'))
+        cls.cos_coords = np.load(os.path.join(DATA_PATH, 'cosmo_coords.npy'))
+        cls.obs_op = CosmoT2mOperator(cls.station_df, cls.cos_coords,
+                                      cls.hhl_file)
 
-        self.ens_file = xr.open_dataset(os.path.join(DATA_PATH, 'cos_ens_0.nc'))
+        ens_file = xr.open_dataset(
+            os.path.join(DATA_PATH, 'lffd20150731060000.nc')
+        )
+        cls.ens_file = preprocess_cosmo(ens_file, ['T_2M', 'T'])
 
     def test_calc_locs_uses_station_coords(self):
         station_lat_lon = self.station_df[['Breite', 'Länge']].values
@@ -72,7 +77,7 @@ class TestCOST2m(unittest.TestCase):
         )
 
     def test_calc_locs_uses_cos_coords(self):
-        cos_lat_lon = self.cos_coords
+        cos_lat_lon = self.cos_coords.reshape(-1, 2)
         cos_hhl = self.hhl_file['HSURF'].isel(time=0).values.reshape(-1, 1)
         cos_llalt = np.concatenate([cos_lat_lon, cos_hhl], axis=-1)
         xyz = self.obs_op._get_cartesian(cos_llalt)
@@ -84,7 +89,7 @@ class TestCOST2m(unittest.TestCase):
         )
 
     def test_get_cartesian_returns_cartesian_from_llalt(self):
-        cos_lat_lon = self.cos_coords
+        cos_lat_lon = self.cos_coords.reshape(-1, 2)
         cos_hhl = self.hhl_file['HSURF'].isel(time=0).values.reshape(-1, 1)
         cos_llalt = np.concatenate([cos_lat_lon, cos_hhl], axis=-1)
 
@@ -99,7 +104,7 @@ class TestCOST2m(unittest.TestCase):
         np.testing.assert_equal(ret_xyz, xyz)
 
     def test_calc_locs_calls_get_neighbors_with_cos_station(self):
-        cos_lat_lon = self.cos_coords
+        cos_lat_lon = self.cos_coords.reshape(-1, 2)
         cos_hhl = self.hhl_file['HSURF'].isel(time=0).values.reshape(-1, 1)
         cos_llalt = np.concatenate([cos_lat_lon, cos_hhl], axis=-1)
         cos_xyz = self.obs_op._get_cartesian(cos_llalt)
@@ -120,7 +125,7 @@ class TestCOST2m(unittest.TestCase):
                                 station_xyz)
 
     def test_calc_locs_returns_locs(self):
-        cos_lat_lon = self.cos_coords
+        cos_lat_lon = self.cos_coords.reshape(-1, 2)
         cos_hhl = self.hhl_file['HSURF'].isel(time=0).values.reshape(-1, 1)
         cos_llalt = np.concatenate([cos_lat_lon, cos_hhl], axis=-1)
         cos_xyz = self.obs_op._get_cartesian(cos_llalt)
@@ -131,7 +136,7 @@ class TestCOST2m(unittest.TestCase):
         station_xyz = self.obs_op._get_cartesian(station_llalt)
 
         locs = self.obs_op._get_neighbors(cos_xyz, station_xyz)
-
+        locs = np.unravel_index(locs, self.cos_coords.shape[:2])
         ret_locs = self.obs_op._calc_locs()
         np.testing.assert_equal(ret_locs, locs)
 
@@ -173,16 +178,12 @@ class TestCOST2m(unittest.TestCase):
         time_axis = self.ens_file.time
         time_axis = xr.concat([time_axis, time_axis+1], dim='time')
         self.ens_file = self.ens_file.sel(time=time_axis, method='nearest')
+        height = self.ens_file.vgrid
+        heights_diff = height.isel(vgrid=self.obs_op.lev_inds[1]) - \
+                       height.isel(vgrid=self.obs_op.lev_inds[0])
 
-        heights_full = self.hhl_file['HHL'] - \
-                       self.hhl_file['HHL'].isel(level1=-1)
-        heights_full = heights_full.isel(level1=slice(None, -1))
-        heights_stacked = heights_full.stack(grid=['rlat', 'rlon'])
-        heights_loc = heights_stacked.isel(grid=self.obs_op.locs, time=0)
-        heights_diff = heights_loc.isel(level1=self.obs_op.lev_inds[1]) - \
-                       heights_loc.isel(level1=self.obs_op.lev_inds[0])
-
-        temp_stacked = self.ens_file['T'].stack(grid=['rlat', 'rlon'])
+        print(heights_diff)
+        temp_stacked = self.ens_file['T']
         temp_loc = temp_stacked.isel(grid=self.obs_op._locs)
         temp_diff = temp_loc.isel(level=self.obs_op.lev_inds[1]) - \
                     temp_loc.isel(level=self.obs_op.lev_inds[0])

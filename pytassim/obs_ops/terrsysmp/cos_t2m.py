@@ -98,12 +98,14 @@ class CosmoT2mOperator(BaseOperator):
         station_llalt = np.concatenate([station_lat_lon, station_alt], axis=-1)
         station_xyz = self._get_cartesian(station_llalt)
 
+        cosmo_lat_lon = self.cosmo_coords.reshape(-1, 2)
         cosmo_alt = self.cosmo_const['HSURF'].isel(time=0).values
         cosmo_alt = cosmo_alt.reshape(-1, 1)
-        cosmo_llalt = np.concatenate([self.cosmo_coords, cosmo_alt], axis=-1)
+        cosmo_llalt = np.concatenate([cosmo_lat_lon, cosmo_alt], axis=-1)
         cosmo_xyz = self._get_cartesian(cosmo_llalt)
 
         locs = self._get_neighbors(cosmo_xyz, station_xyz)
+        locs = np.unravel_index(locs, self.cosmo_coords.shape[:2])
         return locs
 
     def _calc_h_diff(self):
