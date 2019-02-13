@@ -68,7 +68,7 @@ class CosmoT2mOperator(BaseOperator):
         self.station_df = station_df
         self.cosmo_coords = cosmo_coords
         self.cosmo_const = cosmo_const
-        self.lev_inds = [35, 25]
+        self.lev_inds = [40, 35]
 
     @property
     def locs(self):
@@ -122,12 +122,15 @@ class CosmoT2mOperator(BaseOperator):
         _, locs = tree.query(trg_points, k=1)
         return locs
 
-    def _localize_grid(self, ds, height_ind=None):
+    def _localize_grid(self, ds, height_ind=None, height_lev=None):
         grid_ind = ds.indexes['grid']
         rlat = grid_ind.levels[0][self.locs[0]].values
         rlon = grid_ind.levels[1][self.locs[1]].values
-        if 'vgrid' in grid_ind.names and height_ind is not None:
-            height = [grid_ind.levels[2][height_ind]] * len(rlat)
+        if 'vgrid' in grid_ind.names and height_lev is not None:
+            height = [height_lev] * len(rlat)
+            loc_list = list(zip(rlat, rlon, height))
+        elif 'vgrid' in grid_ind.names and height_ind is not None:
+            height = [grid_ind.levels[2][height_ind], ] * len(rlat)
             loc_list = list(zip(rlat, rlon, height))
         elif 'vgrid' not in grid_ind.names:
             loc_list = list(zip(rlat, rlon))
@@ -137,22 +140,20 @@ class CosmoT2mOperator(BaseOperator):
         return localized_ds
 
     def get_lapse_rate(self, cosmo_ds):
-        h_full = self.cosmo_const['HHL'] - \
-                 self.cosmo_const['HHL'].isel(level1=-1)
-        h_full = h_full.isel(level1=slice(None, -1))
-        h_loc = self._localize_grid(h_full).isel(time=0)
-        h_diff = h_loc.isel(level1=self.lev_inds[1]) - \
-                 h_loc.isel(level1=self.lev_inds[0])
+        height = cosmo_ds.indexes['grid'].get_level_values('vgrid')
+        h_diff = height[self.lev_inds[1]] - height[self.lev_inds[0]]
 
-        temp_loc = self._localize_grid(cosmo_ds['T'])
-        temp_diff = temp_loc.isel(level=self.lev_inds[1]) - \
-                    temp_loc.isel(level=self.lev_inds[0])
+        sel_temp = cosmo_ds.sel(var_name='T')
+        temp_1 = self._localize_grid(sel_temp, height_ind=self.lev_inds[1])
+        temp_0 = self._localize_grid(sel_temp, height_ind=self.lev_inds[0])
+        temp_diff = temp_1.values - temp_0.values
 
         lapse_rate = temp_diff / h_diff
         return lapse_rate
 
     def obs_op(self, in_array, *args, **kwargs):
-        uncorr_t2m = self._localize_grid(in_array['T_2M'])
+        uncorr_t2m = self._localize_grid(in_array.sel(var_name='T_2M'),
+                                         height_lev=0)
         correction = self.height_diff * self.get_lapse_rate(in_array)
-        corr_t2m = uncorr_t2m.squeeze(dim='height_2m') + correction
+        corr_t2m = uncorr_t2m + correction
         return corr_t2m

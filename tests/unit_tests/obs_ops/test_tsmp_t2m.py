@@ -70,8 +70,9 @@ class TestCOST2m(unittest.TestCase):
         rlat = grid_ind.levels[0][locs[0]].values
         rlon = grid_ind.levels[1][locs[1]].values
         heights = [grid_ind.levels[2][50], ] * len(rlat)
+
         sliced = self.ens_file.sel(grid=list(zip(rlat, rlon, heights)))
-        ret_loc = self.obs_op._localize_grid(self.ens_file, 50)
+        ret_loc = self.obs_op._localize_grid(self.ens_file, height_ind=50)
         xr.testing.assert_identical(ret_loc, sliced)
 
     def test_localize_grid_localize_grid_without_height(self):
@@ -200,33 +201,36 @@ class TestCOST2m(unittest.TestCase):
     def test_get_lapse_rate_returns_lapse_rate(self):
         time_axis = self.ens_file.time
         time_axis = xr.concat([time_axis, time_axis+1], dim='time')
-        self.ens_file = self.ens_file.sel(time=time_axis, method='nearest')
-        height = self.ens_file.indexes['grid'].get_level_values('vgrid')
+        timed_ens_file = self.ens_file.sel(time=time_axis, method='nearest')
+        height = timed_ens_file.indexes['grid'].get_level_values('vgrid')
         heights_diff = height[self.obs_op.lev_inds[1]] - \
                        height[self.obs_op.lev_inds[0]]
 
-        print(heights_diff)
-        temp_stacked = self.ens_file['T']
-        temp_loc = temp_stacked.isel(grid=self.obs_op._locs)
-        temp_diff = temp_loc.isel(level=self.obs_op.lev_inds[1]) - \
-                    temp_loc.isel(level=self.obs_op.lev_inds[0])
+        temp_stacked = timed_ens_file.sel(var_name='T')
+        temp_1 = self.obs_op._localize_grid(
+            temp_stacked, self.obs_op.lev_inds[1]
+        ).values
+        temp_0 = self.obs_op._localize_grid(
+            temp_stacked, self.obs_op.lev_inds[0]
+        ).values
+        temp_diff = temp_1 - temp_0
 
         lapse_rate = temp_diff / heights_diff
 
-        ret_lapse_rate = self.obs_op.get_lapse_rate(self.ens_file)
-        xr.testing.assert_equal(ret_lapse_rate, lapse_rate)
+        ret_lapse_rate = self.obs_op.get_lapse_rate(timed_ens_file)
+        np.testing.assert_equal(ret_lapse_rate, lapse_rate)
 
     def test_obs_op_returns_t2m(self):
         time_axis = self.ens_file.time
         time_axis = xr.concat([time_axis, time_axis+1], dim='time')
-        self.ens_file = self.ens_file.sel(time=time_axis, method='nearest')
-        uncorr_t2m = self.obs_op._localize_grid(self.ens_file['T_2M'])
-        uncorr_t2m = uncorr_t2m.squeeze(dim='height_2m')
-        lapse_rate = self.obs_op.get_lapse_rate(self.ens_file)
+        timed_ens_file = self.ens_file.sel(time=time_axis, method='nearest')
+        ens_t2m = timed_ens_file.sel(var_name='T_2M')
+        uncorr_t2m = self.obs_op._localize_grid(ens_t2m, height_lev=0)
+        lapse_rate = self.obs_op.get_lapse_rate(timed_ens_file)
         correction = self.obs_op.height_diff * lapse_rate
         corr_t2m = uncorr_t2m + correction
 
-        ret_t2m = self.obs_op.obs_op(self.ens_file)
+        ret_t2m = self.obs_op.obs_op(timed_ens_file)
         xr.testing.assert_equal(corr_t2m, ret_t2m)
 
 
