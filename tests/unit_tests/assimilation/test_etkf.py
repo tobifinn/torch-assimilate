@@ -140,8 +140,8 @@ class TestAnalyticalSolution(unittest.TestCase):
     def test_right_wa(self):
         correct_gain = np.array([0.5, -0.5])
         correct_wa = correct_gain * 0.2
-        ret_wa, _ = etkf_core.gen_weights(self.innov, self.hx_perts,
-                                          self.obs_cov, self.back_prec)
+        ret_wa, _ = etkf_core.gen_weights(self.back_prec, self.innov,
+                                          self.hx_perts, self.obs_cov)
         np.testing.assert_array_almost_equal(ret_wa.numpy(), correct_wa)
 
     def test_right_w_eigendecomposition(self):
@@ -154,8 +154,8 @@ class TestAnalyticalSolution(unittest.TestCase):
         w_pert = np.dot(evals_inv_sqrt, evects.T)
         w_pert = np.dot(evects, w_pert)
 
-        _, ret_perts = etkf_core.gen_weights(self.innov, self.hx_perts,
-                                             self.obs_cov, self.back_prec)
+        _, ret_perts = etkf_core.gen_weights(self.back_prec, self.innov,
+                                             self.hx_perts, self.obs_cov)
         np.testing.assert_array_almost_equal(ret_perts.numpy(), w_pert)
 
     def test_right_w_perts(self):
@@ -163,15 +163,15 @@ class TestAnalyticalSolution(unittest.TestCase):
             [0.75, 0.25],
             [0.25, 0.75]
         ])
-        _, return_perts = etkf_core.gen_weights(self.innov, self.hx_perts,
-                                                self.obs_cov, self.back_prec)
+        _, return_perts = etkf_core.gen_weights(self.back_prec, self.innov,
+                                                self.hx_perts, self.obs_cov)
         return_perts = return_perts.numpy()
         ret_cov = np.matmul(return_perts, return_perts.T)
         np.testing.assert_array_almost_equal(ret_cov, right_cov)
 
     def test_apply_weights_ens_mean(self):
-        wa, w_perts = etkf_core.gen_weights(self.innov, self.hx_perts,
-                                            self.obs_cov, self.back_prec)
+        wa, w_perts = etkf_core.gen_weights(self.back_prec, self.innov,
+                                            self.hx_perts, self.obs_cov)
         state_mean, state_perts = self.state.state.split_mean_perts()
         del_ana_mean = np.matmul(
             state_perts.transpose('var_name', 'time', 'grid', 'ensemble'),
@@ -183,8 +183,8 @@ class TestAnalyticalSolution(unittest.TestCase):
         xr.testing.assert_equal(ret_state.mean('ensemble'), ana_mean)
 
     def test_apply_weights_perts(self):
-        wa, w_perts = etkf_core.gen_weights(self.innov, self.hx_perts,
-                                            self.obs_cov, self.back_prec)
+        wa, w_perts = etkf_core.gen_weights(self.back_prec, self.innov,
+                                            self.hx_perts, self.obs_cov)
         state_mean, state_perts = self.state.state.split_mean_perts()
         del_ana_perts = np.matmul(
             state_perts.transpose('var_name', 'time', 'grid', 'ensemble'),
@@ -421,7 +421,9 @@ class TestETKFilter(unittest.TestCase):
 
     def test_calc_precision_returns_precision(self):
         _, obs_cov, _ = self.algorithm._prepare_obs((self.obs, ))
-        _, hx_pert, _ = self.algorithm._prepare_back_obs(self.state, (self.obs,))
+        _, hx_pert, _ = self.algorithm._prepare_back_obs(
+            self.state, (self.obs,)
+        )
         nr_obs, ens_size = hx_pert.shape
         obs_cov = torch.tensor(obs_cov)
         hx_pert = torch.tensor(hx_pert)
@@ -539,9 +541,8 @@ class TestETKFilter(unittest.TestCase):
         w_perts = etkf_core._det_square_root_eigen(evals_inv, evects,
                                                         evects_inv)
 
-        ret_mean, ret_perts = etkf_core.gen_weights(
-            innov, hx_pert, obs_cov, self.back_prec
-        )
+        ret_mean, ret_perts = etkf_core.gen_weights(self.back_prec, innov,
+                                                    hx_pert, obs_cov)
         torch.testing.assert_allclose(ret_mean, w_mean)
         torch.testing.assert_allclose(ret_perts, w_perts)
 
@@ -558,7 +559,7 @@ class TestETKFilter(unittest.TestCase):
         obs_tuple = (self.obs, self.obs)
         prepared_states = self.algorithm._prepare(self.state, obs_tuple)
         prepared_states = [torch.tensor(s) for s in prepared_states]
-        weights = etkf_core.gen_weights(*prepared_states[:-1], self.back_prec)
+        weights = etkf_core.gen_weights(self.back_prec, *prepared_states[:-1])
         with patch('pytassim.assimilation.filter.etkf.gen_weights',
                    return_value=weights) as weights_patch:
             _ = self.algorithm.update_state(self.state, obs_tuple,
@@ -569,8 +570,8 @@ class TestETKFilter(unittest.TestCase):
         obs_tuple = (self.obs, self.obs)
         prepared_states = self.algorithm._prepare(self.state, obs_tuple)
         prepared_states = [torch.tensor(s) for s in prepared_states]
-        w_mean, w_perts = etkf_core.gen_weights(*prepared_states[:-1],
-                                                self.back_prec)
+        w_mean, w_perts = etkf_core.gen_weights(self.back_prec,
+                                                *prepared_states[:-1])
         weights = w_mean + w_perts
         state_mean, state_perts = self.state.state.split_mean_perts()
         ana_perts = xr.apply_ufunc(
@@ -586,8 +587,8 @@ class TestETKFilter(unittest.TestCase):
         obs_tuple = (self.obs, self.obs)
         prepared_states = self.algorithm._prepare(self.state, obs_tuple)
         prepared_states = [torch.tensor(s) for s in prepared_states]
-        w_mean, w_perts = etkf_core.gen_weights(*prepared_states[:-1],
-                                                self.back_prec)
+        w_mean, w_perts = etkf_core.gen_weights(self.back_prec,
+                                                *prepared_states[:-1])
         weights = w_mean + w_perts
         state_mean, state_perts = self.state.state.split_mean_perts()
         ana_perts = self.algorithm._weights_matmul(state_perts,
@@ -601,8 +602,8 @@ class TestETKFilter(unittest.TestCase):
         obs_tuple = (self.obs, self.obs)
         prepared_states = self.algorithm._prepare(self.state, obs_tuple)
         prepared_states = [torch.tensor(s) for s in prepared_states]
-        w_mean, w_perts = etkf_core.gen_weights(*prepared_states[:-1],
-                                                self.back_prec)
+        w_mean, w_perts = etkf_core.gen_weights(self.back_prec,
+                                                *prepared_states[:-1])
         state_mean, state_perts = self.state.state.split_mean_perts()
         analysis = self.algorithm._apply_weights(w_mean, w_perts, state_mean,
                                                  state_perts)
@@ -617,8 +618,8 @@ class TestETKFilter(unittest.TestCase):
         obs_tuple = (self.obs, self.obs)
         prepared_states = self.algorithm._prepare(self.state, obs_tuple)
         prepared_states = [torch.tensor(s) for s in prepared_states]
-        w_mean, w_perts = etkf_core.gen_weights(*prepared_states[:-1],
-                                                self.back_prec)
+        w_mean, w_perts = etkf_core.gen_weights(self.back_prec,
+                                                *prepared_states[:-1])
         state_mean, state_perts = self.state.state.split_mean_perts()
         analysis = self.algorithm._apply_weights(w_mean, w_perts, state_mean,
                                                  state_perts)
@@ -636,8 +637,8 @@ class TestETKFilter(unittest.TestCase):
         obs_tuple = (self.obs, self.obs)
         prepared_states = self.algorithm._prepare(self.state, obs_tuple)
         prepared_states = [torch.tensor(s) for s in prepared_states]
-        w_mean, w_perts = etkf_core.gen_weights(*prepared_states[:-1],
-                                                self.back_prec)
+        w_mean, w_perts = etkf_core.gen_weights(self.back_prec,
+                                                *prepared_states[:-1])
         state_mean, state_perts = self.state.state.split_mean_perts()
         analysis = self.algorithm._apply_weights(w_mean, w_perts, state_mean,
                                                  state_perts)

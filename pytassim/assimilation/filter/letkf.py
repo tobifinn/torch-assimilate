@@ -32,6 +32,7 @@ import torch
 
 # Internal modules
 from .etkf import ETKFilter
+from .etkf_core import gen_weights
 
 
 logger = logging.getLogger(__name__)
@@ -131,7 +132,8 @@ class LETKFilter(ETKFilter):
         for grid_ind in state.grid.values:
             prepared_l = self._localize(grid_ind, prepared_states)
             torch_state_l = self._states_to_torch(*prepared_l)
-            w_mean_l, w_perts_l = self._gen_weights(*torch_state_l)
+            back_prec = self._get_back_prec(len(state.ensemble))
+            w_mean_l, w_perts_l = gen_weights(back_prec, *torch_state_l)
             back_state_l = state.sel(grid=grid_ind)
             state_mean_l, state_perts_l = back_state_l.state.split_mean_perts()
             ana_l = self._apply_weights(w_mean_l, w_perts_l, state_mean_l,

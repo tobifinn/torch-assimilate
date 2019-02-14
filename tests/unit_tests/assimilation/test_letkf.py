@@ -38,6 +38,7 @@ import pytassim.state
 import pytassim.observation
 from pytassim.assimilation.filter.letkf import ETKFilter
 from pytassim.assimilation.filter.letkf import LETKFilter
+from pytassim.assimilation.filter import etkf_core
 from pytassim.testing import dummy_obs_operator, DummyLocalization
 
 
@@ -52,6 +53,7 @@ class TestLETKF(unittest.TestCase):
         self.algorithm = LETKFilter()
         state_path = os.path.join(DATA_PATH, 'test_state.nc')
         self.state = xr.open_dataarray(state_path).load()
+        self.back_prec = self.algorithm._get_back_prec(len(self.state.ensemble))
         obs_path = os.path.join(DATA_PATH, 'test_single_obs.nc')
         self.obs = xr.open_dataset(obs_path).load()
         self.obs.obs.operator = dummy_obs_operator
@@ -81,8 +83,8 @@ class TestLETKF(unittest.TestCase):
         prepared_states = self.algorithm._prepare(self.state, obs_tuple)
         nr_grid_points = len(self.state.grid)
         prepared_states = [torch.tensor(s) for s in prepared_states]
-        weights = self.algorithm._gen_weights(*prepared_states[:-1])
-        with patch('pytassim.assimilation.filter.letkf.LETKFilter._gen_weights',
+        weights = etkf_core.gen_weights(self.back_prec, *prepared_states[:-1])
+        with patch('pytassim.assimilation.filter.letkf.gen_weights',
                    return_value=weights) as weight_patch:
             _ = self.algorithm.update_state(self.state, obs_tuple,
                                             self.state.time[-1].values)
@@ -91,10 +93,7 @@ class TestLETKF(unittest.TestCase):
     def test_update_state_calls_apply_weights_grid_times(self):
         ana_time = self.state.time[-1].values
         obs_tuple = (self.obs, self.obs)
-        prepared_states = self.algorithm._prepare(self.state, obs_tuple)
         nr_grid_points = len(self.state.grid)
-        prepared_states = [torch.tensor(s) for s in prepared_states[:-1]]
-        weights = self.algorithm._gen_weights(*prepared_states)
         back_state = self.state.sel(time=[ana_time, ])
         localized_state = back_state.isel(grid=0)
         trg = 'pytassim.assimilation.filter.letkf.LETKFilter._apply_weights'

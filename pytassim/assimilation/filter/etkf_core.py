@@ -35,7 +35,7 @@ import torch
 logger = logging.getLogger(__name__)
 
 
-def gen_weights(innov, hx_perts, obs_cov, back_prec, obs_weights=1,):
+def gen_weights(back_prec, innov, hx_perts, obs_cov, obs_weights=1):
     """
     This function is the main function to calculates the ensemble weights,
     based on [H07]_. To generate the weights, the given arguments have to be

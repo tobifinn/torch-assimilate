@@ -127,7 +127,7 @@ class ETKFilter(FilterAssimilation):
         )[:-1]
         innov, hx_perts, obs_cov = self._states_to_torch(*prepared_states)
         back_prec = self._get_back_prec(len(state.ensemble))
-        w_mean, w_perts = gen_weights(innov, hx_perts, obs_cov, back_prec)
+        w_mean, w_perts = gen_weights(back_prec, innov, hx_perts, obs_cov)
         state_mean, state_perts = state.state.split_mean_perts()
         analysis = self._apply_weights(w_mean, w_perts, state_mean, state_perts)
         analysis = analysis.transpose('var_name', 'time', 'ensemble', 'grid')
