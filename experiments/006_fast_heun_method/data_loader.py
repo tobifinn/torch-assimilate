@@ -39,7 +39,7 @@ sys.path.append(
     os.path.join(os.path.dirname(__file__), '../..', 'experiments')
 )
 
-from pytassim.model.lorenz_96.obs_ops.identity import IdentityOperator
+from pytassim.obs_ops.lorenz_96.identity import IdentityOperator
 from experiments.data.datasets import Lorenz96PreparedDataset, \
     Lorenz96AssimDataset
 

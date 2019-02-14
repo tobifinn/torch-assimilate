@@ -32,7 +32,7 @@ import numpy as np
 import torch
 
 # Internal modules
-from .base_ops import BaseOperator
+from pytassim.obs_ops.base_ops import BaseOperator
 
 
 logger = logging.getLogger(__name__)

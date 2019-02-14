@@ -28,6 +28,7 @@ import logging
 
 # External modules
 import xarray as xr
+import pandas as pd
 import torch
 import numpy as np
 
@@ -190,11 +191,22 @@ class ETKFilter(FilterAssimilation):
 
     def _prepare_back_obs(self, state, observations):
         pseudo_obs, filtered_obs = self._apply_obs_operator(state, observations)
-        pseudo_obs = [obs.stack(obs_id=('time', 'obs_grid_1'))
-                      for obs in pseudo_obs]
-        pseudo_obs_concat = xr.concat(pseudo_obs, dim='obs_id')
+        hx_mean, hx_perts = self._prepare_pseudo_obs(pseudo_obs)
+        return hx_mean, hx_perts, filtered_obs
+
+    @staticmethod
+    def _prepare_pseudo_obs(pseudo_obs):
+        state_stacked_list = []
+        for obs in pseudo_obs:
+            if isinstance(obs.indexes['obs_grid_1'], pd.MultiIndex):
+                obs['obs_grid_1'] = pd.Index(
+                    obs.indexes['obs_grid_1'].values, tupleize_cols=False
+                )
+            stacked_obs = obs.stack(obs_id=('time', 'obs_grid_1'))
+            state_stacked_list.append(stacked_obs)
+        pseudo_obs_concat = xr.concat(state_stacked_list, dim='obs_id')
         hx_mean, hx_perts = pseudo_obs_concat.state.split_mean_perts()
-        return hx_mean.values, hx_perts.T.values, filtered_obs
+        return hx_mean.values, hx_perts.T.values
 
     def _compute_c(self, hx_perts, obs_cov, obs_weights=1):
         if torch.allclose(obs_cov, torch.diag(torch.diagonal(obs_cov))):

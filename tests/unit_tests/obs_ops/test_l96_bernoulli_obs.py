@@ -34,8 +34,8 @@ import numpy as np
 import torch
 
 # Internal modules
-from pytassim.model.lorenz_96.obs_ops.identity import IdentityOperator
-from pytassim.model.lorenz_96.obs_ops.bernoulli import BernoulliOperator
+from pytassim.obs_ops.lorenz_96.identity import IdentityOperator
+from pytassim.obs_ops.lorenz_96.bernoulli import BernoulliOperator
 
 
 logging.basicConfig(level=logging.DEBUG)

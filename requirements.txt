@@ -2,3 +2,4 @@ numpy
 scipy
 xarray
 tqdm
+pytables

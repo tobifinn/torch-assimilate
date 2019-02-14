@@ -63,7 +63,7 @@ class GaspariCohn(BaseLocalization):
         between these two grids.
     """
     def __init__(self, length_scale, dist_func):
-        self.radius = length_scale
+        self.radius = np.atleast_1d(length_scale)
         self.dist_func = dist_func
         self._thres = [2, 1]
 
@@ -110,14 +110,17 @@ class GaspariCohn(BaseLocalization):
             The estimated observation weights. These weights can be used to
             weight observations.
         """
-        weights = np.zeros((obs_grid.shape[-1]), dtype=float)
-        dist = self.dist_func(grid_ind, obs_grid)
-        dist_radius = dist / self.radius
-        conds = [dist_radius < thres for thres in self._thres]
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            weights[conds[0]] = self._f2(dist_radius[conds[0]])
-            weights[conds[1]] = self._f1(dist_radius[conds[1]])
+        weights = np.ones((obs_grid.shape[-1]), dtype=float)
+        dist = np.atleast_2d(self.dist_func(grid_ind, obs_grid))
+        for i, d in enumerate(dist):
+            dist_radius = d / self.radius[i]
+            conds = [dist_radius < thres for thres in self._thres]
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                tmp_weights = np.zeros((obs_grid.shape[-1]), dtype=float)
+                tmp_weights[conds[0]] = self._f2(dist_radius[conds[0]])
+                tmp_weights[conds[1]] = self._f1(dist_radius[conds[1]])
+            weights *= tmp_weights
         use_obs = weights != 0
         return use_obs, weights
 
