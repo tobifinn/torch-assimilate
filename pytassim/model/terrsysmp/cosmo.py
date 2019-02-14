@@ -61,16 +61,17 @@ def preprocess_cosmo(cosmo_ds, assim_vars):
 
 def prepare_vgrid(ds, vcoord):
     ds = ds.copy()
+    vcoord_vals = vcoord.values.reshape(-1, vcoord.shape[-1])[0, :]
     if 'soil1' in ds.coords:
         ds['soil1'] *= -1
-        vgrid_coords = np.concatenate([vcoord.values, ds['soil1'].values])
+        vgrid_coords = np.concatenate([vcoord_vals, ds['soil1'].values])
     else:
-        vgrid_coords = vcoord.values
+        vgrid_coords = vcoord_vals
     ds = ds.assign_coords(vgrid=vgrid_coords)
     if 'level1' in ds.dims:
-        ds['level1'] = vcoord.values
+        ds['level1'] = vcoord_vals
     if 'level' in ds.dims:
-        ds['level'] = ((vcoord.values+np.roll(vcoord.values, 1))/2)[1:]
+        ds['level'] = ((vcoord_vals+np.roll(vcoord_vals, 1))/2)[1:]
     return ds
 
 
