@@ -31,6 +31,7 @@ import warnings
 # External modules
 import xarray as xr
 import scipy.linalg
+import pandas as pd
 import torch
 
 # Internal modules
@@ -153,6 +154,10 @@ class BaseAssimilation(object):
         state_stacked_list = []
         cov_stacked_list = []
         for obs in observations:
+            if isinstance(obs.indexes['obs_grid_1'], pd.MultiIndex):
+                obs['obs_grid_1'] = pd.Index(
+                    obs.indexes['obs_grid_1'].values, tupleize_cols=False
+                )
             stacked_obs = obs['observations'].stack(
                 obs_id=('time', 'obs_grid_1')
             )
