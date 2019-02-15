@@ -26,6 +26,8 @@
 # System modules
 import logging
 from concurrent.futures import as_completed
+import itertools
+from math import ceil
 
 # External modules
 import torch
@@ -38,6 +40,25 @@ from .letkf import LETKFilter
 
 
 logger = logging.getLogger(__name__)
+
+
+def local_etkf_batch(ind, innov, hx_perts, obs_cov, back_prec, obs_grid,
+                     state_grid, state_perts, localization=None):
+    ana_state = []
+    weights = []
+    w_mean = []
+    for i in ind:
+        ana_state_l, weights_l, w_mean_l = local_etkf(
+            i, innov, hx_perts, obs_cov, back_prec, obs_grid, state_grid,
+            state_perts, localization
+        )
+        ana_state.append(ana_state_l)
+        weights.append(weights_l)
+        w_mean.append(w_mean_l)
+    ana_state = torch.stack(ana_state)
+    weights = torch.stack(weights)
+    w_mean = torch.stack(w_mean)
+    return ana_state, weights, w_mean
 
 
 def local_etkf(ind, innov, hx_perts, obs_cov, back_prec, obs_grid, state_grid,
@@ -173,35 +194,50 @@ class DistributedLETKF(LETKFilter):
         innov, hx_perts, obs_cov, obs_grid = self._prepare(state, observations)
         back_state = state.transpose('grid', 'var_name', 'time', 'ensemble')
         state_mean, state_perts = back_state.state.split_mean_perts()
+
         logger.info('Transfering the data to torch')
         back_prec = self._get_back_prec(len(back_state.ensemble))
         innov, hx_perts, obs_cov, back_state = self._states_to_torch(
             innov, hx_perts, obs_cov, state_perts.values,
         )
+
         logger.info('Sharing the data')
         innov, hx_perts, obs_cov, back_state, back_prec = self._share_states(
             innov, hx_perts, obs_cov, back_state, back_prec
         )
         state_grid = state_perts.grid.values
-        grid_inds = range(len(state_grid))
+        len_state_grid = len(state_grid)
+        grid_inds = list(self._slice_data(range(len_state_grid)))
         processes = []
+
         logger.info('Starting with job submission')
-        for ind in tqdm(grid_inds):
+        for ind in tqdm(grid_inds, total=ceil(len_state_grid/self.chunksize)):
             tmp_process = self.pool.submit(
-                local_etkf, ind, innov, hx_perts, obs_cov, back_prec, obs_grid,
-                state_grid, back_state, self.localization
+                local_etkf_batch, ind, innov, hx_perts, obs_cov, back_prec,
+                obs_grid, state_grid, back_state, self.localization
             )
             processes.append(tmp_process)
+
         logger.info('Waiting until jobs are finished')
         for _ in tqdm(as_completed(processes)):
             pass
+
         logger.info('Gathering the analysis')
-        state_perts.values = np.stack(
-            [p.result()[0].numpy() for p in tqdm(processes)]
+        state_perts.values = np.concatenate(
+            [p.result()[0].numpy() for p in tqdm(processes)], axis=0
         )
         analysis = (state_mean+state_perts).transpose(*state.dims)
         logger.info('Finished with analysis creation')
         return analysis
+
+    def _slice_data(self, data):
+        data = iter(data)
+        while True:
+            chunk = tuple(itertools.islice(data, self.chunksize))
+            if not chunk:
+                return
+            else:
+                yield chunk
 
     @staticmethod
     def _share_states(*states):
