@@ -25,11 +25,12 @@
 
 # System modules
 import logging
-import itertools
+from concurrent.futures import as_completed
 
 # External modules
 import torch
 import numpy as np
+from tqdm import tqdm
 
 # Internal modules
 from . import etkf_core
@@ -128,11 +129,11 @@ class DistributedLETKF(LETKFilter):
 
     @pool.setter
     def pool(self, new_pool):
-        if hasattr(new_pool, 'starmap') and callable(new_pool.starmap):
+        if hasattr(new_pool, 'submit') and callable(new_pool.submit):
             self._pool = new_pool
         else:
             raise TypeError('Given distributed pool needs a '
-                            'itertools-like `starmap` method!')
+                            'concurrent.futures-like `submit` method!')
 
     def update_state(self, state, observations, analysis_time):
         """
@@ -179,20 +180,18 @@ class DistributedLETKF(LETKFilter):
         )
         state_grid = state_perts.grid.values
         grid_inds = range(len(state_grid))
-        zipped_args = zip(
-            grid_inds,
-            itertools.repeat(innov),
-            itertools.repeat(hx_perts),
-            itertools.repeat(obs_cov),
-            itertools.repeat(back_prec),
-            itertools.repeat(obs_grid),
-            itertools.repeat(state_grid),
-            itertools.repeat(back_state),
-            itertools.repeat(self.localization),
+        processes = []
+        for ind in grid_inds:
+            tmp_process = self.pool.submit(
+                local_etkf, ind, innov, hx_perts, obs_cov, back_prec, obs_grid,
+                state_grid, back_state, self.localization
+            )
+            processes.append(tmp_process)
+        for _ in tqdm(as_completed(processes)):
+            pass
+        state_perts.values = np.stack(
+            [p.result()[0].numpy() for p in processes]
         )
-        etkf_results = self.pool.starmap(local_etkf, zipped_args,
-                                         chunksize=self.chunksize)
-        state_perts.values = np.stack([r[0].numpy() for r in etkf_results])
         analysis = (state_mean+state_perts).transpose(*state.dims)
         return analysis
 

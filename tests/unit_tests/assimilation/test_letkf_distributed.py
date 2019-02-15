@@ -27,11 +27,14 @@ import unittest
 import logging
 import os
 import itertools
+import time
+from concurrent.futures import ProcessPoolExecutor
 
 # External modules
 import xarray as xr
 import torch
 import numpy as np
+import tqdm
 
 # Internal modules
 from pytassim.assimilation.filter.letkf import LETKFilter
@@ -45,7 +48,7 @@ BASE_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
 
 
-POOL = torch.multiprocessing.Pool(1)
+POOL = ProcessPoolExecutor(max_workers=4)
 
 
 class TestLETKFDistributed(unittest.TestCase):
@@ -96,7 +99,6 @@ class TestLETKFDistributed(unittest.TestCase):
 
     def test_localization_works(self):
         localization = DummyLocalization()
-        print(localization)
         letkf_filter = LETKFilter(localization=localization)
         self.algorithm.localization = localization
         ana_time = self.state.time[-1].values
