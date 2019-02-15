@@ -190,7 +190,8 @@ class DistributedLETKF(LETKFilter):
             itertools.repeat(back_state),
             itertools.repeat(self.localization),
         )
-        etkf_results = self.pool.starmap(local_etkf, zipped_args)
+        etkf_results = self.pool.starmap(local_etkf, zipped_args,
+                                         chunksize=self.chunksize)
         state_perts.values = np.stack([r[0].numpy() for r in etkf_results])
         analysis = (state_mean+state_perts).transpose(*state.dims)
         return analysis
