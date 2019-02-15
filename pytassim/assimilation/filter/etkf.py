@@ -122,15 +122,21 @@ class ETKFilter(FilterAssimilation):
             analysis has same coordinates as given ``state``. If filtering mode
             is on, then the time axis has only one element.
         """
+        logger.info('####### Global ETKF #######')
+        logger.info('Starting with specific preparation')
         prepared_states = self._prepare(
             state, observations
         )[:-1]
+        logger.info('Transfering the data to torch')
         innov, hx_perts, obs_cov = self._states_to_torch(*prepared_states)
         back_prec = self._get_back_prec(len(state.ensemble))
+        logger.info('Gathering the weights')
         w_mean, w_perts = gen_weights(back_prec, innov, hx_perts, obs_cov)
+        logger.info('Applying weights to state')
         state_mean, state_perts = state.state.split_mean_perts()
         analysis = self._apply_weights(w_mean, w_perts, state_mean, state_perts)
         analysis = analysis.transpose('var_name', 'time', 'ensemble', 'grid')
+        logger.info('Finished with analysis creation')
         return analysis
 
     def _prepare(self, state, observations):
@@ -178,8 +184,10 @@ class ETKFilter(FilterAssimilation):
             localization or weighting purpose. This last axis of this array has
             a length of :math:`l`, the observation length.
         """
+        logger.info('Apply observation operator')
         hx_mean, hx_perts, filtered_obs = self._prepare_back_obs(state,
                                                                  observations)
+        logger.info('Concatenate observations')
         obs_state, obs_cov, obs_grid = self._prepare_obs(filtered_obs)
         innov = obs_state - hx_mean
         return innov, hx_perts, obs_cov, obs_grid

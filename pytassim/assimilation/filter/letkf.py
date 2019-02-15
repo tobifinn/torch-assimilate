@@ -28,7 +28,7 @@ import logging
 
 # External modules
 import xarray as xr
-import torch
+from tqdm import tqdm
 
 # Internal modules
 from .etkf import ETKFilter
@@ -127,9 +127,12 @@ class LETKFilter(ETKFilter):
             analysis has same coordinates as given ``state``. If filtering mode
             is on, then the time axis has only one element.
         """
+        logger.info('####### Serial LETKF #######')
+        logger.info('Starting with specific preparation')
         prepared_states = self._prepare(state, observations)
         analysis = []
-        for grid_ind in state.grid.values:
+        logger.info('Iterating through state grid')
+        for grid_ind in tqdm(state.grid.values):
             prepared_l = self._localize(grid_ind, prepared_states)
             torch_state_l = self._states_to_torch(*prepared_l)
             back_prec = self._get_back_prec(len(state.ensemble))
@@ -139,9 +142,11 @@ class LETKFilter(ETKFilter):
             ana_l = self._apply_weights(w_mean_l, w_perts_l, state_mean_l,
                                         state_perts_l)
             analysis.append(ana_l)
+        logger.info('Concatenating finished analysis')
         analysis = xr.concat(analysis, dim='grid')
         analysis['grid'] = state['grid']
         analysis = analysis.transpose('var_name', 'time', 'ensemble', 'grid')
+        logger.info('Finished with analysis creation')
         return analysis
 
     def _localize(self, grid_ind, prepared_states):

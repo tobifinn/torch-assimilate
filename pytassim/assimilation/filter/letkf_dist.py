@@ -168,31 +168,39 @@ class DistributedLETKF(LETKFilter):
             analysis has same coordinates as given ``state``. If filtering mode
             is on, then the time axis has only one element.
         """
+        logger.info('####### DISTRIBUTED LETKF #######')
+        logger.info('Starting with specific preparation')
         innov, hx_perts, obs_cov, obs_grid = self._prepare(state, observations)
         back_state = state.transpose('grid', 'var_name', 'time', 'ensemble')
         state_mean, state_perts = back_state.state.split_mean_perts()
+        logger.info('Transfering the data to torch')
         back_prec = self._get_back_prec(len(back_state.ensemble))
         innov, hx_perts, obs_cov, back_state = self._states_to_torch(
             innov, hx_perts, obs_cov, state_perts.values,
         )
+        logger.info('Sharing the data')
         innov, hx_perts, obs_cov, back_state, back_prec = self._share_states(
             innov, hx_perts, obs_cov, back_state, back_prec
         )
         state_grid = state_perts.grid.values
         grid_inds = range(len(state_grid))
         processes = []
-        for ind in grid_inds:
+        logger.info('Starting with job submission')
+        for ind in tqdm(grid_inds):
             tmp_process = self.pool.submit(
                 local_etkf, ind, innov, hx_perts, obs_cov, back_prec, obs_grid,
                 state_grid, back_state, self.localization
             )
             processes.append(tmp_process)
+        logger.info('Waiting until jobs are finished')
         for _ in tqdm(as_completed(processes)):
             pass
+        logger.info('Gathering the analysis')
         state_perts.values = np.stack(
-            [p.result()[0].numpy() for p in processes]
+            [p.result()[0].numpy() for p in tqdm(processes)]
         )
         analysis = (state_mean+state_perts).transpose(*state.dims)
+        logger.info('Finished with analysis creation')
         return analysis
 
     @staticmethod
