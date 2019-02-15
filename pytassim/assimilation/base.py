@@ -28,6 +28,7 @@ import logging
 import abc
 import warnings
 import time
+import datetime
 
 # External modules
 import xarray as xr
@@ -249,8 +250,10 @@ class BaseAssimilation(object):
             which contains only one time step.
         """
         start_time = time.time()
-        logger.info('Starting assimilation for {0:d}'.format(
-            analysis_time.strftime('%Y-%m-%d %H:%M UTC')))
+        logger.info('Starting assimilation')
+        if isinstance(analysis_time, datetime.datetime):
+            logger.info('Analysis time: {0:s}'.format(
+                analysis_time.strftime('%Y-%m-%d %H:%M UTC')))
         if not observations:
             warnings.warn('No observation is given, I will return the '
                           'background state!', UserWarning)
