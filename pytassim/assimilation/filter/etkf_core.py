@@ -92,7 +92,7 @@ def gen_weights(back_prec, innov, hx_perts, obs_cov, obs_weights=1):
              https://doi.org/10.1016/j.physd.2006.11.008
     """
     if len(innov.size()) == 0:
-        return 1, 1
+        return 0, 1
     estimated_c = _compute_c(hx_perts, obs_cov, obs_weights)
     prec_ana = _calc_precision(estimated_c, hx_perts, back_prec)
     evd = _eigendecomp(prec_ana)
