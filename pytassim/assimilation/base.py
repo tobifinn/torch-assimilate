@@ -27,6 +27,8 @@
 import logging
 import abc
 import warnings
+import time
+import datetime
 
 # External modules
 import xarray as xr
@@ -247,6 +249,11 @@ class BaseAssimilation(object):
             analysis has same coordinates as given ``state`` except ``time``,
             which contains only one time step.
         """
+        start_time = time.time()
+        logger.info('Starting assimilation')
+        if isinstance(analysis_time, datetime.datetime):
+            logger.info('Analysis time: {0:s}'.format(
+                analysis_time.strftime('%Y-%m-%d %H:%M UTC')))
         if not observations:
             warnings.warn('No observation is given, I will return the '
                           'background state!', UserWarning)
@@ -259,15 +266,22 @@ class BaseAssimilation(object):
         if self.smoother:
             back_state = state
         else:
+            logger.info('Assimilation in non-smoother mode')
             back_state = state.sel(time=[analysis_time, ])
             observations = [obs.sel(time=[analysis_time, ])
                             for obs in observations]
         if self.pre_transform:
             for trans in self.pre_transform:
                 back_state, observations = trans.pre(back_state, observations)
+        logger.info('Finished with general preparation')
         analysis = self.update_state(back_state, observations, analysis_time)
+        logger.info('Created the analysis, starting with post-processing')
         if self.post_transform:
             for trans in self.post_transform:
                 analysis = trans.post(analysis, back_state, observations)
         self._validate_state(analysis)
+        end_time = time.time()
+        logger.info('Finished assimilation after {0:.2f} s'.format(
+            end_time-start_time
+        ))
         return analysis

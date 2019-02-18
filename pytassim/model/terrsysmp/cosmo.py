@@ -36,7 +36,31 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
-__all__ = ['preprocess_cosmo']
+__all__ = ['preprocess_cosmo', 'postprocess_cosmo']
+
+
+def postprocess_cosmo(analysis_data, cosmo_ds):
+    unstacked_analysis = analysis_data.unstack('grid')
+    transposed_analysis = unstacked_analysis.transpose(
+        'var_name', 'ensemble', 'time', 'vgrid', 'rlat', 'rlon'
+    )
+    analysis_ds = transposed_analysis.to_dataset(dim='var_name')
+    pp_analysis_ds = cosmo_ds.copy(deep=True)
+    for var in analysis_ds.data_vars:
+        try:
+            reindex_vcoord = get_vcoord_ind(pp_analysis_ds[var])
+            if reindex_vcoord is None:
+                reindexed_ana_var = analysis_ds[var].isel(vgrid=0)
+            else:
+                reindexed_ana_var = analysis_ds[var].reindex(
+                    vgrid=reindex_vcoord.values, method='nearest'
+                )
+            pp_analysis_ds[var] = pp_analysis_ds[var].copy(
+                data=reindexed_ana_var.values
+            )
+        except KeyError:
+            logger.warning('Var: {0:s} is not found'.format(var))
+    return pp_analysis_ds
 
 
 def preprocess_cosmo(cosmo_ds, assim_vars):
@@ -98,3 +122,12 @@ def replace_coords(ds):
     ds = ds.drop(rename_horizontal.keys())
     ds = ds.rename(rename_horizontal)
     return ds
+
+
+def get_vcoord_ind(array):
+    vertical_coords = ['height_2m', 'height_10m', 'height_toa', 'soil1',
+                       'level1', 'level']
+    try:
+        return [array[c] for c in vertical_coords if c in array.dims][0]
+    except IndexError:
+        return None

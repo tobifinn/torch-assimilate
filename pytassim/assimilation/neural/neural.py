@@ -122,11 +122,17 @@ class NeuralAssimilation(BaseAssimilation):
             analysis has same coordinates as given ``state``. If filtering mode
             is on, then the time axis has only one element.
         """
+        logger.info('####### Neural network assimilation #######')
+        logger.info('Preparing observations')
         obs_state, obs_cov, _ = self._prepare_obs(observations)
+        logger.info('Transferring data to torch')
         prepared_torch = self._states_to_torch(state.values, obs_state,
                                                obs_cov)
+        logger.info('Assimilating observations with model')
         torch_analysis = self.model.assimilate(*prepared_torch)
+        logger.info('Gathering analysis')
         if self.gpu:
             torch_analysis = torch_analysis.cpu()
         analysis = state.copy(deep=True, data=torch_analysis.numpy())
+        logger.info('Finished with analysis creation')
         return analysis

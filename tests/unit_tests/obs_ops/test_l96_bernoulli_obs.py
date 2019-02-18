@@ -60,7 +60,7 @@ class TestBernoulliOps(unittest.TestCase):
 
     def test_obs_op_calls_identity_obs_op(self):
         ret_state = IdentityOperator.obs_op(self.operator, self.state)
-        with patch('pytassim.model.lorenz_96.obs_ops.identity.IdentityOperator.'
+        with patch('pytassim.obs_ops.lorenz_96.identity.IdentityOperator.'
                    'obs_op', return_value=ret_state) as identity_patch:
             _ = self.operator.obs_op(self.state, 1, test=2)
         identity_patch.assert_called_once_with(self.state, 1, test=2)

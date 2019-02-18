@@ -38,6 +38,7 @@ import pytassim.state
 import pytassim.observation
 from pytassim.assimilation.filter.letkf import ETKFilter
 from pytassim.assimilation.filter.letkf import LETKFilter
+from pytassim.assimilation.filter import etkf_core
 from pytassim.testing import dummy_obs_operator, DummyLocalization
 
 
@@ -52,6 +53,7 @@ class TestLETKF(unittest.TestCase):
         self.algorithm = LETKFilter()
         state_path = os.path.join(DATA_PATH, 'test_state.nc')
         self.state = xr.open_dataarray(state_path).load()
+        self.back_prec = self.algorithm._get_back_prec(len(self.state.ensemble))
         obs_path = os.path.join(DATA_PATH, 'test_single_obs.nc')
         self.obs = xr.open_dataset(obs_path).load()
         self.obs.obs.operator = dummy_obs_operator
@@ -75,32 +77,6 @@ class TestLETKF(unittest.TestCase):
             _ = self.algorithm.update_state(self.state, obs_tuple,
                                             self.state.time[-1].values)
         prepare_patch.assert_called_once_with(self.state, obs_tuple)
-
-    def test_update_state_calls_gen_weights_grid_times(self):
-        obs_tuple = (self.obs, self.obs)
-        prepared_states = self.algorithm._prepare(self.state, obs_tuple)
-        nr_grid_points = len(self.state.grid)
-        prepared_states = [torch.tensor(s) for s in prepared_states]
-        weights = self.algorithm._gen_weights(*prepared_states[:-1])
-        with patch('pytassim.assimilation.filter.letkf.LETKFilter._gen_weights',
-                   return_value=weights) as weight_patch:
-            _ = self.algorithm.update_state(self.state, obs_tuple,
-                                            self.state.time[-1].values)
-        self.assertEqual(weight_patch.call_count, nr_grid_points)
-
-    def test_update_state_calls_apply_weights_grid_times(self):
-        ana_time = self.state.time[-1].values
-        obs_tuple = (self.obs, self.obs)
-        prepared_states = self.algorithm._prepare(self.state, obs_tuple)
-        nr_grid_points = len(self.state.grid)
-        prepared_states = [torch.tensor(s) for s in prepared_states[:-1]]
-        weights = self.algorithm._gen_weights(*prepared_states)
-        back_state = self.state.sel(time=[ana_time, ])
-        localized_state = back_state.isel(grid=0)
-        trg = 'pytassim.assimilation.filter.letkf.LETKFilter._apply_weights'
-        with patch(trg, return_value=localized_state) as apply_patch:
-            _ = self.algorithm.update_state(self.state, obs_tuple, ana_time)
-        self.assertEqual(apply_patch.call_count, nr_grid_points)
 
     def test_update_state_returns_valid_state(self):
         obs_tuple = (self.obs, self.obs)
@@ -142,16 +118,6 @@ class TestLETKF(unittest.TestCase):
         etkf_analysis = etkf.assimilate(self.state, obs_tuple)
         letkf_analysis = self.algorithm.assimilate(self.state, obs_tuple)
         xr.testing.assert_allclose(letkf_analysis, etkf_analysis)
-
-    def test_update_states_uses_states_to_torch(self):
-        ana_time = self.state.time[-1].values
-        obs_tuple = (self.obs, self.obs.copy())
-        prepared_states = self.algorithm._prepare(self.state, obs_tuple)
-        torch_states = self.algorithm._states_to_torch(*prepared_states)
-        trg = 'pytassim.assimilation.filter.etkf.ETKFilter._states_to_torch'
-        with patch(trg, return_value=torch_states) as torch_patch:
-            _ = self.algorithm.update_state(self.state, obs_tuple, ana_time)
-        self.assertEqual(torch_patch.call_count, len(self.state.grid))
 
     def test_algorithm_works(self):
         self.algorithm.inf_factor = 1.1
