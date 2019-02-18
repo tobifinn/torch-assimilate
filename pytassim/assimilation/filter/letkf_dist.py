@@ -197,7 +197,7 @@ class DistributedLETKF(LETKFilter):
 
         logger.info('Gathering the analysis')
         state_perts.values = torch.cat(
-            [p.result() for p in tqdm(processes, total=total_steps)], dim=0
+            [p.result()[0] for p in tqdm(processes, total=total_steps)], dim=0
         ).numpy()
         analysis = (state_mean+state_perts).transpose(*state.dims)
         logger.info('Finished with analysis creation')
