@@ -49,21 +49,20 @@ DATA_PATH = '/scratch/local1/Data/phd_thesis/test_data'
     not os.path.isdir(DATA_PATH), 'Data for TerrSysMP not available!'
 )
 class TestCOST2m(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.station_df = pd.read_hdf(
+    def setUp(self):
+        self.station_df = pd.read_hdf(
             os.path.join(DATA_PATH, 'avail_stations.hd5'),
             'stations'
         )
-        cls.hhl_file = xr.open_dataset(os.path.join(DATA_PATH, 'cos_hhl.nc'))
-        cls.cos_coords = np.load(os.path.join(DATA_PATH, 'cosmo_coords.npy'))
-        cls.obs_op = CosmoT2mOperator(cls.station_df, cls.cos_coords,
-                                      cls.hhl_file)
+        self.hhl_file = xr.open_dataset(os.path.join(DATA_PATH, 'cos_hhl.nc'))
+        self.cos_coords = np.load(os.path.join(DATA_PATH, 'cosmo_coords.npy'))
+        self.obs_op = CosmoT2mOperator(self.station_df, self.cos_coords,
+                                       self.hhl_file)
 
         ens_file = xr.open_dataset(
             os.path.join(DATA_PATH, 'lffd20150731060000.nc')
         )
-        cls.ens_file = preprocess_cosmo(ens_file, ['T_2M', 'T'])
+        self.ens_file = preprocess_cosmo(ens_file, ['T_2M', 'T'])
 
     def test_localize_grid_localize_grid_with_height(self):
         locs = np.array(self.obs_op.locs)
