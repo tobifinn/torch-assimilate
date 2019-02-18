@@ -178,7 +178,7 @@ class LETKFilter(ETKFilter):
         delta_ana = torch.stack(delta_ana, dim=0)
         state_perts.values = delta_ana.numpy()
         weights = torch.stack(weights, dim=0).numpy()
-        self._weights = self._get_weight_arrays(
+        self._weights = self._get_weight_array(
             weights, grid=state_grid, ensemble=state.ensemble.values
         )
         analysis = (state_mean+state_perts).transpose(*state.dims)
@@ -194,7 +194,7 @@ class LETKFilter(ETKFilter):
                 'ensemble_1': ensemble,
                 'ensemble_2': ensemble
             },
-            dims=['grid', 'time', 'ensemble_1', 'ensemble_2']
+            dims=['grid', 'ensemble_1', 'ensemble_2']
         )
         return weights_da
 
