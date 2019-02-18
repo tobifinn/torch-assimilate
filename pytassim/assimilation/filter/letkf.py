@@ -166,18 +166,37 @@ class LETKFilter(ETKFilter):
         grid_inds = range(len_state_grid)
 
         delta_ana = []
+        weights = []
         logger.info('Iterating through state grid')
         for grid_ind in tqdm(grid_inds, total=len_state_grid):
-            tmp_ana = local_etkf(
+            ana_l, weights_l, _ = local_etkf(
                 grid_ind, innov, hx_perts, obs_cov, back_prec, obs_grid,
                 state_grid, back_state, self.localization
-            )[0]
-            delta_ana.append(tmp_ana)
+            )
+            delta_ana.append(ana_l)
+            weights.append(weights_l)
         delta_ana = torch.stack(delta_ana, dim=0)
         state_perts.values = delta_ana.numpy()
+        weights = torch.stack(weights, dim=0).numpy()
+        self._weights = self._get_weight_arrays(
+            weights, grid=state_grid, ensemble=state.ensemble.values
+        )
         analysis = (state_mean+state_perts).transpose(*state.dims)
         logger.info('Finished with analysis creation')
         return analysis
+
+    @staticmethod
+    def _get_weight_array(weights, grid, ensemble):
+        weights_da = xr.DataArray(
+            weights,
+            coords={
+                'grid': grid,
+                'ensemble_1': ensemble,
+                'ensemble_2': ensemble
+            },
+            dims=['grid', 'time', 'ensemble_1', 'ensemble_2']
+        )
+        return weights_da
 
     def _localize(self, grid_ind, prepared_states):
         try:

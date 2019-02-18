@@ -89,6 +89,11 @@ class ETKFilter(FilterAssimilation):
                          post_transform=post_transform)
         self.inf_factor = inf_factor
         self._back_prec = None
+        self._weights = None
+
+    @property
+    def weights(self):
+        return self._weights
 
     def update_state(self, state, observations, analysis_time):
         """
