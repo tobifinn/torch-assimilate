@@ -117,56 +117,6 @@ class TestLETKFDistributed(unittest.TestCase):
         letkf_state = letkf_filter.assimilate(self.state, obs_tuple, ana_time)
         xr.testing.assert_allclose(assimilated_state, letkf_state)
 
-    @staticmethod
-    def _get_random_obs(nr_points=1000, obs_stddev=1):
-        grid_points = np.arange(nr_points)
-        observations = rnd.normal(scale=obs_stddev, size=(1, nr_points))
-        obs_da = xr.DataArray(
-            observations,
-            coords={
-                'time': [datetime.datetime(1992, 12, 25)],
-                'obs_grid_1': grid_points
-            },
-            dims=['time', 'obs_grid_1']
-        )
-        obs_cov = xr.DataArray(
-            obs_stddev**2 * np.identity(nr_points),
-            coords={
-                'obs_grid_1': grid_points,
-                'obs_grid_2': grid_points
-            },
-            dims=['obs_grid_1', 'obs_grid_2']
-        )
-        obs_ds = xr.Dataset({'observations': obs_da, 'covariance': obs_cov})
-        return obs_ds
-
-    @staticmethod
-    def _get_random_state(nr_points=1000, ensemble_mems=100, state_stddev=2):
-        state_data = rnd.normal(
-            scale=state_stddev, size=(1, 1, ensemble_mems, nr_points)
-        )
-        state_da = xr.DataArray(
-            state_data,
-            coords={
-                'var_name': ['x', ],
-                'time': [datetime.datetime(1992, 12, 25)],
-                'ensemble': np.arange(ensemble_mems),
-                'grid': np.arange(nr_points)
-            },
-            dims=['var_name', 'time', 'ensemble', 'grid']
-        )
-        return state_da
-
-    def test_speed_test(self):
-        localization = GaspariCohn(length_scale=0.001, dist_func=dist_func)
-        self.algorithm = LETKFilter(localization)
-        state_data = self._get_random_state(nr_points=10000)
-        obs_data = self._get_random_obs(nr_points=10000)
-        obs_data.obs.operator = dummy_obs_operator
-
-        start_time = time.time()
-        _ = self.algorithm.assimilate(state_data, obs_data)
-        print('LETKF needs: {0:.1f} s'.format(time.time()-start_time))
 
 
 if __name__ == '__main__':
