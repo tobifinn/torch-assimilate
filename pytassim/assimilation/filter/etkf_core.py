@@ -92,7 +92,10 @@ def gen_weights(back_prec, innov, hx_perts, obs_cov, obs_weights=1):
              https://doi.org/10.1016/j.physd.2006.11.008
     """
     if len(innov.size()) == 0:
-        return 0, 1
+        ens_size = back_prec.shape[0]
+        w_mean = torch.zeros(ens_size, dtype=innov.dtype)
+        w_perts = torch.eye(ens_size, dtype=innov.dtype)
+        return w_mean, w_perts
     estimated_c = _compute_c(hx_perts, obs_cov, obs_weights)
     prec_ana = _calc_precision(estimated_c, hx_perts, back_prec)
     evd = _eigendecomp(prec_ana)
