@@ -28,6 +28,7 @@ import logging
 import os
 import datetime
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+import time
 
 # External modules
 import xarray as xr
@@ -49,7 +50,7 @@ BASE_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
 
 
-POOL = ThreadPoolExecutor(max_workers=8)
+POOL = ThreadPoolExecutor(max_workers=1)
 
 
 def dist_func(state_grid, obs_grid):
@@ -156,17 +157,16 @@ class TestLETKFDistributed(unittest.TestCase):
         )
         return state_da
 
-    def test_stress_test(self):
+    def test_speed_test(self):
         localization = GaspariCohn(length_scale=0.001, dist_func=dist_func)
-        self.algorithm = LETKFilter()
-        self.algorithm.localization = localization
-        self.algorithm.chunksize = 100
-        state_data = self._get_random_state(nr_points=1000)
-        obs_data = self._get_random_obs(nr_points=1000)
+        self.algorithm = LETKFilter(localization)
+        state_data = self._get_random_state(nr_points=10000)
+        obs_data = self._get_random_obs(nr_points=10000)
         obs_data.obs.operator = dummy_obs_operator
 
-        analysis = self.algorithm.assimilate(state_data, obs_data)
-        print(analysis)
+        start_time = time.time()
+        _ = self.algorithm.assimilate(state_data, obs_data)
+        print('LETKF needs: {0:.1f} s'.format(time.time()-start_time))
 
 
 if __name__ == '__main__':

@@ -178,11 +178,6 @@ class DistributedLETKF(LETKFilter):
         innov, hx_perts, obs_cov, back_state = self._states_to_torch(
             innov, hx_perts, obs_cov, state_perts.values,
         )
-
-        logger.info('Sharing the data')
-        innov, hx_perts, obs_cov, back_state, back_prec = self._share_states(
-            innov, hx_perts, obs_cov, back_state, back_prec
-        )
         state_grid = state_perts.grid.values
         len_state_grid = len(state_grid)
         grid_inds = list(self._slice_data(range(len_state_grid)))
@@ -201,10 +196,9 @@ class DistributedLETKF(LETKFilter):
             pass
 
         logger.info('Gathering the analysis')
-        state_perts.values = np.concatenate(
-            [p.result()[0].numpy() for p in tqdm(processes, total=total_steps)],
-            axis=0
-        )
+        state_perts.values = torch.cat(
+            [p.result() for p in tqdm(processes, total=total_steps)], dim=0
+        ).numpy()
         analysis = (state_mean+state_perts).transpose(*state.dims)
         logger.info('Finished with analysis creation')
         return analysis

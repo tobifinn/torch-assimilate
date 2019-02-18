@@ -171,10 +171,10 @@ class LETKFilter(ETKFilter):
             tmp_ana = local_etkf(
                 grid_ind, innov, hx_perts, obs_cov, back_prec, obs_grid,
                 state_grid, back_state, self.localization
-            )[0].numpy()
+            )[0]
             delta_ana.append(tmp_ana)
-        delta_ana = np.stack(delta_ana, axis=0)
-        state_perts.values = delta_ana
+        delta_ana = torch.stack(delta_ana, dim=0)
+        state_perts.values = delta_ana.numpy()
         analysis = (state_mean+state_perts).transpose(*state.dims)
         logger.info('Finished with analysis creation')
         return analysis
