@@ -88,12 +88,10 @@ pages:
     dependencies:
         - sphinx
         - coverage
-        - code_quality
     script:
         - rm -rf $PAGES_DIR/ # make sure there is not pages dir
         - mv $SPHINX_DOC_DIR $PAGES_DIR/ # sphinx doc is index page
         - mv $COVERAGE_STATIC_DIR $PAGES_DIR/ # put coverage report inside
-#        - mv gl-code-quality-report.json $PAGES_DIR/$COVERAGE_STATIC_DIR/ # put codeclimate report to coverage
     artifacts:
         paths:
             - $PAGES_DIR/
