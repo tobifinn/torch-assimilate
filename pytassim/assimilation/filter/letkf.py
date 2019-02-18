@@ -29,13 +29,36 @@ import logging
 # External modules
 import xarray as xr
 from tqdm import tqdm
+import numpy as np
+import torch
 
 # Internal modules
 from .etkf import ETKFilter
-from .etkf_core import gen_weights
+from . import etkf_core
 
 
 logger = logging.getLogger(__name__)
+
+
+def local_etkf(ind, innov, hx_perts, obs_cov, back_prec, obs_grid, state_grid,
+               state_perts, localization=None):
+    obs_weights = 1
+    if localization:
+        use_obs, obs_weights = localization.localize_obs(
+            state_grid[ind], obs_grid
+        )
+        obs_weights = torch.as_tensor(obs_weights[use_obs], dtype=innov.dtype)
+        use_obs = torch.ByteTensor(use_obs.astype(int))
+        if innov.is_cuda:
+            obs_weights = obs_weights.cuda()
+        innov = innov[use_obs]
+        hx_perts = hx_perts[use_obs]
+        obs_cov = obs_cov[use_obs, :][:, use_obs]
+    w_mean_l, w_perts_l = etkf_core.gen_weights(back_prec, innov, hx_perts,
+                                                obs_cov, obs_weights)
+    weights_l = (w_mean_l+w_perts_l).t()
+    ana_state_l = torch.matmul(state_perts[ind], weights_l)
+    return ana_state_l, weights_l, w_mean_l
 
 
 class LETKFilter(ETKFilter):
@@ -129,23 +152,30 @@ class LETKFilter(ETKFilter):
         """
         logger.info('####### Serial LETKF #######')
         logger.info('Starting with specific preparation')
-        prepared_states = self._prepare(state, observations)
-        analysis = []
+        innov, hx_perts, obs_cov, obs_grid = self._prepare(state, observations)
+        back_state = state.transpose('grid', 'var_name', 'time', 'ensemble')
+        state_mean, state_perts = back_state.state.split_mean_perts()
+
+        logger.info('Transfering the data to torch')
+        back_prec = self._get_back_prec(len(back_state.ensemble))
+        innov, hx_perts, obs_cov, back_state = self._states_to_torch(
+            innov, hx_perts, obs_cov, state_perts.values,
+        )
+        state_grid = state_perts.grid.values
+        len_state_grid = len(state_grid)
+        grid_inds = range(len_state_grid)
+
+        delta_ana = []
         logger.info('Iterating through state grid')
-        for grid_ind in tqdm(state.grid.values):
-            prepared_l = self._localize(grid_ind, prepared_states)
-            torch_state_l = self._states_to_torch(*prepared_l)
-            back_prec = self._get_back_prec(len(state.ensemble))
-            w_mean_l, w_perts_l = gen_weights(back_prec, *torch_state_l)
-            back_state_l = state.sel(grid=grid_ind)
-            state_mean_l, state_perts_l = back_state_l.state.split_mean_perts()
-            ana_l = self._apply_weights(w_mean_l, w_perts_l, state_mean_l,
-                                        state_perts_l)
-            analysis.append(ana_l)
-        logger.info('Concatenating finished analysis')
-        analysis = xr.concat(analysis, dim='grid')
-        analysis['grid'] = state['grid']
-        analysis = analysis.transpose('var_name', 'time', 'ensemble', 'grid')
+        for grid_ind in tqdm(grid_inds, total=len_state_grid):
+            tmp_ana = local_etkf(
+                grid_ind, innov, hx_perts, obs_cov, back_prec, obs_grid,
+                state_grid, back_state, self.localization
+            )[0].numpy()
+            delta_ana.append(tmp_ana)
+        delta_ana = np.stack(delta_ana, axis=0)
+        state_perts.values = delta_ana
+        analysis = (state_mean+state_perts).transpose(*state.dims)
         logger.info('Finished with analysis creation')
         return analysis
 

@@ -26,29 +26,37 @@ Created for torch-assimilate
 import unittest
 import logging
 import os
-import itertools
-import time
-from concurrent.futures import ProcessPoolExecutor
+import datetime
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 
 # External modules
 import xarray as xr
 import torch
 import numpy as np
-import tqdm
+import scipy.spatial.distance
 
 # Internal modules
-from pytassim.assimilation.filter.letkf import LETKFilter
+from pytassim.assimilation.filter.letkf import LETKFilter, local_etkf
 from pytassim.testing import dummy_obs_operator, DummyLocalization
-from pytassim.assimilation.filter.letkf_dist import DistributedLETKF, local_etkf
+from pytassim.assimilation.filter.letkf_dist import DistributedLETKF
+from pytassim.localization import GaspariCohn
 
 
 logging.basicConfig(level=logging.DEBUG)
+rnd = np.random.RandomState(42)
 
 BASE_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
 
 
-POOL = ProcessPoolExecutor(max_workers=4)
+POOL = ThreadPoolExecutor(max_workers=8)
+
+
+def dist_func(state_grid, obs_grid):
+    state_grid = state_grid[None, None]
+    obs_grid = obs_grid[..., None]
+    distance = scipy.spatial.distance.cdist(state_grid, obs_grid)
+    return distance
 
 
 class TestLETKFDistributed(unittest.TestCase):
@@ -107,6 +115,58 @@ class TestLETKFDistributed(unittest.TestCase):
                                                       ana_time)
         letkf_state = letkf_filter.assimilate(self.state, obs_tuple, ana_time)
         xr.testing.assert_allclose(assimilated_state, letkf_state)
+
+    @staticmethod
+    def _get_random_obs(nr_points=1000, obs_stddev=1):
+        grid_points = np.arange(nr_points)
+        observations = rnd.normal(scale=obs_stddev, size=(1, nr_points))
+        obs_da = xr.DataArray(
+            observations,
+            coords={
+                'time': [datetime.datetime(1992, 12, 25)],
+                'obs_grid_1': grid_points
+            },
+            dims=['time', 'obs_grid_1']
+        )
+        obs_cov = xr.DataArray(
+            obs_stddev**2 * np.identity(nr_points),
+            coords={
+                'obs_grid_1': grid_points,
+                'obs_grid_2': grid_points
+            },
+            dims=['obs_grid_1', 'obs_grid_2']
+        )
+        obs_ds = xr.Dataset({'observations': obs_da, 'covariance': obs_cov})
+        return obs_ds
+
+    @staticmethod
+    def _get_random_state(nr_points=1000, ensemble_mems=100, state_stddev=2):
+        state_data = rnd.normal(
+            scale=state_stddev, size=(1, 1, ensemble_mems, nr_points)
+        )
+        state_da = xr.DataArray(
+            state_data,
+            coords={
+                'var_name': ['x', ],
+                'time': [datetime.datetime(1992, 12, 25)],
+                'ensemble': np.arange(ensemble_mems),
+                'grid': np.arange(nr_points)
+            },
+            dims=['var_name', 'time', 'ensemble', 'grid']
+        )
+        return state_da
+
+    def test_stress_test(self):
+        localization = GaspariCohn(length_scale=0.001, dist_func=dist_func)
+        self.algorithm = LETKFilter()
+        self.algorithm.localization = localization
+        self.algorithm.chunksize = 100
+        state_data = self._get_random_state(nr_points=1000)
+        obs_data = self._get_random_obs(nr_points=1000)
+        obs_data.obs.operator = dummy_obs_operator
+
+        analysis = self.algorithm.assimilate(state_data, obs_data)
+        print(analysis)
 
 
 if __name__ == '__main__':

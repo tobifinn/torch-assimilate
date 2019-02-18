@@ -35,8 +35,7 @@ import numpy as np
 from tqdm import tqdm
 
 # Internal modules
-from . import etkf_core
-from .letkf import LETKFilter
+from .letkf import LETKFilter, local_etkf
 
 
 logger = logging.getLogger(__name__)
@@ -59,27 +58,6 @@ def local_etkf_batch(ind, innov, hx_perts, obs_cov, back_prec, obs_grid,
     weights = torch.stack(weights)
     w_mean = torch.stack(w_mean)
     return ana_state, weights, w_mean
-
-
-def local_etkf(ind, innov, hx_perts, obs_cov, back_prec, obs_grid, state_grid,
-               state_perts, localization=None):
-    obs_weights = 1
-    if localization:
-        use_obs, obs_weights = localization.localize_obs(
-            state_grid[ind], obs_grid
-        )
-        obs_weights = torch.as_tensor(obs_weights[use_obs], dtype=innov.dtype)
-        use_obs = torch.ByteTensor(use_obs.astype(int))
-        if innov.is_cuda:
-            obs_weights = obs_weights.cuda()
-        innov = innov[use_obs]
-        hx_perts = hx_perts[use_obs]
-        obs_cov = obs_cov[use_obs, :][:, use_obs]
-    w_mean_l, w_perts_l = etkf_core.gen_weights(back_prec, innov, hx_perts,
-                                                obs_cov, obs_weights)
-    weights_l = (w_mean_l + w_perts_l).t()
-    ana_state_l = torch.matmul(state_perts[ind], weights_l)
-    return ana_state_l, weights_l, w_mean_l
 
 
 class DistributedLETKF(LETKFilter):
@@ -209,9 +187,9 @@ class DistributedLETKF(LETKFilter):
         len_state_grid = len(state_grid)
         grid_inds = list(self._slice_data(range(len_state_grid)))
         processes = []
-
+        total_steps = ceil(len_state_grid/self.chunksize)
         logger.info('Starting with job submission')
-        for ind in tqdm(grid_inds, total=ceil(len_state_grid/self.chunksize)):
+        for ind in tqdm(grid_inds, total=total_steps):
             tmp_process = self.pool.submit(
                 local_etkf_batch, ind, innov, hx_perts, obs_cov, back_prec,
                 obs_grid, state_grid, back_state, self.localization
@@ -219,12 +197,13 @@ class DistributedLETKF(LETKFilter):
             processes.append(tmp_process)
 
         logger.info('Waiting until jobs are finished')
-        for _ in tqdm(as_completed(processes)):
+        for _ in tqdm(as_completed(processes), total=total_steps):
             pass
 
         logger.info('Gathering the analysis')
         state_perts.values = np.concatenate(
-            [p.result()[0].numpy() for p in tqdm(processes)], axis=0
+            [p.result()[0].numpy() for p in tqdm(processes, total=total_steps)],
+            axis=0
         )
         analysis = (state_mean+state_perts).transpose(*state.dims)
         logger.info('Finished with analysis creation')
