@@ -2,6 +2,8 @@ References
 ==========
 
 .. bibliography:: references.bib
-   :all:
-   :encoding: latin
-   :keyprefix:
+    :cited:
+    :encoding: latin
+    :style: apa
+    :keyprefix:
+

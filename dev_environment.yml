@@ -18,3 +18,4 @@ dependencies:
     - pip:
         - twine
         - sphinxcontrib-plantuml
+        - pybtex-apa-style
