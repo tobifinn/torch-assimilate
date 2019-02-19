@@ -57,10 +57,31 @@ Documentation
 -------------
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: Getting Started:
 
-   content/structure
+   start/overview
+   start/installation
+   examples/index
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Scientific User Guide:
+
+   user/states
+   user/assimilation
+   user/localization
+   user/transform
+   user/obs_ops
+   user/model
+   user/toolbox
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Help & References:
+
    api/pytassim
+   appendix/references
+   appendix/publications
 
 
 References
