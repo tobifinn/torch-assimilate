@@ -129,13 +129,7 @@ def postprocess_cosmo(analysis_data, cosmo_ds):
     analysis_ds = cosmo_ds.copy(deep=True)
     for var in pre_analysis_ds.data_vars:
         try:
-            reindex_vcoord = _get_vcoord_ind(analysis_ds[var])
-            if reindex_vcoord is None:
-                reindexed_ana_var = pre_analysis_ds[var].isel(vgrid=0)
-            else:
-                reindexed_ana_var = pre_analysis_ds[var].reindex(
-                    vgrid=reindex_vcoord.values, method='nearest'
-                )
+            reindexed_ana_var = pre_analysis_ds[var].dropna('vgrid', how='all')
             analysis_ds[var] = analysis_ds[var].copy(
                 data=reindexed_ana_var.values.reshape(analysis_ds[var].shape)
             )
@@ -218,10 +212,3 @@ def _replace_coords(ds):
     ds = ds.drop(rename_horizontal.keys())
     ds = ds.rename(rename_horizontal)
     return ds
-
-
-def _get_vcoord_ind(array):
-    try:
-        return [array[c] for c in _cosmo_vcoords if c in array.dims][0]
-    except IndexError:
-        return None

@@ -212,6 +212,15 @@ class TestTerrSysMPCosmo(unittest.TestCase):
         preprocessed = cosmo.preprocess_cosmo(self.dataset, self.assim_vars)
         self.assertTrue(preprocessed.state.valid)
 
+    def test_post_cosmo_logs_warning_if_var_not_found(self):
+        prepared_arr = cosmo.preprocess_cosmo(self.dataset, self.assim_vars)
+        tmp_arr = prepared_arr.sel(var_name=['T', ])
+        tmp_arr['var_name'] = ['TEMP', ]
+        concatenated_arr = xr.concat([prepared_arr, tmp_arr], dim='var_name')
+        with self.assertLogs(level=logging.WARNING) as log:
+            _ = cosmo.postprocess_cosmo(concatenated_arr, self.dataset)
+        self.assertEqual(log.records[0].msg, 'Var: TEMP is not found')
+
 
 if __name__ == '__main__':
     unittest.main()
