@@ -27,8 +27,8 @@
 import logging
 
 # External modules
-import xarray as xr
 import numpy as np
+import scipy.spatial.distance
 
 # Internal modules
 
@@ -161,10 +161,38 @@ def _prepare_vgrid(ds, vcoord):
 
 
 def _interp_vgrid(ds):
+    vgrid_neighbor_funcs = {
+        'height_2m': _inds_nearest,
+        'height_10m': _inds_nearest,
+        'height_toa': _inds_nearest,
+        'soil1': _inds_bottom,
+        'level1': _inds_top,
+        'level': _inds_top
+    }
+
     vertical_coords = [c for c in _cosmo_vcoords if c in ds.coords]
-    remap_vertical = {c: ds['vgrid'].values for c in vertical_coords}
-    ds = ds.reindex(**remap_vertical, method='nearest')
+    ds = ds.copy()
+    for c in vertical_coords:
+        vgrid_inds = vgrid_neighbor_funcs[c](ds[c].values, ds['vgrid'].values)
+        ds[c] = ds[c].copy(data=ds['vgrid'].values[vgrid_inds])
+        ds = ds.reindex(**{c: ds['vgrid'].values}, method=None)
     return ds
+
+
+def _inds_nearest(coord_val, vgrid_val):
+    dist_matrix = scipy.spatial.distance.cdist(
+        coord_val[:, None], vgrid_val[:, None]
+    )
+    dist_argmin = np.argmin(dist_matrix, axis=1)
+    return dist_argmin
+
+
+def _inds_top(coord_val, vgrid_val):
+    return np.arange(len(vgrid_val))[:len(coord_val)]
+
+
+def _inds_bottom(coord_val, vgrid_val):
+    return np.arange(len(vgrid_val))[-len(coord_val):]
 
 
 def _replace_coords(ds):

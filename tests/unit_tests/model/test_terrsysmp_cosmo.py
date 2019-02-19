@@ -31,6 +31,7 @@ from unittest.mock import patch
 # External modules
 import xarray as xr
 import numpy as np
+import scipy.spatial.distance
 
 # Internal modules
 from pytassim.model.terrsysmp import cosmo
@@ -49,17 +50,14 @@ class TestTerrSysMPCosmo(unittest.TestCase):
     def setUp(self):
         self.dataset = xr.open_dataset(
             os.path.join(DATA_PATH, 'lffd20150731060000.nc')
-        )
-        self.assim_vars = ['T', 'W', 'W_SO', 'T_2M']
-
-    def test_cycling_returns_identical_datasets(self):
-        reconstructed_ds = cosmo.postprocess_cosmo(
-            cosmo.preprocess_cosmo(self.dataset, self.assim_vars), self.dataset
-        )
-        xr.testing.assert_allclose(reconstructed_ds, self.dataset)
+        ).load()
+        self.assim_vars = ['T', 'W', 'W_SO', 'T_2M', 'T_S', 'U', 'U_10M',
+                           'ASOB_T']
 
     def test_preprocess_selects_only_available_vars(self):
-        ens_arr = cosmo.preprocess_cosmo(self.dataset, self.assim_vars+['TEMP'])
+        with self.assertLogs(level=logging.WARNING) as log:
+            ens_arr = cosmo.preprocess_cosmo(self.dataset,
+                                             self.assim_vars+['TEMP'])
         self.assertListEqual(list(ens_arr.var_name), self.assim_vars)
 
     def test_preprocess_raises_logger_warning_for_filtered_vars(self):
@@ -100,8 +98,32 @@ class TestTerrSysMPCosmo(unittest.TestCase):
         np.testing.assert_equal(ret_ds['vgrid'], right_vgrid)
 
     def test_precosmo_calls_prepare_vgrid(self):
-        ret_arr = cosmo.preprocess_cosmo(self.dataset, self.assim_vars)
-        print(ret_arr)
+        vcoord = self.dataset['vcoord']
+        ds = self.dataset[self.assim_vars]
+        ret_ds = cosmo._prepare_vgrid(ds, vcoord)
+        with patch('pytassim.model.terrsysmp.cosmo._prepare_vgrid',
+                   return_value=ret_ds) as vgrid_patch:
+            _ = cosmo.preprocess_cosmo(self.dataset, self.assim_vars)
+        vgrid_patch.assert_called_once()
+        xr.testing.assert_identical(vgrid_patch.call_args[0][0], ds)
+        xr.testing.assert_identical(vgrid_patch.call_args[0][1], vcoord)
+
+    def test_interp_remaps_to_right_vcoords(self):
+        vcoord = self.dataset['vcoord']
+        ds = self.dataset[self.assim_vars]
+        ret_ds = cosmo._prepare_vgrid(ds, vcoord)
+        reindexed_ds = cosmo._interp_vgrid(ret_ds)
+        expected_values = {
+            'height_2m': ('T_2M', np.array(0)),
+            'height_10m': ('U_10M', np.array(20)),
+            'height_toa': ('ASOB_T', reindexed_ds.vgrid.values[0]),
+            'soil1': ('W_SO', reindexed_ds.vgrid.values[-8:]),
+            'level1': ('W', reindexed_ds.vgrid.values[:51]),
+            'level': ('T', reindexed_ds.vgrid.values[:50])
+        }
+        for coord, val in expected_values.items():
+            dropped_arr = reindexed_ds[val[0]].dropna(coord, how='all')
+            np.testing.assert_equal(dropped_arr[coord].values, val[1])
 
 
 if __name__ == '__main__':
