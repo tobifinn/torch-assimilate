@@ -166,16 +166,51 @@ class TestTerrSysMPCosmo(unittest.TestCase):
         prep_ds = cosmo._prepare_vgrid(ds, vcoord)
         reindexed_ds = cosmo._interp_vgrid(prep_ds)
         replaced = cosmo._replace_coords(reindexed_ds)
-        self.assim_vars.remove('T_S')
         for var in self.assim_vars:
             self.assertIn('vgrid', replaced[var].dims)
 
-    def test_nearest_arakawa_a_grid(self):
+    def test_replace_coords_to_nearest_arakawa_a_grid(self):
         vcoord = self.dataset['vcoord']
         ds = self.dataset[self.assim_vars]
         prep_ds = cosmo._prepare_vgrid(ds, vcoord)
         reindexed_ds = cosmo._interp_vgrid(prep_ds)
         replaced = cosmo._replace_coords(reindexed_ds)
+        self.assertNotIn('srlon', replaced['U'].dims)
+
+    def test_precosmo_calls_replace_coords(self):
+        vcoord = self.dataset['vcoord']
+        ds = self.dataset[self.assim_vars]
+        prep_ds = cosmo._prepare_vgrid(ds, vcoord)
+        reindexed_ds = cosmo._interp_vgrid(prep_ds)
+        replaced_ds = cosmo._replace_coords(reindexed_ds)
+        with patch('pytassim.model.terrsysmp.cosmo._replace_coords',
+                   return_value=replaced_ds) as vgrid_patch:
+            _ = cosmo.preprocess_cosmo(self.dataset, self.assim_vars)
+        vgrid_patch.assert_called_once()
+        self.assertEqual(len(vgrid_patch.call_args[0]), 1)
+        xr.testing.assert_identical(vgrid_patch.call_args[0][0], reindexed_ds)
+
+    def test_precosmo_makes_ds_to_array(self):
+        preprocessed = cosmo.preprocess_cosmo(self.dataset, self.assim_vars)
+        self.assertIsInstance(preprocessed, xr.DataArray)
+        self.assertIn('var_name', preprocessed.dims)
+        self.assertListEqual(list(preprocessed.var_name), self.assim_vars)
+
+    def test_precosmo_stacks_grid_coordinates(self):
+        preprocessed = cosmo.preprocess_cosmo(self.dataset, self.assim_vars)
+        self.assertIn('grid', preprocessed.dims)
+        self.assertListEqual(list(preprocessed.indexes['grid'].names),
+                             ['rlat', 'rlon', 'vgrid'])
+
+    def test_precosmo_expands_ensemble(self):
+        self.assertNotIn('ensemble', self.dataset)
+        preprocessed = cosmo.preprocess_cosmo(self.dataset, self.assim_vars)
+        self.assertIn('ensemble', preprocessed.dims)
+        np.testing.assert_equal(preprocessed.ensemble.values, np.array(0))
+
+    def test_precosmo_tranposes_for_valid_state(self):
+        preprocessed = cosmo.preprocess_cosmo(self.dataset, self.assim_vars)
+        self.assertTrue(preprocessed.state.valid)
 
 
 if __name__ == '__main__':
