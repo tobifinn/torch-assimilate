@@ -74,7 +74,7 @@ class Lorenz84(object):
 
     The typical time unit of this model is 5 days. The default values of the
     arguments are set such that the model represent typical meteorological
-    instability [L84]_.
+    instability :cite:`lorenz_irregularity_1984`.
 
     Arguments
     ---------

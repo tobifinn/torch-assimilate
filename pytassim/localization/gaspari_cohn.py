@@ -42,7 +42,7 @@ class GaspariCohn(BaseLocalization):
     This localization can  be used to constrain observations. It is based on
     Gaspari-Cohn correlation function :cite:`gaspari_construction_1999`. This
     correlation function corresponds to a form factor of :math:`\\frac{1}{2}`,
-    in [GC99]_ :math:`C_0(z, \\frac{1}{2}, c)`.
+    in :cite:`gaspari_construction_1999` :math:`C_0(z, \\frac{1}{2}, c)`.
 
     Parameters
     ----------
