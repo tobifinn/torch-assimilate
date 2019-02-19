@@ -63,29 +63,7 @@ def local_etkf_batch(ind, innov, hx_perts, obs_cov, back_prec, obs_grid,
 class DistributedLETKF(LETKFilter):
     """
     This is a MPI based implementation of the `localized ensemble transform
-    Kalman filter` [H07]_, which is a localized version of the `ensemble
-    transform Kalman filter` [B01]_. This method iterates independently over
-    each grid point in given background state. Given localization instance can
-    be used to constrain the influence of observations in space. The ensemble
-    weights are calculated for every grid point and independently applied to
-    every grid point. This implementation follows [H07]_ with local weight
-    estimation and is implemented in PyTorch. This implementation allows
-    filtering in time based on linear propagation assumption [H04]_ and ensemble
-    smoothing.
-
-    References
-    ----------
-    .. [B01] Bishop, C. H., Etherton, B. J., & Majumdar, S. J. (2001).
-             Adaptive sampling with the ensemble transform Kalman filter.
-             Part I: Theoretical aspects. Monthly Weather Review, 129(3),
-             420–436.
-    .. [H04] Hunt, B., et al. Four-dimensional ensemble Kalman filtering.
-             Tellus A, 56(4), 273–277.
-    .. [H07] Hunt, B. R., Kostelich, E. J., & Szunyogh, I. (2007).
-             Efficient data assimilation for spatiotemporal chaos: A local
-             ensemble transform Kalman filter. Physica D: Nonlinear
-             Phenomena, 230(1), 112–126.
-             https://doi.org/10.1016/j.physd.2006.11.008
+    Kalman filter` :cite:`hunt_efficient_2007`.
 
     Parameters
     ----------

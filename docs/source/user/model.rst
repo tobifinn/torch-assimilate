@@ -12,10 +12,12 @@ or a valid model state into model output.
 
 COnsortium for Small-scale MOdeling (COSMO)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 The COnsortium for Small-scale Modeling model :cite:`baldauf_operational_2011`,
 is the operational weather forecast model of the German Weather Service (DWD)
 for an area around Germany. It is also used within the coupled model system
 TerrSysMP :cite:`shrestha_scale-consistent_2014`.
+
 .. autosummary::
     pytassim.model.terrsysmp.cosmo.preprocess_cosmo
     pytassim.model.terrsysmp.cosmo.post_process_cosmo

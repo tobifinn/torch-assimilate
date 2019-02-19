@@ -37,7 +37,8 @@ logger = logging.getLogger(__name__)
 
 class Lorenz84(object):
     """
-    Lorenz '84 [L84]_ is a model with three variables. These three variables are
+    Lorenz '84 :cite:`lorenz_irregularity_1984` is a model with three variables.
+    These three variables are
     coupled such that the Hadley circulation is emulated. The `X` variable
     represents the amplitude of the westerly wind current, while the other two
     variables (`Y` and `Z`) show the cosine and sine phase of superimposed
@@ -95,12 +96,6 @@ class Lorenz84(object):
         The asymmetric thermal forcing :math:`G` of the eddies. This forcing
         influences the eddies. :math:`Y` would converge to this value if the
         variables are not coupled by other terms. Default value is 1.
-
-    References
-    ----------
-    .. [L84] Lorenz, E. N. (1984). Irregularity: a fundamental property of the
-            atmosphere. Tellus A, 36A(2), 98–110.
-            https://doi.org/10.1111/j.1600-0870.1984.tb00230.x
     """
     def __init__(self, damp_factor=0.25, dis_factor=4.0, symm_forcing=8.0,
                  asymm_forcing=1.0):

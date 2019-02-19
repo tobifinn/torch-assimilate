@@ -38,7 +38,8 @@ logger = logging.getLogger(__name__)
 def gen_weights(back_prec, innov, hx_perts, obs_cov, obs_weights=1):
     """
     This function is the main function to calculates the ensemble weights,
-    based on [H07]_. To generate the weights, the given arguments have to be
+    based on cite:`hunt_efficient_2007`. To generate the weights, the given
+    arguments have to be
     prepared and in a special format. The weights are estimated with
     PyTorch.
 
@@ -82,14 +83,6 @@ def gen_weights(back_prec, innov, hx_perts, obs_cov, obs_weights=1):
         can be used to estimate new centered ensemble perturbations. The
         shape of this tensor is :math:`k~x~k`, with :math:`k` as ensemble
         size.
-
-    References
-    ----------
-    .. [H07] Hunt, B. R., Kostelich, E. J., & Szunyogh, I. (2007).
-             Efficient data assimilation for spatiotemporal chaos: A local
-             ensemble transform Kalman filter. Physica D: Nonlinear
-             Phenomena, 230(1), 112–126.
-             https://doi.org/10.1016/j.physd.2006.11.008
     """
     if len(innov.size()) == 0:
         ens_size = back_prec.shape[0]

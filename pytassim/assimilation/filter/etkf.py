@@ -26,43 +26,30 @@
 # System modules
 import logging
 
-# External modules
-import xarray as xr
+import numpy as np
 import pandas as pd
 import torch
-import numpy as np
+# External modules
+import xarray as xr
 
-# Internal modules
-import pytassim.state
-from .filter import FilterAssimilation
 from .etkf_core import gen_weights
+# Internal modules
+from .filter import FilterAssimilation
 
 logger = logging.getLogger(__name__)
 
 
 class ETKFilter(FilterAssimilation):
     """
-    This is an implementation of the `ensemble transform Kalman filter` [B01]_.
+    This is an implementation of the `ensemble transform Kalman filter`
+    :cite:`bishop_adaptive_2001`.
     This ensemble Kalman filter is a deterministic filter, where the state is
     update globally. This ensemble Kalman filter estimates ensemble weights in
     weight space, which are then applied to the given state. This implementation
-    follows [H07]_ with global weight estimation and is implemented in PyTorch.
+    follows :cite:`hunt_efficient_2007` with global weight estimation and is
+    implemented in PyTorch.
     This implementation allows filtering in time based on linear propagation
-    assumption [H04]_ and ensemble smoothing.
-
-    References
-    ----------
-    .. [B01] Bishop, C. H., Etherton, B. J., & Majumdar, S. J. (2001).
-             Adaptive sampling with the ensemble transform Kalman filter.
-             Part I: Theoretical aspects. Monthly Weather Review, 129(3),
-             420–436.
-    .. [H04] Hunt, B., et al. Four-dimensional ensemble Kalman filtering.
-             Tellus A, 56(4), 273–277.
-    .. [H07] Hunt, B. R., Kostelich, E. J., & Szunyogh, I. (2007).
-             Efficient data assimilation for spatiotemporal chaos: A local
-             ensemble transform Kalman filter. Physica D: Nonlinear
-             Phenomena, 230(1), 112–126.
-             https://doi.org/10.1016/j.physd.2006.11.008
+    assumption :cite:`hunt_four-dimensional_2004` and ensemble smoothing.
 
     Parameters
     ----------
@@ -82,6 +69,7 @@ class ETKFilter(FilterAssimilation):
         or CPU (False): Default is None. For small models, estimation of the
         weights on CPU is faster than on GPU!.
     """
+
     def __init__(self, inf_factor=1.0, smoother=True, gpu=False,
                  pre_transform=None, post_transform=None):
         super().__init__(smoother=smoother, gpu=gpu,
