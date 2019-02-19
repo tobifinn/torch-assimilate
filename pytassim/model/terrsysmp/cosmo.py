@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 __all__ = ['preprocess_cosmo', 'postprocess_cosmo']
 
 _cosmo_vcoords = ['height_2m', 'height_10m', 'height_toa', 'soil1',
-                  'level1', 'level']
+                  'level1', 'level', 'no_vgrid']
 
 
 def preprocess_cosmo(cosmo_ds, assim_vars):
@@ -160,8 +160,19 @@ def _prepare_vgrid(ds, vcoord):
     return ds
 
 
+def _expand_vgrid(ds):
+    ds = ds.copy()
+    vars_wo_vgrid = [var for var in ds.data_vars
+                     if set(ds[var].dims).isdisjoint(_cosmo_vcoords)]
+    for var in vars_wo_vgrid:
+        ds[var] = ds[var].expand_dims('no_vgrid', axis=-3)
+    ds['no_vgrid'] = np.array([0, ])
+    return ds
+
+
 def _interp_vgrid(ds):
     vgrid_neighbor_funcs = {
+        'no_vgrid': _inds_nearest,
         'height_2m': _inds_nearest,
         'height_10m': _inds_nearest,
         'height_toa': _inds_nearest,
@@ -169,9 +180,9 @@ def _interp_vgrid(ds):
         'level1': _inds_top,
         'level': _inds_top
     }
+    ds = _expand_vgrid(ds)
 
     vertical_coords = [c for c in _cosmo_vcoords if c in ds.coords]
-    ds = ds.copy()
     for c in vertical_coords:
         vgrid_inds = vgrid_neighbor_funcs[c](ds[c].values, ds['vgrid'].values)
         ds[c] = ds[c].copy(data=ds['vgrid'].values[vgrid_inds])

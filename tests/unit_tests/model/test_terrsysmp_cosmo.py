@@ -31,7 +31,6 @@ from unittest.mock import patch
 # External modules
 import xarray as xr
 import numpy as np
-import scipy.spatial.distance
 
 # Internal modules
 from pytassim.model.terrsysmp import cosmo
@@ -53,6 +52,11 @@ class TestTerrSysMPCosmo(unittest.TestCase):
         ).load()
         self.assim_vars = ['T', 'W', 'W_SO', 'T_2M', 'T_S', 'U', 'U_10M',
                            'ASOB_T']
+
+    def test_dataset_can_be_reconstructed(self):
+        pre_arr = cosmo.preprocess_cosmo(self.dataset, self.assim_vars)
+        post_ds = cosmo.postprocess_cosmo(pre_arr, self.dataset)
+        xr.testing.assert_identical(post_ds, self.dataset)
 
     def test_preprocess_selects_only_available_vars(self):
         with self.assertLogs(level=logging.WARNING) as log:
@@ -105,15 +109,34 @@ class TestTerrSysMPCosmo(unittest.TestCase):
                    return_value=ret_ds) as vgrid_patch:
             _ = cosmo.preprocess_cosmo(self.dataset, self.assim_vars)
         vgrid_patch.assert_called_once()
+        self.assertEqual(len(vgrid_patch.call_args[0]), 2)
         xr.testing.assert_identical(vgrid_patch.call_args[0][0], ds)
         xr.testing.assert_identical(vgrid_patch.call_args[0][1], vcoord)
+
+    def test_expand_no_grid_vars(self):
+        vcoord = self.dataset['vcoord']
+        ds = self.dataset[self.assim_vars]
+        prep_ds = cosmo._prepare_vgrid(ds, vcoord)
+        ret_ds = cosmo._expand_vgrid(prep_ds)
+        self.assertTupleEqual(
+            tuple(ret_ds['T_S'].dims), ('time', 'no_vgrid', 'rlat', 'rlon')
+        )
+        np.testing.assert_equal(ret_ds.no_vgrid.values, np.array(0))
+
+    def test_expand_no_grid_vars_works_with_no_vars(self):
+        vcoord = self.dataset['vcoord']
+        ds = self.dataset[self.assim_vars]
+        prep_ds = cosmo._prepare_vgrid(ds, vcoord)
+        del prep_ds['T_S']
+        ret_ds = cosmo._expand_vgrid(prep_ds)
 
     def test_interp_remaps_to_right_vcoords(self):
         vcoord = self.dataset['vcoord']
         ds = self.dataset[self.assim_vars]
-        ret_ds = cosmo._prepare_vgrid(ds, vcoord)
-        reindexed_ds = cosmo._interp_vgrid(ret_ds)
+        prep_ds = cosmo._prepare_vgrid(ds, vcoord)
+        reindexed_ds = cosmo._interp_vgrid(prep_ds)
         expected_values = {
+            'no_vgrid': ('T_S', np.array(0)),
             'height_2m': ('T_2M', np.array(0)),
             'height_10m': ('U_10M', np.array(20)),
             'height_toa': ('ASOB_T', reindexed_ds.vgrid.values[0]),
@@ -124,6 +147,35 @@ class TestTerrSysMPCosmo(unittest.TestCase):
         for coord, val in expected_values.items():
             dropped_arr = reindexed_ds[val[0]].dropna(coord, how='all')
             np.testing.assert_equal(dropped_arr[coord].values, val[1])
+
+    def test_precosmo_calls_interp_vgrid(self):
+        vcoord = self.dataset['vcoord']
+        ds = self.dataset[self.assim_vars]
+        prep_ds = cosmo._prepare_vgrid(ds, vcoord)
+        reindexed_ds = cosmo._interp_vgrid(prep_ds)
+        with patch('pytassim.model.terrsysmp.cosmo._interp_vgrid',
+                   return_value=reindexed_ds) as vgrid_patch:
+            _ = cosmo.preprocess_cosmo(self.dataset, self.assim_vars)
+        vgrid_patch.assert_called_once()
+        self.assertEqual(len(vgrid_patch.call_args[0]), 1)
+        xr.testing.assert_identical(vgrid_patch.call_args[0][0], prep_ds)
+
+    def test_replace_coords_replaces_vertical_coords_with_vgrid(self):
+        vcoord = self.dataset['vcoord']
+        ds = self.dataset[self.assim_vars]
+        prep_ds = cosmo._prepare_vgrid(ds, vcoord)
+        reindexed_ds = cosmo._interp_vgrid(prep_ds)
+        replaced = cosmo._replace_coords(reindexed_ds)
+        self.assim_vars.remove('T_S')
+        for var in self.assim_vars:
+            self.assertIn('vgrid', replaced[var].dims)
+
+    def test_nearest_arakawa_a_grid(self):
+        vcoord = self.dataset['vcoord']
+        ds = self.dataset[self.assim_vars]
+        prep_ds = cosmo._prepare_vgrid(ds, vcoord)
+        reindexed_ds = cosmo._interp_vgrid(prep_ds)
+        replaced = cosmo._replace_coords(reindexed_ds)
 
 
 if __name__ == '__main__':
