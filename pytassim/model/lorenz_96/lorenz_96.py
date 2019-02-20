@@ -68,7 +68,8 @@ def torch_roll(a, shift, axis=0):
 
 class Lorenz96(object):
     """
-    The Lorenz '96 [L96]_ [L98]_ is a grid based dynamical model. In its default
+    The Lorenz '96 :cite:`lorenz_predictability_1996, lorenz_optimal_1998` is a
+    grid based dynamical model. In its default
     settings it has a chaotic behaviour. The grid points are wrapped in
     one-dimension such that the first and last grid point are coupled. Only
     surrounding grid points and the forcing F influence the i-th grid point at
@@ -87,14 +88,6 @@ class Lorenz96(object):
     forcing : float, optional
         The forcing term in the equation. The default forcing of 8 leads to
         typical chaotic behaviour of the atmosphere.
-
-    References
-    ----------
-    .. [L96] Lorenz, E. N. (1996, September). Predictability: A problem partly
-           solved. In Proc. Seminar on predictability (Vol. 1, No. 1).
-    .. [L98] Lorenz, E. N., & Emanuel, K. A. (1998). Optimal sites for
-           supplementary weather observations: Simulation with a small model.
-           Journal of the Atmospheric Sciences, 55(3), 399-414.
     """
     def __init__(self, forcing=8):
         self.forcing = forcing

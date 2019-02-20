@@ -27,8 +27,8 @@
 import logging
 
 # External modules
-import xarray as xr
 import numpy as np
+import scipy.spatial.distance
 
 # Internal modules
 
@@ -38,42 +38,51 @@ logger = logging.getLogger(__name__)
 
 __all__ = ['preprocess_cosmo', 'postprocess_cosmo']
 
-
-def postprocess_cosmo(analysis_data, cosmo_ds):
-    unstacked_analysis = analysis_data.unstack('grid')
-    transposed_analysis = unstacked_analysis.transpose(
-        'var_name', 'ensemble', 'time', 'vgrid', 'rlat', 'rlon'
-    )
-    analysis_ds = transposed_analysis.to_dataset(dim='var_name')
-    pp_analysis_ds = cosmo_ds.copy(deep=True)
-    for var in analysis_ds.data_vars:
-        try:
-            reindex_vcoord = get_vcoord_ind(pp_analysis_ds[var])
-            if reindex_vcoord is None:
-                reindexed_ana_var = analysis_ds[var].isel(vgrid=0)
-            else:
-                reindexed_ana_var = analysis_ds[var].reindex(
-                    vgrid=reindex_vcoord.values, method='nearest'
-                )
-            pp_analysis_ds[var] = pp_analysis_ds[var].copy(
-                data=reindexed_ana_var.values
-            )
-        except KeyError:
-            logger.warning('Var: {0:s} is not found'.format(var))
-    return pp_analysis_ds
+_cosmo_vcoords = ['height_2m', 'height_10m', 'height_toa', 'soil1',
+                  'level1', 'level', 'no_vgrid']
 
 
 def preprocess_cosmo(cosmo_ds, assim_vars):
+    """
+    This function can be used to pre-process COSMO data. There are different
+    pre-processing steps included:
+
+    1. Select variables to assimilate with `assim_vars`
+    2. Set missing vertical levels of COSMO based on `vcoord`
+    3. Interpolate all vertical levels of COSMO to a merge vertical grid
+    4. Stack horizontal and vertical grid to one single dimension
+    5. Transpose dimensions such that the resulting state array is valid
+
+    Parameters
+    ----------
+    cosmo_ds : :py:class:`xarray.Dataset`
+        From this COSMO dataset selected variables are extracted and this
+        dataset is converted into a :py:class:`xarray.DataArray`. This dataset
+        needs `vcoord` as data variable to determine the vertical coordinates of
+        COSMO.
+    assim_vars : iterable(str)
+        These variables are included in the resulting and prepared array. If a
+        variable cannot be found within the data, a warning will be raised.
+
+    Returns
+    -------
+    prepared_data : :py:class:`xarray.DataArray`
+        This array is prepared such that it could be assimilate by any
+        assimilation algorithm within this package. The vertical grid is unified
+        and stack together with the horizontal grid. The dataset with the
+        selected variables is converted into this array, where 'var_name'
+        indicates the variable axis.
+    """
     avail_vars = [var for var in assim_vars if var in cosmo_ds.data_vars]
     not_avail_vars = list(set(assim_vars) - set(avail_vars))
     if not_avail_vars:
         logger.warning('Following variables are not found! {0:s}'.format(
-            ','.join(not_avail_vars)
+            ', '.join(not_avail_vars)
         ))
     assim_ds = cosmo_ds[avail_vars]
-    vgrid_ds = prepare_vgrid(assim_ds, cosmo_ds['vcoord'])
-    interp_ds = interp_vgrid(vgrid_ds)
-    unified_ds = replace_coords(interp_ds)
+    vgrid_ds = _prepare_vgrid(assim_ds, cosmo_ds['vcoord'])
+    interp_ds = _interp_vgrid(vgrid_ds)
+    unified_ds = _replace_coords(interp_ds)
     unified_data = unified_ds.to_array(dim='var_name')
     stacked_data = unified_data.stack(grid=('rlat', 'rlon', 'vgrid'))
     if 'ensemble' not in stacked_data.dims:
@@ -83,11 +92,57 @@ def preprocess_cosmo(cosmo_ds, assim_vars):
     return prepared_data
 
 
-def prepare_vgrid(ds, vcoord):
+def postprocess_cosmo(analysis_data, cosmo_ds):
+    """
+    This function can be used to post-process COSMO data and incorporate
+    included variables into given COSMO dataset. There are different steps
+    included:
+
+    1. Unstack the grid form analysis data and convert the data into a dataset
+    2. Iterate through included variables and reindex these variables as they
+        are in given COSMO dataset
+    3. Replace the variables in given COSMO dataset with the analysis variables
+
+    Parameters
+    ----------
+    analysis_data : :py:class:`xarray.DataArray`
+        This array represents a valid analysis state, which can be a result of
+        any given assimilation algorithm included in this package. In this
+        analysis data, the horizontal and vertical grid are stacked together and
+        the variables are a dimension within the array.
+    cosmo_ds : :py:class:`xarray.Dataset`
+        This COSMO dataset is used as source dataset to convert given analysis
+        array into a valid COSMO dataset. The resulting dataset is a copy of
+        this dataset, where the assimilated variables are replaced.
+
+    Returns
+    -------
+    analysis_ds : :py:class:`xarray.Dataset`
+        This analysis dataset is a copy of given COSMO dataset with replaced
+        variables from given analysis array.
+    """
+    unstacked_analysis = analysis_data.unstack('grid')
+    transposed_analysis = unstacked_analysis.transpose(
+        'var_name', 'ensemble', 'time', 'vgrid', 'rlat', 'rlon'
+    )
+    pre_analysis_ds = transposed_analysis.to_dataset(dim='var_name')
+    analysis_ds = cosmo_ds.copy(deep=True)
+    for var in pre_analysis_ds.data_vars:
+        try:
+            reindexed_ana_var = pre_analysis_ds[var].dropna('vgrid', how='all')
+            analysis_ds[var] = analysis_ds[var].copy(
+                data=reindexed_ana_var.values.reshape(analysis_ds[var].shape)
+            )
+        except KeyError:
+            logger.warning('Var: {0:s} is not found'.format(var))
+    return analysis_ds
+
+
+def _prepare_vgrid(ds, vcoord):
     ds = ds.copy()
     vcoord_vals = vcoord.values.reshape(-1, vcoord.shape[-1])[0, :]
     if 'soil1' in ds.coords:
-        ds['soil1'] *= -1
+        ds['soil1'] = ds['soil1'].copy(data=ds['soil1']*(-1))
         vgrid_coords = np.concatenate([vcoord_vals, ds['soil1'].values])
     else:
         vgrid_coords = vcoord_vals
@@ -99,19 +154,55 @@ def prepare_vgrid(ds, vcoord):
     return ds
 
 
-def interp_vgrid(ds):
-    vertical_coords = ['height_2m', 'height_10m', 'height_toa', 'soil1',
-                       'level1', 'level']
-    vertical_coords = [c for c in vertical_coords if c in ds.coords]
-    remap_vertical = {c: ds['vgrid'].values for c in vertical_coords}
-    ds = ds.reindex(**remap_vertical, method='nearest')
+def _expand_vgrid(ds):
+    ds = ds.copy()
+    vars_wo_vgrid = [var for var in ds.data_vars
+                     if set(ds[var].dims).isdisjoint(_cosmo_vcoords)]
+    for var in vars_wo_vgrid:
+        ds[var] = ds[var].expand_dims('no_vgrid', axis=-3)
+    if vars_wo_vgrid:
+        ds['no_vgrid'] = np.array([0, ])
     return ds
 
 
-def replace_coords(ds):
-    vertical_coords = ['height_2m', 'height_10m', 'height_toa', 'soil1',
-                       'level1', 'level']
-    vertical_coords = [c for c in vertical_coords if c in ds.coords]
+def _interp_vgrid(ds):
+    vgrid_neighbor_funcs = {
+        'no_vgrid': _inds_nearest,
+        'height_2m': _inds_nearest,
+        'height_10m': _inds_nearest,
+        'height_toa': _inds_nearest,
+        'soil1': _inds_bottom,
+        'level1': _inds_top,
+        'level': _inds_top
+    }
+    ds = _expand_vgrid(ds)
+
+    vertical_coords = [c for c in _cosmo_vcoords if c in ds.coords]
+    for c in vertical_coords:
+        vgrid_inds = vgrid_neighbor_funcs[c](ds[c].values, ds['vgrid'].values)
+        ds[c] = ds[c].copy(data=ds['vgrid'].values[vgrid_inds])
+        ds = ds.reindex(**{c: ds['vgrid'].values}, method=None)
+    return ds
+
+
+def _inds_nearest(coord_val, vgrid_val):
+    dist_matrix = scipy.spatial.distance.cdist(
+        coord_val[:, None], vgrid_val[:, None]
+    )
+    dist_argmin = np.argmin(dist_matrix, axis=1)
+    return dist_argmin
+
+
+def _inds_top(coord_val, vgrid_val):
+    return np.arange(len(vgrid_val))[:len(coord_val)]
+
+
+def _inds_bottom(coord_val, vgrid_val):
+    return np.arange(len(vgrid_val))[-len(coord_val):]
+
+
+def _replace_coords(ds):
+    vertical_coords = [c for c in _cosmo_vcoords if c in ds.coords]
     rename_vertical = {c: 'vgrid' for c in vertical_coords}
     ds = ds.drop(vertical_coords)
     ds = ds.rename(rename_vertical)
@@ -122,12 +213,3 @@ def replace_coords(ds):
     ds = ds.drop(rename_horizontal.keys())
     ds = ds.rename(rename_horizontal)
     return ds
-
-
-def get_vcoord_ind(array):
-    vertical_coords = ['height_2m', 'height_10m', 'height_toa', 'soil1',
-                       'level1', 'level']
-    try:
-        return [array[c] for c in vertical_coords if c in array.dims][0]
-    except IndexError:
-        return None

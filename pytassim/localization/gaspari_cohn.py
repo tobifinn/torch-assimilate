@@ -40,16 +40,9 @@ logger = logging.getLogger(__name__)
 class GaspariCohn(BaseLocalization):
     """
     This localization can  be used to constrain observations. It is based on
-    Gaspari-Cohn correlation function [GC99]_. This correlation function
-    corresponds to a form factor of :math:`\\frac{1}{2}`, in [GC99]_
-    :math:`C_0(z, \\frac{1}{2}, c)`.
-
-    References
-    ----------
-    .. [GC99] Gaspari, G., & Cohn, S. E. (1999).
-              Construction of correlation functions in two and three dimensions.
-              Quarterly Journal of the Royal Meteorological Society, 125(554),
-              723–757.
+    Gaspari-Cohn correlation function :cite:`gaspari_construction_1999`. This
+    correlation function corresponds to a form factor of :math:`\\frac{1}{2}`,
+    in :cite:`gaspari_construction_1999` :math:`C_0(z, \\frac{1}{2}, c)`.
 
     Parameters
     ----------
@@ -128,16 +121,9 @@ class GaspariCohn(BaseLocalization):
 class GaspariCohnInf(BaseLocalization):
     """
     This localization can  be used to constrain observations. It is based on
-    Gaspari-Cohn correlation function [GC99]_. This correlation function
-    corresponds to a form factor of infinity, in [GC99]_
-    :math:`C_0(z, \\infty, c)`.
-
-    References
-    ----------
-    .. [GC99] Gaspari, G., & Cohn, S. E. (1999).
-              Construction of correlation functions in two and three dimensions.
-              Quarterly Journal of the Royal Meteorological Society, 125(554),
-              723–757.
+    Gaspari-Cohn correlation function :cite:`gaspari_construction_1999`. This
+    correlation function corresponds to a form factor of infinity, in
+    :cite:`gaspari_construction_1999` :math:`C_0(z, \\infty, c)`.
 
     Parameters
     ----------

@@ -16,4 +16,6 @@ dependencies:
     - netcdf4
     - pip:
         - twine
+        - sphinxcontrib-bibtex
         - sphinxcontrib-plantuml
+        - pybtex-apa-style

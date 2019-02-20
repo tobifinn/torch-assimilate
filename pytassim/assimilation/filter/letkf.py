@@ -26,16 +26,14 @@
 # System modules
 import logging
 
+import torch
 # External modules
 import xarray as xr
 from tqdm import tqdm
-import numpy as np
-import torch
 
+from . import etkf_core
 # Internal modules
 from .etkf import ETKFilter
-from . import etkf_core
-
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +54,7 @@ def local_etkf(ind, innov, hx_perts, obs_cov, back_prec, obs_grid, state_grid,
         obs_cov = obs_cov[use_obs, :][:, use_obs]
     w_mean_l, w_perts_l = etkf_core.gen_weights(back_prec, innov, hx_perts,
                                                 obs_cov, obs_weights)
-    weights_l = (w_mean_l+w_perts_l).t()
+    weights_l = (w_mean_l + w_perts_l).t()
     ana_state_l = torch.matmul(state_perts[ind], weights_l)
     return ana_state_l, weights_l, w_mean_l
 
@@ -64,28 +62,16 @@ def local_etkf(ind, innov, hx_perts, obs_cov, back_prec, obs_grid, state_grid,
 class LETKFilter(ETKFilter):
     """
     This is an implementation of the `localized ensemble transform Kalman
-    filter` [H07]_, which is a localized version of the `ensemble transform
-    Kalman filter` [B01]_. This method iterates independently over each grid
+    filter` :cite:`hunt_efficient_2007`, which is a localized version of the
+    `ensemble transform Kalman filter` :cite:`bishop_adaptive_2001`. This method
+    iterates independently over each grid
     point in given background state. Given localization instance can be used to
     constrain the influence of observations in space. The ensemble weights are
     calculated for every grid point and independently applied to every grid
-    point. This implementation follows [H07]_ with local weight estimation and
-    is implemented in PyTorch. This implementation allows filtering in time
-    based on linear propagation assumption [H04]_ and ensemble smoothing.
-
-    References
-    ----------
-    .. [B01] Bishop, C. H., Etherton, B. J., & Majumdar, S. J. (2001).
-             Adaptive sampling with the ensemble transform Kalman filter.
-             Part I: Theoretical aspects. Monthly Weather Review, 129(3),
-             420–436.
-    .. [H04] Hunt, B., et al. Four-dimensional ensemble Kalman filtering.
-             Tellus A, 56(4), 273–277.
-    .. [H07] Hunt, B. R., Kostelich, E. J., & Szunyogh, I. (2007).
-             Efficient data assimilation for spatiotemporal chaos: A local
-             ensemble transform Kalman filter. Physica D: Nonlinear
-             Phenomena, 230(1), 112–126.
-             https://doi.org/10.1016/j.physd.2006.11.008
+    point. This implementation follows :cite:`hunt_efficient_2007`, with local
+    weight estimation and is implemented in PyTorch. This implementation allows
+    filtering in time based on linear propagation assumption
+    :cite:`hunt_four-dimensional_2004` and ensemble smoothing.
 
     Parameters
     ----------
@@ -110,6 +96,7 @@ class LETKFilter(ETKFilter):
         or CPU (False): Default is None. For small models, estimation of the
         weights on CPU is faster than on GPU!.
     """
+
     def __init__(self, localization=None, inf_factor=1.0, smoother=True,
                  gpu=False, pre_transform=None, post_transform=None):
         super().__init__(inf_factor=inf_factor, smoother=smoother, gpu=gpu,
@@ -181,7 +168,7 @@ class LETKFilter(ETKFilter):
         self._weights = self._get_weight_array(
             weights, grid=state_grid, ensemble=state.ensemble.values
         )
-        analysis = (state_mean+state_perts).transpose(*state.dims)
+        analysis = (state_mean + state_perts).transpose(*state.dims)
         logger.info('Finished with analysis creation')
         return analysis
 

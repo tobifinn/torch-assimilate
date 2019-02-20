@@ -43,7 +43,8 @@ observations into numerical weather model data.
 
 This package is constructed for efficient and parallelized data assimilation in
 python. The central entity of this package are the data assimilation methods
-optimized in PyTorch [1]_. For data in- and output xarray [2]_ is used.
+optimized in PyTorch :cite:`paszke_automatic_2017`. For data in- and output
+xarray :cite:`hoyer_xarray_2017` is used.
 Originally. this package can be used for offline data assimilation.
 
 In the future, different data assimilation methods, like
@@ -57,13 +58,28 @@ Documentation
 -------------
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: Getting Started:
 
-   content/structure
+   start/overview
+   start/installation
+   examples/index
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Scientific User Guide:
+
+   user/states
+   user/assimilation
+   user/localization
+   user/transform
+   user/obs_ops
+   user/model
+   user/toolbox
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Help & References:
+
    api/pytassim
-
-
-References
-----------
-.. [1] PyTorch, https://pytorch.org
-.. [2] xarray, http://xarray.pydata.org
+   appendix/references
+   appendix/publications
