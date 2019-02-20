@@ -160,7 +160,8 @@ def _expand_vgrid(ds):
                      if set(ds[var].dims).isdisjoint(_cosmo_vcoords)]
     for var in vars_wo_vgrid:
         ds[var] = ds[var].expand_dims('no_vgrid', axis=-3)
-    ds['no_vgrid'] = np.array([0, ])
+    if vars_wo_vgrid:
+        ds['no_vgrid'] = np.array([0, ])
     return ds
 
 
