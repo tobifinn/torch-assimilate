@@ -14,8 +14,8 @@ dependencies:
     - tqdm
     - pytables
     - netcdf4
-    - sphinxcontrib-bibtex
     - pip:
         - twine
+        - sphinxcontrib-bibtex
         - sphinxcontrib-plantuml
         - pybtex-apa-style

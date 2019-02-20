@@ -65,7 +65,7 @@ coverage:
 sphinx:
     stage: package
     script:
-        - make docs
+        - make docs && make docs
         - mv docs/build/html $SPHINX_DOC_DIR
     artifacts:
         paths:
