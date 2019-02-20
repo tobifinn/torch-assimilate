@@ -2,9 +2,8 @@ FROM frolvlad/alpine-miniconda3
 
 MAINTAINER Tobias Sebastian Finn <tobias.sebastian.finn@uni-hamburg.de
 
-ENV CONDA_DIR="/opt/conda"
-ENV PATH="$CONDA_DIR/bin:$PATH"
-
+RUN pwd
+RUN ls
 RUN apk add --no-cache git
 
 RUN conda update -n base conda
