@@ -36,7 +36,7 @@ import numpy as np
 # Internal modules
 from pytassim.obs_ops.terrsysmp.cos_t2m import CosmoT2mOperator, EARTH_RADIUS
 from pytassim.model.terrsysmp import preprocess_cosmo
-from pytassim.assimilation import ETKFilter
+from pytassim.assimilation import ETKFUncorr
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -234,12 +234,22 @@ class TestCOST2m(unittest.TestCase):
         xr.testing.assert_equal(corr_t2m, ret_t2m)
 
     def test_obs_op_can_be_used_for_etkf(self):
-        filter = ETKFilter()
-        ret_t2m = self.obs_op.obs_op(self.ens_file)
-        ret_t2m = ret_t2m.rename({'grid': 'obs_grid_1'})
-        hx_mean, hx_perts = filter._prepare_pseudo_obs([ret_t2m, ])
-        print(hx_mean.shape)
-        print(hx_perts.shape)
+        etkf_filter = ETKFUncorr()
+        pseudo_obs = self.obs_op.obs_op(self.ens_file)
+        pseudo_obs += np.random.normal(size=pseudo_obs.shape[-1])
+        pseudo_obs = pseudo_obs.rename({'grid': 'obs_grid_1'}).mean('ensemble')
+        pseudo_cov = xr.DataArray(
+            [1, ] * pseudo_obs.shape[-1],
+            coords={'obs_grid_1': pseudo_obs.obs_grid_1},
+            dims=['obs_grid_1']
+        )
+        observations = xr.Dataset(
+            {'observations': pseudo_obs, 'covariance': pseudo_cov}
+        )
+        observations.obs.operator = self.obs_op.get_obs_method
+        analysis = etkf_filter.assimilate(self.ens_file, observations)
+        with self.assertRaises(AssertionError):
+            np.testing.assert_allclose(analysis.values, self.ens_file.values)
 
 
 if __name__ == '__main__':
