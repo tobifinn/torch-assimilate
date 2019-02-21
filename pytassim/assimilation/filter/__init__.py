@@ -2,4 +2,5 @@ from .etkf import *
 from .letkf import *
 from .letkf_dist import *
 
-__all__ = ['ETKFilter', 'LETKFilter', 'DistributedLETKF']
+__all__ = ['ETKFCorr', 'ETKFUncorr', 'LETKFUncorr', 'LETKFCorr',
+           'DistributedLETKFCorr']

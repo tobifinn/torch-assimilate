@@ -47,7 +47,8 @@ class GaspariCohn(BaseLocalization):
     Parameters
     ----------
     length_scale : float or tuple(float)
-        This length scale is :math:`c` in [GC99]_. This length scale determines
+        This length scale is :math:`c` in :cite:`gaspari_construction_1999`.
+        This length scale determines
         the truncation to zero and the decay of the covariance function. The
         Gaspari-Cohn function is truncated to zero by 2 * length_scale.
     dist_func : func
@@ -128,7 +129,8 @@ class GaspariCohnInf(BaseLocalization):
     Parameters
     ----------
     length_scale : float or tuple(float)
-        This length scale is :math:`c` in [GC99]_. This length scale determines
+        This length scale is :math:`c` in :cite:`gaspari_construction_1999`.
+        This length scale determines
         the truncation to zero and the decay of the covariance function. The
         Gaspari-Cohn function is truncated to zero by 2 * length_scale.
     dist_func : func

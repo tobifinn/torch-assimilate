@@ -37,10 +37,12 @@ import numpy as np
 import scipy.spatial.distance
 
 # Internal modules
-from pytassim.assimilation.filter.letkf import LETKFilter, local_etkf
+from pytassim.assimilation.filter.letkf import LETKFCorr, local_etkf
 from pytassim.testing import dummy_obs_operator, DummyLocalization
-from pytassim.assimilation.filter.letkf_dist import DistributedLETKF
+from pytassim.assimilation.filter.letkf_dist import DistributedLETKFCorr, \
+    DistributedLETKFUncorr
 from pytassim.localization import GaspariCohn
+from pytassim.assimilation.filter import etkf_core
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -62,7 +64,7 @@ def dist_func(state_grid, obs_grid):
 
 class TestLETKFDistributed(unittest.TestCase):
     def setUp(self):
-        self.algorithm = DistributedLETKF(POOL)
+        self.algorithm = DistributedLETKFCorr(POOL)
         state_path = os.path.join(DATA_PATH, 'test_state.nc')
         self.state = xr.open_dataarray(state_path).load()
         self.back_prec = self.algorithm._get_back_prec(len(self.state.ensemble))
@@ -71,7 +73,7 @@ class TestLETKFDistributed(unittest.TestCase):
         self.obs.obs.operator = dummy_obs_operator
 
     def test_local_etkf_same_results_as_letkf(self):
-        letkf_filter = LETKFilter()
+        letkf_filter = LETKFCorr()
         ana_time = self.state.time[-1].values
         obs_tuple = (self.obs, self.obs)
         state_mean, state_perts = self.state.state.split_mean_perts()
@@ -90,15 +92,15 @@ class TestLETKFDistributed(unittest.TestCase):
         torch_grid = torch.from_numpy(state_mean.grid.values)
         for i, _ in enumerate(torch_grid):
             ana_pert, _, _ = local_etkf(
-                i, innov, hx_perts, obs_cov, self.back_prec, None, None,
-                torch_back_perts
+                self.algorithm._gen_weights_func, i, innov, hx_perts, obs_cov,
+                self.back_prec, None, None, torch_back_perts
             )
             np.testing.assert_almost_equal(
                 delta_ana.values[i], ana_pert.numpy()
             )
 
     def test_update_state_returns_same_as_letkf(self):
-        letkf_filter = LETKFilter()
+        letkf_filter = LETKFCorr()
         ana_time = self.state.time[-1].values
         obs_tuple = (self.obs, self.obs)
         assimilated_state = self.algorithm.assimilate(self.state, obs_tuple,
@@ -108,7 +110,7 @@ class TestLETKFDistributed(unittest.TestCase):
 
     def test_localization_works(self):
         localization = DummyLocalization()
-        letkf_filter = LETKFilter(localization=localization)
+        letkf_filter = LETKFCorr(localization=localization)
         self.algorithm.localization = localization
         ana_time = self.state.time[-1].values
         obs_tuple = (self.obs, self.obs)
@@ -117,6 +119,12 @@ class TestLETKFDistributed(unittest.TestCase):
         letkf_state = letkf_filter.assimilate(self.state, obs_tuple, ana_time)
         xr.testing.assert_allclose(assimilated_state, letkf_state)
 
+    def test_letkfuncorr_sets_gen_weights_func(self):
+        self.assertEqual(DistributedLETKFUncorr(pool=POOL)._gen_weights_func,
+                         etkf_core.gen_weights_uncorr)
+
+    def test_letkfuncorr_sets_correlated_to_false(self):
+        self.assertFalse(DistributedLETKFUncorr(pool=POOL)._correlated)
 
 
 if __name__ == '__main__':

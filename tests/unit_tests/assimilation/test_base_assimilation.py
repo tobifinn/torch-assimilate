@@ -84,6 +84,11 @@ class TestBaseAssimilation(unittest.TestCase):
         with self.assertRaises(TypeError) as e:
             self.algorithm._validate_single_obs(self.obs['observations'])
 
+    def test_validate_single_obs_tests_correlation(self):
+        self.algorithm._correlated = False
+        with self.assertRaises(ObservationError) as e:
+            self.algorithm._validate_single_obs(self.obs)
+
     def test_validate_multi_observations_calls_valid_single_obs(self):
         observations = (self.obs, self.obs)
         with patch('pytassim.assimilation.base.BaseAssimilation.'

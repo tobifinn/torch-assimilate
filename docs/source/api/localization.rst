@@ -12,3 +12,10 @@ Gaspari-Cohn
     :members:
     :undoc-members:
     :show-inheritance:
+
+Base class
+``````````
+.. automodule:: pytassim.localization.localization
+    :members:
+    :undoc-members:
+    :show-inheritance:

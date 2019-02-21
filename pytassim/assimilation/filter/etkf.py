@@ -32,17 +32,17 @@ import torch
 # External modules
 import xarray as xr
 
-from .etkf_core import gen_weights
+from .etkf_core import gen_weights_corr, gen_weights_uncorr
 # Internal modules
 from .filter import FilterAssimilation
 
 logger = logging.getLogger(__name__)
 
 
-class ETKFilter(FilterAssimilation):
+class ETKFCorr(FilterAssimilation):
     """
     This is an implementation of the `ensemble transform Kalman filter`
-    :cite:`bishop_adaptive_2001`.
+    :cite:`bishop_adaptive_2001` for correlated observation covariances.
     This ensemble Kalman filter is a deterministic filter, where the state is
     update globally. This ensemble Kalman filter estimates ensemble weights in
     weight space, which are then applied to the given state. This implementation
@@ -69,7 +69,6 @@ class ETKFilter(FilterAssimilation):
         or CPU (False): Default is None. For small models, estimation of the
         weights on CPU is faster than on GPU!.
     """
-
     def __init__(self, inf_factor=1.0, smoother=True, gpu=False,
                  pre_transform=None, post_transform=None):
         super().__init__(smoother=smoother, gpu=gpu,
@@ -78,6 +77,7 @@ class ETKFilter(FilterAssimilation):
         self.inf_factor = inf_factor
         self._back_prec = None
         self._weights = None
+        self._gen_weights_func = gen_weights_corr
 
     @property
     def weights(self):
@@ -124,7 +124,9 @@ class ETKFilter(FilterAssimilation):
         innov, hx_perts, obs_cov = self._states_to_torch(*prepared_states)
         back_prec = self._get_back_prec(len(state.ensemble))
         logger.info('Gathering the weights')
-        w_mean, w_perts = gen_weights(back_prec, innov, hx_perts, obs_cov)
+        w_mean, w_perts = self._gen_weights_func(
+            back_prec, innov, hx_perts, obs_cov
+        )
         logger.info('Applying weights to state')
         state_mean, state_perts = state.state.split_mean_perts()
         analysis = self._apply_weights(w_mean, w_perts, state_mean, state_perts)
@@ -259,3 +261,42 @@ class ETKFilter(FilterAssimilation):
         )
         analysis = state_mean + ana_perts
         return analysis
+
+
+class ETKFUncorr(ETKFCorr):
+    """
+    This is an implementation of the `ensemble transform Kalman filter`
+    :cite:`bishop_adaptive_2001` for uncorrelated observation covariances.
+    This ensemble Kalman filter is a deterministic filter, where the state is
+    update globally. This ensemble Kalman filter estimates ensemble weights in
+    weight space, which are then applied to the given state. This implementation
+    follows :cite:`hunt_efficient_2007` with global weight estimation and is
+    implemented in PyTorch.
+    This implementation allows filtering in time based on linear propagation
+    assumption :cite:`hunt_four-dimensional_2004` and ensemble smoothing.
+
+    Parameters
+    ----------
+    smoothing : bool, optional
+        Indicates if this filter should be run in smoothing or in filtering
+        mode. In smoothing mode, no analysis time is selected from given state
+        and the ensemble weights are applied to the whole state. In filtering
+        mode, the weights are applied only on selected analysis time. Default
+        is False, indicating filtering mode.
+    inf_factor : float, optional
+        Multiplicative inflation factor :math:`\\rho``, which is applied to the
+        background precision. An inflation factor greater one increases the
+        ensemble spread, while a factor less one decreases the spread. Default
+        is 1.0, which is the same as no inflation at all.
+    gpu : bool, optional
+        Indicator if the weight estimation should be done on either GPU (True)
+        or CPU (False): Default is None. For small models, estimation of the
+        weights on CPU is faster than on GPU!.
+    """
+    def __init__(self, inf_factor=1.0, smoother=True, gpu=False,
+                 pre_transform=None, post_transform=None):
+        super().__init__(inf_factor=inf_factor, smoother=smoother, gpu=gpu,
+                         pre_transform=pre_transform,
+                         post_transform=post_transform)
+        self._gen_weights_func = gen_weights_uncorr
+        self._correlated = False

@@ -99,12 +99,11 @@ class Lorenz96AssimDataset(torch.utils.data.Dataset):
         obs_state = self.obs_operator(truth_sliced).squeeze()
         obs_state = obs_state.rename(grid='obs_grid_1')
         obs_cov = xr.DataArray(
-            data=self.obs_var * np.identity(len(obs_state.obs_grid_1)),
+            data=[self.obs_var, ] * len(obs_state.obs_grid_1),
             coords={
                 'obs_grid_1': obs_state.obs_grid_1.values,
-                'obs_grid_2': obs_state.obs_grid_1.values,
             },
-            dims=('obs_grid_1', 'obs_grid_2')
+            dims=('obs_grid_1', )
         )
         ds_obs = xr.Dataset(
             {

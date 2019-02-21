@@ -36,8 +36,8 @@ import numpy as np
 # Internal modules
 import pytassim.state
 import pytassim.observation
-from pytassim.assimilation.filter.letkf import ETKFilter
-from pytassim.assimilation.filter.letkf import LETKFilter
+from pytassim.assimilation.filter.letkf import ETKFCorr
+from pytassim.assimilation.filter.letkf import LETKFCorr, LETKFUncorr
 from pytassim.assimilation.filter import etkf_core
 from pytassim.testing import dummy_obs_operator, DummyLocalization
 
@@ -48,9 +48,9 @@ BASE_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
 
 
-class TestLETKF(unittest.TestCase):
+class TestLETKFCorr(unittest.TestCase):
     def setUp(self):
-        self.algorithm = LETKFilter()
+        self.algorithm = LETKFCorr()
         state_path = os.path.join(DATA_PATH, 'test_state.nc')
         self.state = xr.open_dataarray(state_path).load()
         self.back_prec = self.algorithm._get_back_prec(len(self.state.ensemble))
@@ -63,7 +63,7 @@ class TestLETKF(unittest.TestCase):
         self.obs.close()
 
     def test_wo_localization_letkf_equals_etkf(self):
-        etkf = ETKFilter()
+        etkf = ETKFCorr()
         obs_tuple = (self.obs, self.obs)
         etkf_analysis = etkf.assimilate(self.state, obs_tuple)
         letkf_analysis = self.algorithm.assimilate(self.state, obs_tuple)
@@ -72,7 +72,7 @@ class TestLETKF(unittest.TestCase):
     def test_update_state_calls_prepare(self):
         obs_tuple = (self.obs, self.obs)
         prepared_states = self.algorithm._prepare(self.state, obs_tuple)
-        with patch('pytassim.assimilation.filter.letkf.LETKFilter._prepare',
+        with patch('pytassim.assimilation.filter.letkf.LETKFCorr._prepare',
                    return_value=prepared_states) as prepare_patch:
             _ = self.algorithm.update_state(self.state, obs_tuple,
                                             self.state.time[-1].values)
@@ -112,7 +112,7 @@ class TestLETKF(unittest.TestCase):
         self.assertEqual(loc_patch.call_count, nr_grid_points)
 
     def test_wo_localization_letkf_equals_etkf_smoothing(self):
-        etkf = ETKFilter(smoother=True)
+        etkf = ETKFCorr(smoother=True)
         self.algorithm.smoother = True
         obs_tuple = (self.obs, self.obs)
         etkf_analysis = etkf.assimilate(self.state, obs_tuple)
@@ -126,6 +126,13 @@ class TestLETKF(unittest.TestCase):
         assimilated_state = self.algorithm.assimilate(self.state, obs_tuple,
                                                       ana_time)
         self.assertFalse(np.any(np.isnan(assimilated_state.values)))
+
+    def test_letkfuncorr_sets_gen_weights_func(self):
+        self.assertEqual(LETKFUncorr()._gen_weights_func,
+                         etkf_core.gen_weights_uncorr)
+
+    def test_letkfuncorr_sets_correlated_to_false(self):
+        self.assertFalse(LETKFUncorr()._correlated)
 
 
 if __name__ == '__main__':

@@ -44,7 +44,7 @@ import matplotlib.pyplot as plt
 # Internal modules
 from pytassim.assimilation.neural import NeuralAssimilation
 from pytassim.transform.normalize import Normalizer
-from pytassim.assimilation.filter import LETKFilter
+from pytassim.assimilation.filter import LETKFUncorr
 from pytassim.localization import GaspariCohn
 from pytassim.model.lorenz_96.forward_model import forward_model
 from pytassim.model import Lorenz96
@@ -64,7 +64,7 @@ def l96_distance(a, b):
 def create_ensemble(dataset, _rnd):
     ens_size = 50
 
-    ens_f = torch.tensor(
+    ens_f = torch.from_numpy(
         _rnd.normal(0, 0.5, size=(1, ens_size, 1)) + dataset.forcing
     )
 
@@ -154,7 +154,7 @@ def plot_member(fcst_mem, ax, *args, **kwargs):
 def test_model(model, dataset, summary_writer, global_step, _rnd, _run):
     # LETKF
     gaspari_cohn = GaspariCohn(length_scale=5, dist_func=l96_distance)
-    letkf = LETKFilter(localization=gaspari_cohn, inf_factor=1.1, gpu=False)
+    letkf = LETKFUncorr(localization=gaspari_cohn, inf_factor=1.1, gpu=False)
 
     # Neural assimilation
     try:
@@ -172,6 +172,7 @@ def test_model(model, dataset, summary_writer, global_step, _rnd, _run):
         model=model.inference_net, gpu=True, pre_transform=pre_transform,
         post_transform=post_transform
     )
+    neural_assimilation._correlated = False
 
     ens_int, ens_start_state, ens_fcst_steps = create_ensemble(dataset, _rnd)
 

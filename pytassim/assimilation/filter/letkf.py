@@ -26,20 +26,20 @@
 # System modules
 import logging
 
-import torch
 # External modules
 import xarray as xr
 from tqdm import tqdm
+import torch
 
-from . import etkf_core
 # Internal modules
-from .etkf import ETKFilter
+from .etkf import ETKFCorr
+from . import etkf_core
 
 logger = logging.getLogger(__name__)
 
 
-def local_etkf(ind, innov, hx_perts, obs_cov, back_prec, obs_grid, state_grid,
-               state_perts, localization=None):
+def local_etkf(gen_weights_func, ind, innov, hx_perts, obs_cov, back_prec,
+               obs_grid, state_grid, state_perts, localization=None):
     obs_weights = 1
     if localization:
         use_obs, obs_weights = localization.localize_obs(
@@ -51,21 +51,25 @@ def local_etkf(ind, innov, hx_perts, obs_cov, back_prec, obs_grid, state_grid,
             obs_weights = obs_weights.cuda()
         innov = innov[use_obs]
         hx_perts = hx_perts[use_obs]
-        obs_cov = obs_cov[use_obs, :][:, use_obs]
-    w_mean_l, w_perts_l = etkf_core.gen_weights(back_prec, innov, hx_perts,
-                                                obs_cov, obs_weights)
-    weights_l = (w_mean_l + w_perts_l).t()
+        obs_cov = obs_cov[use_obs, ...]
+        if obs_cov.dim() == 2:
+            obs_cov = obs_cov[..., use_obs]
+    w_mean_l, w_perts_l = gen_weights_func(
+        back_prec, innov, hx_perts, obs_cov, obs_weights
+    )
+    weights_l = (w_mean_l+w_perts_l).t()
     ana_state_l = torch.matmul(state_perts[ind], weights_l)
     return ana_state_l, weights_l, w_mean_l
 
 
-class LETKFilter(ETKFilter):
+class LETKFCorr(ETKFCorr):
     """
     This is an implementation of the `localized ensemble transform Kalman
-    filter` :cite:`hunt_efficient_2007`, which is a localized version of the
-    `ensemble transform Kalman filter` :cite:`bishop_adaptive_2001`. This method
-    iterates independently over each grid
-    point in given background state. Given localization instance can be used to
+    filter` :cite:`hunt_efficient_2007` for correlated observations.
+    This is a localized version of the `ensemble transform Kalman filter`
+    :cite:`bishop_adaptive_2001`. This method iterates independently over each
+    grid point in given background state. Given localization instance can be
+    used to
     constrain the influence of observations in space. The ensemble weights are
     calculated for every grid point and independently applied to every grid
     point. This implementation follows :cite:`hunt_efficient_2007`, with local
@@ -157,8 +161,8 @@ class LETKFilter(ETKFilter):
         logger.info('Iterating through state grid')
         for grid_ind in tqdm(grid_inds, total=len_state_grid):
             ana_l, weights_l, _ = local_etkf(
-                grid_ind, innov, hx_perts, obs_cov, back_prec, obs_grid,
-                state_grid, back_state, self.localization
+                self._gen_weights_func, grid_ind, innov, hx_perts, obs_cov,
+                back_prec, obs_grid, state_grid, back_state, self.localization
             )
             delta_ana.append(ana_l)
             weights.append(weights_l)
@@ -185,15 +189,51 @@ class LETKFilter(ETKFilter):
         )
         return weights_da
 
-    def _localize(self, grid_ind, prepared_states):
-        try:
-            use_obs, obs_weights = self.localization.localize_obs(
-                grid_ind, prepared_states[-1]
-            )
-            innov = prepared_states[0][use_obs]
-            hx_perts = prepared_states[1][use_obs]
-            obs_cov = prepared_states[2][use_obs, :][:, use_obs]
-            obs_weights = obs_weights[use_obs]
-            return innov, hx_perts, obs_cov, obs_weights
-        except (NotImplementedError, AttributeError):
-            return prepared_states[:-1]
+
+class LETKFUncorr(LETKFCorr):
+    """
+    This is an implementation of the `localized ensemble transform Kalman
+    filter` :cite:`hunt_efficient_2007` for uncorrelated observations.
+    This is a localized version of the `ensemble transform Kalman filter`
+    :cite:`bishop_adaptive_2001`. This method iterates independently over each
+    grid point in given background state. Given localization instance can be
+    used to
+    constrain the influence of observations in space. The ensemble weights are
+    calculated for every grid point and independently applied to every grid
+    point. This implementation follows :cite:`hunt_efficient_2007`, with local
+    weight estimation and is implemented in PyTorch. This implementation allows
+    filtering in time based on linear propagation assumption
+    :cite:`hunt_four-dimensional_2004` and ensemble smoothing.
+
+    Parameters
+    ----------
+    smoothing : bool, optional
+        Indicates if this filter should be run in smoothing or in filtering
+        mode. In smoothing mode, no analysis time is selected from given state
+        and the ensemble weights are applied to the whole state. In filtering
+        mode, the weights are applied only on selected analysis time. Default
+        is False, indicating filtering mode.
+    localization : obj or None, optional
+        This localization is used to localize and constrain observations
+        spatially. If this localization is None, no localization is applied such
+        it is an inefficient version of the `ensemble transform Kalman filter`.
+        Default value is None, indicating no localization at all.
+    inf_factor : float, optional
+        Multiplicative inflation factor :math:`\\rho``, which is applied to the
+        background precision. An inflation factor greater one increases the
+        ensemble spread, while a factor less one decreases the spread. Default
+        is 1.0, which is the same as no inflation at all.
+    gpu : bool, optional
+        Indicator if the weight estimation should be done on either GPU (True)
+        or CPU (False): Default is None. For small models, estimation of the
+        weights on CPU is faster than on GPU!.
+    """
+
+    def __init__(self, localization=None, inf_factor=1.0, smoother=True,
+                 gpu=False, pre_transform=None, post_transform=None):
+        super().__init__(localization=localization, inf_factor=inf_factor,
+                         smoother=smoother, gpu=gpu,
+                         pre_transform=pre_transform,
+                         post_transform=post_transform)
+        self._gen_weights_func = etkf_core.gen_weights_uncorr
+        self._correlated = False

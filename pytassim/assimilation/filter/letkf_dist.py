@@ -35,21 +35,22 @@ import numpy as np
 from tqdm import tqdm
 
 # Internal modules
-from .letkf import LETKFilter, local_etkf
+from .letkf import LETKFCorr, local_etkf
+from .etkf_core import gen_weights_uncorr
 
 
 logger = logging.getLogger(__name__)
 
 
-def local_etkf_batch(ind, innov, hx_perts, obs_cov, back_prec, obs_grid,
-                     state_grid, state_perts, localization=None):
+def local_etkf_batch(gen_weights_func, ind, innov, hx_perts, obs_cov, back_prec,
+                     obs_grid, state_grid, state_perts, localization=None):
     ana_state = []
     weights = []
     w_mean = []
     for i in ind:
         ana_state_l, weights_l, w_mean_l = local_etkf(
-            i, innov, hx_perts, obs_cov, back_prec, obs_grid, state_grid,
-            state_perts, localization
+            gen_weights_func, i, innov, hx_perts, obs_cov, back_prec, obs_grid,
+            state_grid, state_perts, localization
         )
         ana_state.append(ana_state_l)
         weights.append(weights_l)
@@ -60,10 +61,10 @@ def local_etkf_batch(ind, innov, hx_perts, obs_cov, back_prec, obs_grid,
     return ana_state, weights, w_mean
 
 
-class DistributedLETKF(LETKFilter):
+class DistributedLETKFCorr(LETKFCorr):
     """
     This is a MPI based implementation of the `localized ensemble transform
-    Kalman filter` :cite:`hunt_efficient_2007`.
+    Kalman filter` :cite:`hunt_efficient_2007` for correlated observations.
 
     Parameters
     ----------
@@ -164,8 +165,9 @@ class DistributedLETKF(LETKFilter):
         logger.info('Starting with job submission')
         for ind in tqdm(grid_inds, total=total_steps):
             tmp_process = self.pool.submit(
-                local_etkf_batch, ind, innov, hx_perts, obs_cov, back_prec,
-                obs_grid, state_grid, back_state, self.localization
+                local_etkf_batch, self._gen_weights_func, ind, innov, hx_perts,
+                obs_cov, back_prec, obs_grid, state_grid, back_state,
+                self.localization
             )
             processes.append(tmp_process)
 
@@ -194,3 +196,45 @@ class DistributedLETKF(LETKFilter):
     def _share_states(*states):
         shared_states = [s.share_memory_() for s in states]
         return shared_states
+
+
+class DistributedLETKFUncorr(DistributedLETKFCorr):
+    """
+    This is a MPI based implementation of the `localized ensemble transform
+    Kalman filter` :cite:`hunt_efficient_2007` for uncorrelated observations.
+
+    Parameters
+    ----------
+    chunks : int, optional
+        The data is splitted up in this number of chunks.
+    localization : obj or None, optional
+        This localization is used to localize and constrain observations
+        spatially. If this localization is None, no localization is applied such
+        it is an inefficient version of the `ensemble transform Kalman filter`.
+        Default value is None, indicating no localization at all.
+    inf_factor : float, optional
+        Multiplicative inflation factor :math:`\\rho``, which is applied to the
+        background precision. An inflation factor greater one increases the
+        ensemble spread, while a factor less one decreases the spread. Default
+        is 1.0, which is the same as no inflation at all.
+    smoother : bool, optional
+        Indicates if this filter should be run in smoothing or in filtering
+        mode. In smoothing mode, no analysis time is selected from given state
+        and the ensemble weights are applied to the whole state. In filtering
+        mode, the weights are applied only on selected analysis time. Default
+        is False, indicating filtering mode.
+    gpu : bool, optional
+        Indicator if the weight estimation should be done on either GPU (True)
+        or CPU (False): Default is None. For small models, estimation of the
+        weights on CPU is faster than on GPU!.
+    """
+    def __init__(self, pool, chunksize=10, localization=None, inf_factor=1.0,
+                 smoother=True, gpu=False, pre_transform=None,
+                 post_transform=None):
+        super().__init__(pool=pool, chunksize=chunksize,
+                         localization=localization, inf_factor=inf_factor,
+                         smoother=smoother, gpu=gpu,
+                         pre_transform=pre_transform,
+                         post_transform=post_transform)
+        self._gen_weights_func = gen_weights_uncorr
+        self._correlated = False

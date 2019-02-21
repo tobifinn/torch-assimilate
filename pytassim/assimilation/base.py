@@ -32,6 +32,7 @@ import datetime
 
 # External modules
 import xarray as xr
+import numpy as np
 import scipy.linalg
 import pandas as pd
 import torch
@@ -58,6 +59,7 @@ class BaseAssimilation(object):
         self.pre_transform = pre_transform
         self.post_transform = post_transform
         self.dtype = torch.double
+        self._correlated = True
 
     def _states_to_torch(self, *states):
         if self.gpu:
@@ -77,8 +79,7 @@ class BaseAssimilation(object):
             err_msg = '*** Given state is not a valid state ***\n{0:s}'
             raise StateError(err_msg.format(str(state)))
 
-    @staticmethod
-    def _validate_single_obs(observation):
+    def _validate_single_obs(self, observation):
         if not isinstance(observation, xr.Dataset):
             raise TypeError('*** Given observation is not a valid'
                             '``xarray.Dataset`` ***\n{0:s}'.format(observation))
@@ -86,6 +87,14 @@ class BaseAssimilation(object):
             err_msg = '*** Given observation is not a valid observation ***' \
                       '\n{0:s}'
             raise ObservationError(err_msg.format(str(observation)))
+        if observation.obs.correlated != self._correlated:
+            err_msg = '*** The correlation of the observation {0:s} is not ' \
+                      'the same as the asked correlation of this ' \
+                      'assimilation algorithm (asked: {1:s}, actual: {2:s}) ***'
+            raise ObservationError(
+                err_msg.format(str(observation), str(self._correlated),
+                               str(observation.obs.correlated))
+            )
 
     def _validate_observations(self, observations):
         if isinstance(observations, (list, set, tuple)):
@@ -151,8 +160,7 @@ class BaseAssimilation(object):
                 pass
         return obs_equivalent, filtered_observations
 
-    @staticmethod
-    def _prepare_obs(observations):
+    def _prepare_obs(self, observations):
         state_stacked_list = []
         cov_stacked_list = []
         for obs in observations:
@@ -166,13 +174,19 @@ class BaseAssimilation(object):
             len_time = len(obs.time)
             # Cannot use indexing or tiling due to possible rank deficiency
             stacked_cov = [obs['covariance'].values] * len_time
-            stacked_cov = scipy.linalg.block_diag(*stacked_cov)
+            if self._correlated:
+                stacked_cov = scipy.linalg.block_diag(*stacked_cov)
+            else:
+                stacked_cov = np.concatenate(stacked_cov)
             state_stacked_list.append(stacked_obs)
             cov_stacked_list.append(stacked_cov)
         state_concat = xr.concat(state_stacked_list, dim='obs_id')
         state_values = state_concat.values
         state_grid = state_concat.obs_grid_1.values
-        state_covariance = scipy.linalg.block_diag(*cov_stacked_list)
+        if self._correlated:
+            state_covariance = scipy.linalg.block_diag(*cov_stacked_list)
+        else:
+            state_covariance = np.concatenate(cov_stacked_list)
         return state_values, state_covariance, state_grid
 
     @abc.abstractmethod
@@ -251,9 +265,6 @@ class BaseAssimilation(object):
         """
         start_time = time.time()
         logger.info('Starting assimilation')
-        if isinstance(analysis_time, datetime.datetime):
-            logger.info('Analysis time: {0:s}'.format(
-                analysis_time.strftime('%Y-%m-%d %H:%M UTC')))
         if not observations:
             warnings.warn('No observation is given, I will return the '
                           'background state!', UserWarning)
@@ -263,6 +274,12 @@ class BaseAssimilation(object):
         self._validate_state(state)
         self._validate_observations(observations)
         analysis_time = self._get_analysis_time(state, analysis_time)
+        if isinstance(analysis_time, datetime.datetime):
+            logger.info(
+                'Analysis time: {0:s}'.format(
+                    analysis_time.strftime('%Y-%m-%d %H:%M UTC')
+                )
+            )
         if self.smoother:
             back_state = state
         else:
