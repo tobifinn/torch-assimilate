@@ -36,7 +36,7 @@ import numpy as np
 # Internal modules
 import pytassim.state
 import pytassim.observation
-from pytassim.assimilation.filter.letkf import ETKFilter
+from pytassim.assimilation.filter.letkf import ETKFCorr
 from pytassim.assimilation.filter.letkf import LETKFilter
 from pytassim.assimilation.filter import etkf_core
 from pytassim.testing import dummy_obs_operator, DummyLocalization
@@ -63,7 +63,7 @@ class TestLETKF(unittest.TestCase):
         self.obs.close()
 
     def test_wo_localization_letkf_equals_etkf(self):
-        etkf = ETKFilter()
+        etkf = ETKFCorr()
         obs_tuple = (self.obs, self.obs)
         etkf_analysis = etkf.assimilate(self.state, obs_tuple)
         letkf_analysis = self.algorithm.assimilate(self.state, obs_tuple)
@@ -112,7 +112,7 @@ class TestLETKF(unittest.TestCase):
         self.assertEqual(loc_patch.call_count, nr_grid_points)
 
     def test_wo_localization_letkf_equals_etkf_smoothing(self):
-        etkf = ETKFilter(smoother=True)
+        etkf = ETKFCorr(smoother=True)
         self.algorithm.smoother = True
         obs_tuple = (self.obs, self.obs)
         etkf_analysis = etkf.assimilate(self.state, obs_tuple)
