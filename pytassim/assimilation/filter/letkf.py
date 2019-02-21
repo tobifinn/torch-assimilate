@@ -51,7 +51,9 @@ def local_etkf(gen_weights_func, ind, innov, hx_perts, obs_cov, back_prec,
             obs_weights = obs_weights.cuda()
         innov = innov[use_obs]
         hx_perts = hx_perts[use_obs]
-        obs_cov = obs_cov[use_obs, :][:, use_obs]
+        obs_cov = obs_cov[use_obs, ...]
+        if obs_cov.dim() == 2:
+            obs_cov = obs_cov[..., use_obs]
     w_mean_l, w_perts_l = gen_weights_func(
         back_prec, innov, hx_perts, obs_cov, obs_weights
     )
