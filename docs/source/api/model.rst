@@ -1,6 +1,16 @@
 This submodule includes different models and integration solutions, and can be
 used to test the efficiency of different data assimilation algorithms.
 
+Model interface
+---------------
+This model interface coupled real-world model output with this data assimilation
+framework.
+
+.. automodule:: pytassim.model.terrsysmp.cosmo
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Models
 ------
 This documents all available and tested models. These models have to be
