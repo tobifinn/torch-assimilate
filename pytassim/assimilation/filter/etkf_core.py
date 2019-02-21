@@ -225,5 +225,6 @@ def _compute_c_chol(hx_perts, obs_cov, obs_weights=1, alpha=0):
             else:
                 alpha *= 10
             obs_cov_prod.view(-1)[:end:step] += alpha
+    logger.debug('Cholesky decomposition alpha: {0:.2E}'.format(alpha))
     calculated_c = calculated_c * obs_weights
-    return calculated_c, alpha
+    return calculated_c
