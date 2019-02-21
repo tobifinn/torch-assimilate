@@ -26,14 +26,14 @@
 # System modules
 import logging
 
-import torch
 # External modules
 import xarray as xr
 from tqdm import tqdm
+import torch
 
-from . import etkf_core
 # Internal modules
-from .etkf import ETKFilter
+from .etkf import ETKFCorr
+from . import etkf_core
 
 logger = logging.getLogger(__name__)
 
@@ -52,14 +52,15 @@ def local_etkf(ind, innov, hx_perts, obs_cov, back_prec, obs_grid, state_grid,
         innov = innov[use_obs]
         hx_perts = hx_perts[use_obs]
         obs_cov = obs_cov[use_obs, :][:, use_obs]
-    w_mean_l, w_perts_l = etkf_core.gen_weights(back_prec, innov, hx_perts,
-                                                obs_cov, obs_weights)
-    weights_l = (w_mean_l + w_perts_l).t()
+    w_mean_l, w_perts_l = etkf_core.gen_weights_corr(
+        back_prec, innov, hx_perts, obs_cov, obs_weights
+    )
+    weights_l = (w_mean_l+w_perts_l).t()
     ana_state_l = torch.matmul(state_perts[ind], weights_l)
     return ana_state_l, weights_l, w_mean_l
 
 
-class LETKFilter(ETKFilter):
+class LETKFilter(ETKFCorr):
     """
     This is an implementation of the `localized ensemble transform Kalman
     filter` :cite:`hunt_efficient_2007`, which is a localized version of the

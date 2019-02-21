@@ -32,17 +32,17 @@ import torch
 # External modules
 import xarray as xr
 
-from .etkf_core import gen_weights
+from .etkf_core import gen_weights_corr, gen_weights_uncorr
 # Internal modules
 from .filter import FilterAssimilation
 
 logger = logging.getLogger(__name__)
 
 
-class ETKFilter(FilterAssimilation):
+class ETKFCorr(FilterAssimilation):
     """
     This is an implementation of the `ensemble transform Kalman filter`
-    :cite:`bishop_adaptive_2001`.
+    :cite:`bishop_adaptive_2001` for correlated observation covariances.
     This ensemble Kalman filter is a deterministic filter, where the state is
     update globally. This ensemble Kalman filter estimates ensemble weights in
     weight space, which are then applied to the given state. This implementation
@@ -78,6 +78,7 @@ class ETKFilter(FilterAssimilation):
         self.inf_factor = inf_factor
         self._back_prec = None
         self._weights = None
+        self._gen_weights_func = gen_weights_corr
 
     @property
     def weights(self):
@@ -124,7 +125,9 @@ class ETKFilter(FilterAssimilation):
         innov, hx_perts, obs_cov = self._states_to_torch(*prepared_states)
         back_prec = self._get_back_prec(len(state.ensemble))
         logger.info('Gathering the weights')
-        w_mean, w_perts = gen_weights(back_prec, innov, hx_perts, obs_cov)
+        w_mean, w_perts = self._gen_weights_func(
+            back_prec, innov, hx_perts, obs_cov
+        )
         logger.info('Applying weights to state')
         state_mean, state_perts = state.state.split_mean_perts()
         analysis = self._apply_weights(w_mean, w_perts, state_mean, state_perts)
