@@ -32,6 +32,7 @@ import datetime
 
 # External modules
 import xarray as xr
+import numpy as np
 import scipy.linalg
 import pandas as pd
 import torch
@@ -152,8 +153,7 @@ class BaseAssimilation(object):
                 pass
         return obs_equivalent, filtered_observations
 
-    @staticmethod
-    def _prepare_obs(observations):
+    def _prepare_obs(self, observations):
         state_stacked_list = []
         cov_stacked_list = []
         for obs in observations:
@@ -167,13 +167,19 @@ class BaseAssimilation(object):
             len_time = len(obs.time)
             # Cannot use indexing or tiling due to possible rank deficiency
             stacked_cov = [obs['covariance'].values] * len_time
-            stacked_cov = scipy.linalg.block_diag(*stacked_cov)
+            if self._correlated:
+                stacked_cov = scipy.linalg.block_diag(*stacked_cov)
+            else:
+                stacked_cov = np.concatenate(stacked_cov)
             state_stacked_list.append(stacked_obs)
             cov_stacked_list.append(stacked_cov)
         state_concat = xr.concat(state_stacked_list, dim='obs_id')
         state_values = state_concat.values
         state_grid = state_concat.obs_grid_1.values
-        state_covariance = scipy.linalg.block_diag(*cov_stacked_list)
+        if self._correlated:
+            state_covariance = scipy.linalg.block_diag(*cov_stacked_list)
+        else:
+            state_covariance = np.concatenate(cov_stacked_list)
         return state_values, state_covariance, state_grid
 
     @abc.abstractmethod
