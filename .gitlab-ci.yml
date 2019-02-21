@@ -41,7 +41,6 @@ check-envs:
         - "conda remove --name $ENV_TEST --all || :"
         - "conda remove --name $DEV_ENV_TEST --all || :"
     script:
-        - conda update --all
         - conda env create -f environment.yml --name $ENV_TEST
         - conda env create -f dev_environment.yml --name $DEV_ENV_TEST
 
