@@ -721,6 +721,13 @@ class TestETKFUncorr(unittest.TestCase):
             len(self.state.ensemble))
         obs_path = os.path.join(DATA_PATH, 'test_single_obs.nc')
         self.obs = xr.open_dataset(obs_path).load()
+        self.obs['covariance'] = xr.DataArray(
+            np.diag(self.obs.covariance.values),
+            coords={
+                'obs_grid_1': self.obs.obs_grid_1
+            },
+            dims=['obs_grid_1']
+        )
         self.obs.obs.operator = dummy_obs_operator
 
     def tearDown(self):
@@ -734,29 +741,48 @@ class TestETKFUncorr(unittest.TestCase):
     def test_etkf_sets_correlated_to_false(self):
         self.assertFalse(self.algorithm._correlated)
 
+    def test_prepare_obs_returns_diagonal_elements_of_cov(self):
+        len_time = len(self.obs.time)
+        stacked_cov = np.concatenate(
+            [self.obs['covariance'].values] * len_time
+        )
+        diag_cov = np.concatenate([stacked_cov, stacked_cov])
+        _, returned_cov, _ = self.algorithm._prepare_obs(
+            (self.obs, self.obs)
+        )
+        np.testing.assert_equal(returned_cov, diag_cov)
+
     def test_calculate_c_returns_same_for_diag(self):
         obs_tuple = [self.obs, ] * 5
         _, obs_cov, _ = self.algorithm._prepare_obs(obs_tuple)
         _, hx_perts, _ = self.algorithm._prepare_back_obs(self.state, obs_tuple)
         obs_cov = torch.tensor(obs_cov)
         hx_perts = torch.tensor(hx_perts)
-        diag_c = etkf_core._compute_c_diag(hx_perts, torch.diag(obs_cov))
-        chol_c = etkf_core._compute_c_chol(hx_perts, obs_cov)
+        diag_c = etkf_core._compute_c_diag(hx_perts, obs_cov)
+        chol_c = etkf_core._compute_c_chol(hx_perts, torch.diag(obs_cov))
         torch.testing.assert_allclose(diag_c, chol_c)
 
     def test_diagonal_inverse_returns_inverse_of_diagonal_matrix(self):
         obs_tuple = [self.obs, ] * 5
         _, obs_cov, _ = self.algorithm._prepare_obs(obs_tuple)
         _, hx_perts, _ = self.algorithm._prepare_back_obs(self.state, obs_tuple)
-        est_c = np.matmul(hx_perts.T, np.linalg.inv(obs_cov))
+        est_c = np.matmul(hx_perts.T, np.linalg.inv(np.diag(obs_cov)))
         self.assertTupleEqual(est_c.shape, hx_perts.T.shape)
 
         t_obs_cov = torch.tensor(obs_cov)
         t_hx_perts = torch.tensor(hx_perts)
         ret_c = etkf_core._compute_c_diag(
-            t_hx_perts, torch.diag(t_obs_cov)
+            t_hx_perts, t_obs_cov
         ).numpy()
         self.assertTupleEqual(ret_c.shape, hx_perts.T.shape)
+
+    def test_algorithm_works(self):
+        self.algorithm.inf_factor = 1.2
+        ana_time = self.state.time[-1].values
+        obs_tuple = (self.obs, self.obs.copy())
+        assimilated_state = self.algorithm.assimilate(self.state, obs_tuple,
+                                                      ana_time)
+        self.assertFalse(np.any(np.isnan(assimilated_state.values)))
 
 
 if __name__ == '__main__':
