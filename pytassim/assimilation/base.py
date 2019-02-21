@@ -79,8 +79,7 @@ class BaseAssimilation(object):
             err_msg = '*** Given state is not a valid state ***\n{0:s}'
             raise StateError(err_msg.format(str(state)))
 
-    @staticmethod
-    def _validate_single_obs(observation):
+    def _validate_single_obs(self, observation):
         if not isinstance(observation, xr.Dataset):
             raise TypeError('*** Given observation is not a valid'
                             '``xarray.Dataset`` ***\n{0:s}'.format(observation))
@@ -88,6 +87,14 @@ class BaseAssimilation(object):
             err_msg = '*** Given observation is not a valid observation ***' \
                       '\n{0:s}'
             raise ObservationError(err_msg.format(str(observation)))
+        if observation.obs.correlated != self._correlated:
+            err_msg = '*** The correlation of the observation {0:s} is not ' \
+                      'the same as the asked correlation of this ' \
+                      'assimilation algorithm (asked: {1:s}, actual: {2:s}) ***'
+            raise ObservationError(
+                err_msg.format(str(observation), str(self._correlated),
+                               str(observation.obs.correlated))
+            )
 
     def _validate_observations(self, observations):
         if isinstance(observations, (list, set, tuple)):
