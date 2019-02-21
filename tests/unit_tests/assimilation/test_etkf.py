@@ -39,7 +39,7 @@ import scipy.linalg.blas
 # Internal modules
 import pytassim.state
 import pytassim.observation
-from pytassim.assimilation.filter.etkf import ETKFCorr
+from pytassim.assimilation.filter.etkf import ETKFCorr, ETKFUncorr
 from pytassim.testing import dummy_obs_operator, if_gpu_decorator
 from pytassim.assimilation.filter import etkf_core
 
@@ -711,55 +711,52 @@ class TestETKFCorr(unittest.TestCase):
                                                       ana_time)
         self.assertFalse(np.any(np.isnan(assimilated_state.values)))
 
-#
-# class TestETKFUncorr(unittest.TestCase):
-#     def setUp(self):
-#         self.algorithm = ETKFUncorr()
-#         state_path = os.path.join(DATA_PATH, 'test_state.nc')
-#         self.state = xr.open_dataarray(state_path).load()
-#         self.back_prec = self.algorithm._get_back_prec(
-#             len(self.state.ensemble))
-#         obs_path = os.path.join(DATA_PATH, 'test_single_obs.nc')
-#         self.obs = xr.open_dataset(obs_path).load()
-#         self.obs.obs.operator = dummy_obs_operator
-#
-#     def tearDown(self):
-#         self.state.close()
-#         self.obs.close()
-#
-#     def test_calculate_c_returns_same_for_diag(self):
-#         obs_tuple = [self.obs, ] * 5
-#         _, obs_cov, _ = self.algorithm._prepare_obs(obs_tuple)
-#         _, hx_perts, _ = self.algorithm._prepare_back_obs(self.state, obs_tuple)
-#         obs_cov = torch.tensor(obs_cov)
-#         hx_perts = torch.tensor(hx_perts)
-#         diag_c = etkf_core._compute_c_diag(hx_perts, obs_cov)
-#         chol_c, _ = etkf_core._compute_c_chol(hx_perts, obs_cov)
-#         torch.testing.assert_allclose(diag_c, chol_c)
-#
-#     def test_calculate_c_calls_diag_if_diag_matrix(self):
-#         obs_tuple = [self.obs, ] * 5
-#         _, obs_cov, _ = self.algorithm._prepare_obs(obs_tuple)
-#         _, hx_perts, _ = self.algorithm._prepare_back_obs(self.state, obs_tuple)
-#         obs_cov = torch.tensor(obs_cov)
-#         hx_perts = torch.tensor(hx_perts)
-#         est_c = etkf_core._compute_c_diag(hx_perts, obs_cov)
-#         trg = 'pytassim.assimilation.filter.etkf_core._compute_c_diag'
-#         with patch(trg, return_value=est_c) as c_patch:
-#             _ = etkf_core._compute_c(hx_perts, obs_cov)
-#         c_patch.assert_called_once_with(hx_perts, obs_cov)
-#
-#     def test_diagonal_inverse_returns_inverse_of_diagonal_matrix(self):
-#         obs_tuple = [self.obs, ] * 5
-#         _, obs_cov, _ = self.algorithm._prepare_obs(obs_tuple)
-#         _, hx_perts, _ = self.algorithm._prepare_back_obs(self.state, obs_tuple)
-#         est_c = np.matmul(hx_perts.T, np.linalg.inv(obs_cov))
-#         self.assertTupleEqual(est_c.shape, hx_perts.T.shape)
-#
-#         t_obs_cov = torch.tensor(obs_cov)
-#         t_hx_perts = torch.tensor(hx_perts)
-#         ret_c = etkf_core._compute_c_diag(t_hx_perts, t_obs_cov).numpy()
-#         self.assertTupleEqual(ret_c.shape, hx_perts.T.shape)
+
+class TestETKFUncorr(unittest.TestCase):
+    def setUp(self):
+        self.algorithm = ETKFUncorr()
+        state_path = os.path.join(DATA_PATH, 'test_state.nc')
+        self.state = xr.open_dataarray(state_path).load()
+        self.back_prec = self.algorithm._get_back_prec(
+            len(self.state.ensemble))
+        obs_path = os.path.join(DATA_PATH, 'test_single_obs.nc')
+        self.obs = xr.open_dataset(obs_path).load()
+        self.obs.obs.operator = dummy_obs_operator
+
+    def tearDown(self):
+        self.state.close()
+        self.obs.close()
+    
+    def test_etkf_sets_gen_func_to_uncorr(self):
+        self.assertEqual(self.algorithm._gen_weights_func,
+                         etkf_core.gen_weights_uncorr)
+
+    def test_etkf_sets_correlated_to_false(self):
+        self.assertFalse(self.algorithm._correlated)
+
+    def test_calculate_c_returns_same_for_diag(self):
+        obs_tuple = [self.obs, ] * 5
+        _, obs_cov, _ = self.algorithm._prepare_obs(obs_tuple)
+        _, hx_perts, _ = self.algorithm._prepare_back_obs(self.state, obs_tuple)
+        obs_cov = torch.tensor(obs_cov)
+        hx_perts = torch.tensor(hx_perts)
+        diag_c = etkf_core._compute_c_diag(hx_perts, torch.diag(obs_cov))
+        chol_c = etkf_core._compute_c_chol(hx_perts, obs_cov)
+        torch.testing.assert_allclose(diag_c, chol_c)
+
+    def test_diagonal_inverse_returns_inverse_of_diagonal_matrix(self):
+        obs_tuple = [self.obs, ] * 5
+        _, obs_cov, _ = self.algorithm._prepare_obs(obs_tuple)
+        _, hx_perts, _ = self.algorithm._prepare_back_obs(self.state, obs_tuple)
+        est_c = np.matmul(hx_perts.T, np.linalg.inv(obs_cov))
+        self.assertTupleEqual(est_c.shape, hx_perts.T.shape)
+
+        t_obs_cov = torch.tensor(obs_cov)
+        t_hx_perts = torch.tensor(hx_perts)
+        ret_c = etkf_core._compute_c_diag(
+            t_hx_perts, torch.diag(t_obs_cov)
+        ).numpy()
+        self.assertTupleEqual(ret_c.shape, hx_perts.T.shape)
 
 
 if __name__ == '__main__':

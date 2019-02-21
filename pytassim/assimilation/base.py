@@ -58,6 +58,7 @@ class BaseAssimilation(object):
         self.pre_transform = pre_transform
         self.post_transform = post_transform
         self.dtype = torch.double
+        self._correlated = True
 
     def _states_to_torch(self, *states):
         if self.gpu:
