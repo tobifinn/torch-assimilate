@@ -84,24 +84,46 @@ class Observation(object):
         self.ds = xr_ds
 
     @property
-    def _valid_dims(self):
+    def correlated(self):
         """
-        Checks if ``time``, ``obs_grid_1`` and ``obs_grid_2`` are available
-        within the :py:class:`~xarray.Dataset`.
+        Checks if the observations are correlated based on the dimensions of
+        given dataset.
 
         Returns
         -------
-        keys_avail : bool
+        correlated : bool
+            If the observations are correlated
+        """
+        correlated = 'obs_grid_2' in self.ds['covariance'].dims
+        return correlated
+
+    @property
+    def _valid_dims(self):
+        """
+        Checks if ``time``, ``obs_grid_1`` are available within the
+        :py:class:`~xarray.Dataset` and if ``time``, ``obs_grid_1`` and
+        ``obs_grid_2`` are the only dimensions.
+
+        Returns
+        -------
+        valid_dims : bool
             If the dimensions are available.
         """
-        necessary_dims = (
-            'time', 'obs_grid_1', 'obs_grid_2'
-        )
+        necessary_dims = [
+            'time', 'obs_grid_1'
+        ]
         keys_avail = all(
             True if d in tuple(self.ds.dims.keys()) else False
             for d in necessary_dims
         )
-        return keys_avail
+
+        all_dims = necessary_dims + ['obs_grid_2']
+        no_auxiliary = all(
+            True if d in all_dims else False for d in tuple(self.ds.dims.keys())
+        )
+
+        valid_dims = keys_avail and no_auxiliary
+        return valid_dims
 
     @property
     def _valid_obs(self):
@@ -119,9 +141,29 @@ class Observation(object):
         return valid_obs
 
     @property
-    def _valid_cov(self):
+    def _valid_cov_uncorr(self):
         """
-        Checks if shape and dimensions of the ``covariance``
+        Checks if shape and dimensions of the uncorrelated ``covariance``
+        :py:class:`~xarray.DataArray` within the set dataset are valid.
+
+        Returns
+        -------
+        valid_cov : bool
+            If the ``covariance`` :py:class:`~xarray.DataArray` is valid.
+        """
+        dim_order = ('obs_grid_1',)
+        checked_dims = dim_order == self.ds['covariance'].dims
+
+        obs_grid_len = self.ds['observations'].shape[-1]
+        valid_shape = (obs_grid_len,)
+        checked_shape = valid_shape == self.ds['covariance'].shape
+        valid_cov = checked_dims and checked_shape
+        return valid_cov
+
+    @property
+    def _valid_cov_corr(self):
+        """
+        Checks if shape and dimensions of the correlated ``covariance``
         :py:class:`~xarray.DataArray` within the set dataset are valid.
 
         Returns
@@ -158,7 +200,10 @@ class Observation(object):
             If the two :py:class:`~xarray.DataArray`s are valid.
         """
         try:
-            valid_array = self._valid_obs and self._valid_cov
+            if self.correlated:
+                valid_array = self._valid_obs and self._valid_cov_corr
+            else:
+                valid_array = self._valid_obs and self._valid_cov_uncorr
         except KeyError:
             valid_array = False
         return valid_array

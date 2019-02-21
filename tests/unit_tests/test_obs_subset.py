@@ -71,10 +71,10 @@ class TestObsSubset(unittest.TestCase):
         self.obs_ds = self.obs_ds.rename({'obs_grid_1': 'test_1'})
         self.assertFalse(self.obs_ds.obs.valid)
 
-    def test_valid_checks_if_grid_points_2_exists(self):
-        self.assertTrue(self.obs_ds.obs.valid)
-        self.obs_ds = self.obs_ds.rename({'obs_grid_2': 'test_1'})
-        self.assertFalse(self.obs_ds.obs.valid)
+    def test_valid_dim_checks_auxiliary_dims(self):
+        self.assertTrue(self.obs_ds.obs._valid_dims)
+        self.obs_ds = self.obs_ds.rename({'obs_grid_2': 'test_2'})
+        self.assertFalse(self.obs_ds.obs._valid_dims)
 
     def test_valid_obs_checks_the_last_two_dims_of_obs_array(self):
         self.assertTrue(self.obs_ds.obs._valid_obs)
@@ -84,26 +84,48 @@ class TestObsSubset(unittest.TestCase):
         self.assertFalse(self.obs_ds.obs._valid_obs)
 
     def test_valid_cov_checks_last_two_dims_of_cov_array(self):
-        self.assertTrue(self.obs_ds.obs._valid_cov)
+        self.assertTrue(self.obs_ds.obs._valid_cov_corr)
         obs_ds = self.obs_ds.rename({'obs_grid_1': 'test_1'})
-        self.assertFalse(obs_ds.obs._valid_cov)
+        self.assertFalse(obs_ds.obs._valid_cov_corr)
         self.obs_ds['covariance'] = self.obs_ds['covariance'].T
-        self.assertFalse(self.obs_ds.obs._valid_cov)
+        self.assertFalse(self.obs_ds.obs._valid_cov_corr)
 
     def test_valid_cov_checks_last_shape_of_dims(self):
-        self.assertTrue(self.obs_ds.obs._valid_cov)
+        self.assertTrue(self.obs_ds.obs._valid_cov_corr)
         obs_ds = self.obs_ds.copy()
         obs_ds = obs_ds.isel(obs_grid_2=slice(0, 2))
-        self.assertFalse(obs_ds.obs._valid_cov)
+        self.assertFalse(obs_ds.obs._valid_cov_corr)
         obs_ds = self.obs_ds.copy()
         obs_ds = obs_ds.isel(obs_grid_1=slice(0, 2))
-        self.assertFalse(obs_ds.obs._valid_cov)
+        self.assertFalse(obs_ds.obs._valid_cov_corr)
 
     def test_valid_cov_checks_grid_dim_values(self):
-        self.assertTrue(self.obs_ds.obs._valid_cov)
+        self.assertTrue(self.obs_ds.obs._valid_cov_corr)
         obs_ds = self.obs_ds.copy()
         obs_ds['obs_grid_2'] = obs_ds['obs_grid_2'] + 10
-        self.assertFalse(obs_ds.obs._valid_cov)
+        self.assertFalse(obs_ds.obs._valid_cov_corr)
+
+    def test_valid_cov_uncorr_checks_dim_order(self):
+        self.assertFalse(self.obs_ds.obs._valid_cov_uncorr)
+        self.obs_ds['covariance'] = xr.DataArray(
+            np.diag(self.obs_ds['covariance'].values),
+            coords={
+                'obs_grid_1': self.obs_ds.obs_grid_1
+            },
+            dims=['obs_grid_1']
+        )
+        self.assertTrue(self.obs_ds.obs._valid_cov_uncorr)
+
+    def test_correlated_property_checks_if_obs_grid_2_available(self):
+        self.assertTrue(self.obs_ds.obs.correlated)
+        self.obs_ds['covariance'] = xr.DataArray(
+            np.diag(self.obs_ds['covariance'].values),
+            coords={
+                'obs_grid_1': self.obs_ds.obs_grid_1
+            },
+            dims=['obs_grid_1']
+        )
+        self.assertFalse(self.obs_ds.obs.correlated)
 
     def test_valid_arrays_checks_if_arrays_available(self):
         self.assertTrue(self.obs_ds.obs._valid_arrays)
@@ -122,6 +144,16 @@ class TestObsSubset(unittest.TestCase):
         obs_ds = self.obs_ds.copy()
         obs_ds = obs_ds.isel(obs_grid_2=slice(0, 2))
         self.assertFalse(obs_ds.obs._valid_arrays)
+
+    def test_valid_array_uses_uncorrelated_for_uncorrelated_cov(self):
+        self.obs_ds['covariance'] = xr.DataArray(
+            np.diag(self.obs_ds['covariance'].values),
+            coords={
+                'obs_grid_1': self.obs_ds.obs_grid_1
+            },
+            dims=['obs_grid_1']
+        )
+        self.assertTrue(self.obs_ds.obs._valid_arrays)
 
     def test_valid_checks_if_vars_are_available(self):
         self.assertTrue(self.obs_ds.obs.valid)
