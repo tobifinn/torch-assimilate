@@ -64,11 +64,13 @@ class Observation(object):
         The dataset needs two variables:
 
             observations
-                (time, obs_grid_1), the actual observations
+                (time, obs_grid_1), the actual observation values
 
             covariance
-                (obs_grid_1, obs_grid_2), the covariance between different
-                observations
+                (obs_grid_1) or (obs_grid_1, obs_grid_2), the covariance between
+                different observations. If this is a vector, then it is assumed
+                that the observations are uncorrelated and only the variances
+                are witihn this array.
 
         ``obs_grid_1`` and ``obs_grid_2`` are the same, but due to internals of
         xarray they are saved under different coordinates. It is possible to
