@@ -19,6 +19,10 @@ As forgetting factor in time, an inflation factor can be chosen. This inflation
 factor is used to artifically inflate the background weights and leads to an
 inflated analysis ensemble.
 
+.. autosummary::
+    pytassim.assimilation.filter.etkf.ETKFCorr
+    pytassim.assimilation.filter.etkf.ETKFUncorr
+
 Localized Ensemble Transform Kalman filter
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The localized ensemble transform Kalman filter (LETKF)
@@ -43,10 +47,6 @@ As forgetting factor in time, an inflation factor can be chosen. This inflation
 factor is used to artifically inflate the background weights and leads to an
 inflated analysis ensemble.
 
-Implementations
-^^^^^^^^^^^^^^^
 .. autosummary::
-    pytassim.assimilation.filter.etkf.ETKFCorr
-    pytassim.assimilation.filter.etkf.ETKFUncorr
     pytassim.assimilation.filter.letkf.LETKFCorr
     pytassim.assimilation.filter.letkf.LETKFUncorr
