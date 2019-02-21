@@ -38,8 +38,8 @@ localization. If no localization is used, the analysis will be the same as for
 the ETKF, but only estimated in an inefficient way.
 
 As for the ETKF, the weights are estimated for either correlated
-:py:class:`pytassim.assimilation.filter.etkf.LETKFCorr` or uncorrelated
-:py:class:`pytassim.assimilation.filter.etkf.LETKFUncorr` observations. The
+:py:class:`pytassim.assimilation.filter.letkf.LETKFCorr` or uncorrelated
+:py:class:`pytassim.assimilation.filter.letkf.LETKFUncorr` observations. The
 implementation further allows filtering in time based on linear propagation
 assumption :cite:`hunt_four-dimensional_2004` and ensemble smoothing.
 

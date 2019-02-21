@@ -28,13 +28,20 @@ vertical coordinates are assigned to the lowest half level. It is possible to
 select variables, which should be used for data assimilation.
 
 An analysis array can be converted into a valid COSMO dataset by using
-:py:func:`~pytassim.model.terrsysmp.cosmo.post_process_cosmo`. This function
+:py:func:`~pytassim.model.terrsysmp.cosmo.postprocess_cosmo`. This function
 returns a given COSMO dataset, where analysed variables replace their forecasted
 counterpart.
 
 .. autosummary::
     pytassim.model.terrsysmp.cosmo.preprocess_cosmo
-    pytassim.model.terrsysmp.cosmo.post_process_cosmo
+    pytassim.model.terrsysmp.cosmo.postprocess_cosmo
+
+Community Land Model (CLM)
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Community Land Model (CLM) is a land surface model written by the National
+Center for Atmospheric Research (NCAR)
+:cite:`oleson_technical_2004,oleson_k._w._improvements_2008`.
 
 Lorenz '96
 ----------
