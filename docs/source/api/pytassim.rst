@@ -22,6 +22,13 @@ Models
 
    model
 
+Observation operators
+---------------------
+.. toctree::
+   :maxdepth: 2
+
+   obs_ops
+
 Testing
 -------
 .. toctree::
