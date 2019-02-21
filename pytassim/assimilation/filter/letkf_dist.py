@@ -35,21 +35,21 @@ import numpy as np
 from tqdm import tqdm
 
 # Internal modules
-from .letkf import LETKFilter, local_etkf
+from .letkf import LETKFCorr, local_etkf
 
 
 logger = logging.getLogger(__name__)
 
 
-def local_etkf_batch(ind, innov, hx_perts, obs_cov, back_prec, obs_grid,
-                     state_grid, state_perts, localization=None):
+def local_etkf_batch(gen_weights_func, ind, innov, hx_perts, obs_cov, back_prec,
+                     obs_grid, state_grid, state_perts, localization=None):
     ana_state = []
     weights = []
     w_mean = []
     for i in ind:
         ana_state_l, weights_l, w_mean_l = local_etkf(
-            i, innov, hx_perts, obs_cov, back_prec, obs_grid, state_grid,
-            state_perts, localization
+            gen_weights_func, i, innov, hx_perts, obs_cov, back_prec, obs_grid,
+            state_grid, state_perts, localization
         )
         ana_state.append(ana_state_l)
         weights.append(weights_l)
@@ -60,10 +60,10 @@ def local_etkf_batch(ind, innov, hx_perts, obs_cov, back_prec, obs_grid,
     return ana_state, weights, w_mean
 
 
-class DistributedLETKF(LETKFilter):
+class DistributedLETKFCorr(LETKFCorr):
     """
     This is a MPI based implementation of the `localized ensemble transform
-    Kalman filter` :cite:`hunt_efficient_2007`.
+    Kalman filter` :cite:`hunt_efficient_2007` for correlated observations.
 
     Parameters
     ----------
@@ -164,8 +164,9 @@ class DistributedLETKF(LETKFilter):
         logger.info('Starting with job submission')
         for ind in tqdm(grid_inds, total=total_steps):
             tmp_process = self.pool.submit(
-                local_etkf_batch, ind, innov, hx_perts, obs_cov, back_prec,
-                obs_grid, state_grid, back_state, self.localization
+                local_etkf_batch, self._gen_weights_func, ind, innov, hx_perts,
+                obs_cov, back_prec, obs_grid, state_grid, back_state,
+                self.localization
             )
             processes.append(tmp_process)
 
