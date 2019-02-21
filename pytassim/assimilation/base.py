@@ -265,9 +265,6 @@ class BaseAssimilation(object):
         """
         start_time = time.time()
         logger.info('Starting assimilation')
-        if isinstance(analysis_time, datetime.datetime):
-            logger.info('Analysis time: {0:s}'.format(
-                analysis_time.strftime('%Y-%m-%d %H:%M UTC')))
         if not observations:
             warnings.warn('No observation is given, I will return the '
                           'background state!', UserWarning)
@@ -277,6 +274,12 @@ class BaseAssimilation(object):
         self._validate_state(state)
         self._validate_observations(observations)
         analysis_time = self._get_analysis_time(state, analysis_time)
+        if isinstance(analysis_time, datetime.datetime):
+            logger.info(
+                'Analysis time: {0:s}'.format(
+                    analysis_time.strftime('%Y-%m-%d %H:%M UTC')
+                )
+            )
         if self.smoother:
             back_state = state
         else:
