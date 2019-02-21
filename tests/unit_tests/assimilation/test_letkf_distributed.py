@@ -39,8 +39,10 @@ import scipy.spatial.distance
 # Internal modules
 from pytassim.assimilation.filter.letkf import LETKFCorr, local_etkf
 from pytassim.testing import dummy_obs_operator, DummyLocalization
-from pytassim.assimilation.filter.letkf_dist import DistributedLETKFCorr
+from pytassim.assimilation.filter.letkf_dist import DistributedLETKFCorr, \
+    DistributedLETKFUncorr
 from pytassim.localization import GaspariCohn
+from pytassim.assimilation.filter import etkf_core
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -116,6 +118,13 @@ class TestLETKFDistributed(unittest.TestCase):
                                                       ana_time)
         letkf_state = letkf_filter.assimilate(self.state, obs_tuple, ana_time)
         xr.testing.assert_allclose(assimilated_state, letkf_state)
+
+    def test_letkfuncorr_sets_gen_weights_func(self):
+        self.assertEqual(DistributedLETKFUncorr(pool=POOL)._gen_weights_func,
+                         etkf_core.gen_weights_uncorr)
+
+    def test_letkfuncorr_sets_correlated_to_false(self):
+        self.assertFalse(DistributedLETKFUncorr(pool=POOL)._correlated)
 
 
 if __name__ == '__main__':
