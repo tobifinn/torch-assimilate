@@ -118,20 +118,9 @@ def postprocess_cosmo(analysis_data, cosmo_ds):
         This analysis dataset is a copy of given COSMO dataset with replaced
         variables from given analysis array.
     """
-    unstacked_analysis = analysis_data.unstack('grid')
-    transposed_analysis = unstacked_analysis.transpose(
-        'var_name', 'ensemble', 'time', 'vgrid', 'rlat', 'rlon'
+    analysis_ds = common.generic_postprocess(
+        analysis_data, cosmo_ds, grid_dims=['vgrid', 'rlat', 'rlon']
     )
-    pre_analysis_ds = transposed_analysis.to_dataset(dim='var_name')
-    analysis_ds = cosmo_ds.copy(deep=True)
-    for var in pre_analysis_ds.data_vars:
-        try:
-            reindexed_ana_var = pre_analysis_ds[var].dropna('vgrid', how='all')
-            analysis_ds[var] = analysis_ds[var].copy(
-                data=reindexed_ana_var.values.reshape(analysis_ds[var].shape)
-            )
-        except KeyError:
-            logger.warning('Var: {0:s} is not found'.format(var))
     return analysis_ds
 
 
