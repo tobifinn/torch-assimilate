@@ -32,6 +32,7 @@ import argparse
 # External modules
 import xarray as xr
 import numpy as np
+import torch
 
 # Internal modules
 import pytassim
@@ -63,16 +64,6 @@ parser.add_argument(
     '-r', '--loc_radius',
     help='Localization radius in grid points',
     type=int, default=20
-)
-parser.add_argument(
-    '-m', '--max_workers',
-    help='The number of maximum workers for this MPI call',
-    type=int, default=1
-)
-parser.add_argument(
-    '-c', '--chunksize',
-    help='The data chunks will have this length',
-    type=int, default=100
 )
 
 
