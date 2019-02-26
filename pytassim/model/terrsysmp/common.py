@@ -125,7 +125,7 @@ def generic_postprocess(analysis_data, origin_ds, grid_dims):
         variables from given analysis array.
     """
     pre_analysis_ds = array_to_ds(
-        analysis_data,
+        analysis_data, grid_dims=grid_dims
     )
     analysis_ds = origin_ds.copy(deep=True)
     for var in pre_analysis_ds.data_vars:
@@ -136,4 +136,11 @@ def generic_postprocess(analysis_data, origin_ds, grid_dims):
             )
         except KeyError:
             logger.warning('Var: {0:s} is not found'.format(var))
+        except ValueError:
+            logger.warning(
+                'Var: {0:s} is not broadcastable ({1:s} != {2:s})'.format(
+                    var, str(reindexed_ana_var.shape),
+                    str(analysis_ds[var].shape)
+                )
+            )
     return analysis_ds
