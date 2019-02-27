@@ -68,7 +68,7 @@ def torch_roll(a, shift, axis=0):
 
 class Lorenz96(object):
     """
-    The Lorenz '96 :cite:`lorenz_predictability_1996, lorenz_optimal_1998` is a
+    The Lorenz '96 :cite:`lorenz_predictability_1996,lorenz_optimal_1998` is a
     grid based dynamical model. In its default
     settings it has a chaotic behaviour. The grid points are wrapped in
     one-dimension such that the first and last grid point are coupled. Only

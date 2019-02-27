@@ -39,8 +39,8 @@ to convert the given model field into an observation equivalent. Thus, the
 independently.
 
 
-API References
---------------
+References
+----------
 .. autosummary::
     pytassim.state.ModelState
     pytassim.observation.Observation

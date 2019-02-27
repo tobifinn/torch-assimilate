@@ -33,7 +33,7 @@ import xarray as xr
 import numpy as np
 
 # Internal modules
-from pytassim.model.terrsysmp import cosmo
+from pytassim.model.terrsysmp import cosmo, common
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -117,7 +117,7 @@ class TestTerrSysMPCosmo(unittest.TestCase):
         vcoord = self.dataset['vcoord']
         ds = self.dataset[self.assim_vars]
         prep_ds = cosmo._prepare_vgrid(ds, vcoord)
-        ret_ds = cosmo._expand_vgrid(prep_ds)
+        ret_ds = common.add_no_vgrid(prep_ds, cosmo._cosmo_vcoords)
         self.assertTupleEqual(
             tuple(ret_ds['T_S'].dims), ('time', 'no_vgrid', 'rlat', 'rlon')
         )
@@ -128,12 +128,13 @@ class TestTerrSysMPCosmo(unittest.TestCase):
         ds = self.dataset[self.assim_vars]
         prep_ds = cosmo._prepare_vgrid(ds, vcoord)
         del prep_ds['T_S']
-        ret_ds = cosmo._expand_vgrid(prep_ds)
+        ret_ds = common.add_no_vgrid(prep_ds, cosmo._cosmo_vcoords)
 
     def test_interp_remaps_to_right_vcoords(self):
         vcoord = self.dataset['vcoord']
         ds = self.dataset[self.assim_vars]
         prep_ds = cosmo._prepare_vgrid(ds, vcoord)
+        prep_ds = common.add_no_vgrid(prep_ds, cosmo._cosmo_vcoords)
         reindexed_ds = cosmo._interp_vgrid(prep_ds)
         expected_values = {
             'no_vgrid': ('T_S', np.array(0)),
@@ -148,22 +149,11 @@ class TestTerrSysMPCosmo(unittest.TestCase):
             dropped_arr = reindexed_ds[val[0]].dropna(coord, how='all')
             np.testing.assert_equal(dropped_arr[coord].values, val[1])
 
-    def test_precosmo_calls_interp_vgrid(self):
-        vcoord = self.dataset['vcoord']
-        ds = self.dataset[self.assim_vars]
-        prep_ds = cosmo._prepare_vgrid(ds, vcoord)
-        reindexed_ds = cosmo._interp_vgrid(prep_ds)
-        with patch('pytassim.model.terrsysmp.cosmo._interp_vgrid',
-                   return_value=reindexed_ds) as vgrid_patch:
-            _ = cosmo.preprocess_cosmo(self.dataset, self.assim_vars)
-        vgrid_patch.assert_called_once()
-        self.assertEqual(len(vgrid_patch.call_args[0]), 1)
-        xr.testing.assert_identical(vgrid_patch.call_args[0][0], prep_ds)
-
     def test_replace_coords_replaces_vertical_coords_with_vgrid(self):
         vcoord = self.dataset['vcoord']
         ds = self.dataset[self.assim_vars]
         prep_ds = cosmo._prepare_vgrid(ds, vcoord)
+        prep_ds = common.add_no_vgrid(prep_ds, cosmo._cosmo_vcoords)
         reindexed_ds = cosmo._interp_vgrid(prep_ds)
         replaced = cosmo._replace_coords(reindexed_ds)
         for var in self.assim_vars:
@@ -173,6 +163,7 @@ class TestTerrSysMPCosmo(unittest.TestCase):
         vcoord = self.dataset['vcoord']
         ds = self.dataset[self.assim_vars]
         prep_ds = cosmo._prepare_vgrid(ds, vcoord)
+        prep_ds = common.add_no_vgrid(prep_ds, cosmo._cosmo_vcoords)
         reindexed_ds = cosmo._interp_vgrid(prep_ds)
         replaced = cosmo._replace_coords(reindexed_ds)
         self.assertNotIn('srlon', replaced['U'].dims)
@@ -181,6 +172,7 @@ class TestTerrSysMPCosmo(unittest.TestCase):
         vcoord = self.dataset['vcoord']
         ds = self.dataset[self.assim_vars]
         prep_ds = cosmo._prepare_vgrid(ds, vcoord)
+        prep_ds = common.add_no_vgrid(prep_ds, cosmo._cosmo_vcoords)
         reindexed_ds = cosmo._interp_vgrid(prep_ds)
         replaced_ds = cosmo._replace_coords(reindexed_ds)
         with patch('pytassim.model.terrsysmp.cosmo._replace_coords',
