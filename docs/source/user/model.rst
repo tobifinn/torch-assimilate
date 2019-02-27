@@ -18,7 +18,7 @@ is the operational weather forecast model of the German Weather Service (DWD)
 for an area around Germany. It is also used within the coupled model system
 TerrSysMP :cite:`shrestha_scale-consistent_2014`.
 
-An opened COSMO file can be
+An opened NetCDF4 COSMO file can be
 converted into a valid model state with
 :py:func:`~pytassim.model.terrsysmp.cosmo.preprocess_cosmo`. The resulting model
 state has an unified grid based on an Arakawa-A
@@ -28,13 +28,38 @@ vertical coordinates are assigned to the lowest half level. It is possible to
 select variables, which should be used for data assimilation.
 
 An analysis array can be converted into a valid COSMO dataset by using
-:py:func:`~pytassim.model.terrsysmp.cosmo.post_process_cosmo`. This function
+:py:func:`~pytassim.model.terrsysmp.cosmo.postprocess_cosmo`. This function
 returns a given COSMO dataset, where analysed variables replace their forecasted
 counterpart.
 
 .. autosummary::
     pytassim.model.terrsysmp.cosmo.preprocess_cosmo
-    pytassim.model.terrsysmp.cosmo.post_process_cosmo
+    pytassim.model.terrsysmp.cosmo.postprocess_cosmo
+
+Community Land Model (CLM)
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Community Land Model (CLM) is a land surface model written by the National
+Center for Atmospheric Research (NCAR)
+:cite:`oleson_technical_2004,oleson_k._w._improvements_2008`. CLM is the soil
+and land model for the Community Earth System Model and TerrSysMP.
+
+An opened NetCDF4 CLM file can be converted into a valid model state with
+:py:func:`~pytassim.model.terrsysmp.cln.preprocess_clm`. The resulting model
+state has an unified vertical grid. All vertical grids of variables are remapped
+to this unified vertical grid. Variables without vertical coordinates are
+assigned to the highest depth. It is also possible to select variables, which
+are used for data assimilation.
+
+An analysis array can be converted into a valid CLM dataset by using
+:py:func:`~pytassim.model.terrsysmp.clm.postprocess_clm`. This function returns
+given and modified CLM dataset, where analysed variables replace their
+forecasted counterpart.
+
+.. autosummary::
+    pytassim.model.terrsysmp.clm.preprocess_clm
+    pytassim.model.terrsysmp.clm.postprocess_clm
+
 
 Lorenz '96
 ----------

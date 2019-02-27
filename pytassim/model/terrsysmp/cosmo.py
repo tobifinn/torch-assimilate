@@ -31,6 +31,7 @@ import numpy as np
 import scipy.spatial.distance
 
 # Internal modules
+from . import common
 
 
 logger = logging.getLogger(__name__)
@@ -81,14 +82,10 @@ def preprocess_cosmo(cosmo_ds, assim_vars):
         ))
     assim_ds = cosmo_ds[avail_vars]
     vgrid_ds = _prepare_vgrid(assim_ds, cosmo_ds['vcoord'])
-    interp_ds = _interp_vgrid(vgrid_ds)
-    unified_ds = _replace_coords(interp_ds)
-    unified_data = unified_ds.to_array(dim='var_name')
-    stacked_data = unified_data.stack(grid=('rlat', 'rlon', 'vgrid'))
-    if 'ensemble' not in stacked_data.dims:
-        stacked_data = stacked_data.expand_dims(dim='ensemble')
-    prepared_data = stacked_data.transpose('var_name', 'time', 'ensemble',
-                                           'grid')
+    added_ds = common.add_no_vgrid(vgrid_ds, _cosmo_vcoords, 0)
+    interp_ds = _interp_vgrid(added_ds)
+    prepared_ds = _replace_coords(interp_ds)
+    prepared_data = common.ds_to_array(prepared_ds, ('rlat', 'rlon', 'vgrid'))
     return prepared_data
 
 
@@ -121,20 +118,9 @@ def postprocess_cosmo(analysis_data, cosmo_ds):
         This analysis dataset is a copy of given COSMO dataset with replaced
         variables from given analysis array.
     """
-    unstacked_analysis = analysis_data.unstack('grid')
-    transposed_analysis = unstacked_analysis.transpose(
-        'var_name', 'ensemble', 'time', 'vgrid', 'rlat', 'rlon'
+    analysis_ds = common.generic_postprocess(
+        analysis_data, cosmo_ds, grid_dims=['vgrid', 'rlat', 'rlon']
     )
-    pre_analysis_ds = transposed_analysis.to_dataset(dim='var_name')
-    analysis_ds = cosmo_ds.copy(deep=True)
-    for var in pre_analysis_ds.data_vars:
-        try:
-            reindexed_ana_var = pre_analysis_ds[var].dropna('vgrid', how='all')
-            analysis_ds[var] = analysis_ds[var].copy(
-                data=reindexed_ana_var.values.reshape(analysis_ds[var].shape)
-            )
-        except KeyError:
-            logger.warning('Var: {0:s} is not found'.format(var))
     return analysis_ds
 
 
@@ -154,17 +140,6 @@ def _prepare_vgrid(ds, vcoord):
     return ds
 
 
-def _expand_vgrid(ds):
-    ds = ds.copy()
-    vars_wo_vgrid = [var for var in ds.data_vars
-                     if set(ds[var].dims).isdisjoint(_cosmo_vcoords)]
-    for var in vars_wo_vgrid:
-        ds[var] = ds[var].expand_dims('no_vgrid', axis=-3)
-    if vars_wo_vgrid:
-        ds['no_vgrid'] = np.array([0, ])
-    return ds
-
-
 def _interp_vgrid(ds):
     vgrid_neighbor_funcs = {
         'no_vgrid': _inds_nearest,
@@ -175,8 +150,6 @@ def _interp_vgrid(ds):
         'level1': _inds_top,
         'level': _inds_top
     }
-    ds = _expand_vgrid(ds)
-
     vertical_coords = [c for c in _cosmo_vcoords if c in ds.coords]
     for c in vertical_coords:
         vgrid_inds = vgrid_neighbor_funcs[c](ds[c].values, ds['vgrid'].values)
@@ -202,14 +175,8 @@ def _inds_bottom(coord_val, vgrid_val):
 
 
 def _replace_coords(ds):
-    vertical_coords = [c for c in _cosmo_vcoords if c in ds.coords]
-    rename_vertical = {c: 'vgrid' for c in vertical_coords}
-    ds = ds.drop(vertical_coords)
-    ds = ds.rename(rename_vertical)
-
+    rename_vertical = {c: 'vgrid' for c in _cosmo_vcoords}
+    ds = common.replace_grid(ds, rename_vertical)
     rename_horizontal = {'srlat': 'rlat', 'srlon': 'rlon'}
-    rename_horizontal = {k: v for k, v in rename_horizontal.items()
-                         if k in ds.coords}
-    ds = ds.drop(rename_horizontal.keys())
-    ds = ds.rename(rename_horizontal)
+    ds = common.replace_grid(ds, rename_horizontal)
     return ds
