@@ -119,7 +119,7 @@ def postprocess_cosmo(analysis_data, cosmo_ds):
         variables from given analysis array.
     """
     analysis_ds = common.generic_postprocess(
-        analysis_data, cosmo_ds, grid_dims=['vgrid', 'rlat', 'rlon']
+        analysis_data, cosmo_ds
     )
     return analysis_ds
 
