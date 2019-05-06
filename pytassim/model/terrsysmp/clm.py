@@ -90,8 +90,7 @@ def postprocess_clm(analysis_data, ds_clm):
         variables from given analysis array.
     """
     analysis_ds = common.generic_postprocess(
-        analysis_data, ds_clm, grid_dims=['vgrid', 'lat', 'lon'],
-        vcoords=_clm_vcoords
+        analysis_data, ds_clm, vcoords=_clm_vcoords
     )
     return analysis_ds
 

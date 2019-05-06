@@ -106,7 +106,7 @@ def get_vert_dim(array, vcoords):
     return vert_coord
 
 
-def generic_postprocess(analysis_data, origin_ds, grid_dims, vcoords):
+def generic_postprocess(analysis_data, origin_ds, vcoords):
     """
     This function can be used to post-process analysis data and incorporate
     included variables into given origin dataset. There are different steps
