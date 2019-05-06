@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 __all__ = ['preprocess_cosmo', 'postprocess_cosmo']
 
 _cosmo_vcoords = ['height_2m', 'height_10m', 'height_toa', 'soil1',
-                  'level1', 'level', 'no_vgrid', 'vgrid']
+                  'level1', 'level', 'no_vgrid']
 
 
 def preprocess_cosmo(cosmo_ds, assim_vars):
