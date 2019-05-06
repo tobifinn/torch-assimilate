@@ -79,17 +79,20 @@ def ds_to_array(ds, grid_dims):
     stacked_data = unified_data.stack(grid=grid_dims)
     if 'ensemble' not in stacked_data.dims:
         stacked_data = stacked_data.expand_dims(dim='ensemble')
-    prepared_data = stacked_data.transpose('var_name', 'time', 'ensemble',
-                                           'grid')
+    transpose_dims = ['var_name', 'time', 'ensemble', 'grid']
+    transpose_dims = [d for d in transpose_dims if d in stacked_data.dims]
+    prepared_data = stacked_data.transpose(*transpose_dims)
     return prepared_data
 
 
-def array_to_ds(data, grid_dims):
+def array_to_ds(data):
     """
     Unstack an array to dataset
     """
     unstacked_data = data.unstack('grid')
+    grid_dims = list(data.indexes['grid'].names)
     transpose_dims = ['var_name', 'ensemble', 'time'] + list(grid_dims)
+    transpose_dims = [d for d in transpose_dims if d in unstacked_data.dims]
     transposed_data = unstacked_data.transpose(*transpose_dims)
     prepared_ds = transposed_data.to_dataset(dim='var_name')
     return prepared_ds
@@ -132,9 +135,7 @@ def generic_postprocess(analysis_data, origin_ds, grid_dims, vcoords):
         This analysis dataset is a copy of given origin dataset with replaced
         variables from given analysis array.
     """
-    pre_analysis_ds = array_to_ds(
-        analysis_data, grid_dims=grid_dims
-    )
+    pre_analysis_ds = array_to_ds(analysis_data)
     analysis_ds = origin_ds.copy(deep=True)
     for var in pre_analysis_ds.data_vars:
         try:

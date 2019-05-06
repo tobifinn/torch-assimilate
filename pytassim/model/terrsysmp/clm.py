@@ -36,7 +36,7 @@ from . import common
 logger = logging.getLogger(__name__)
 
 
-_clm_vcoords = ['levsoi', 'levlak', 'no_vgrid']
+_clm_vcoords = ['levsoi', 'levtot', 'levsno', 'levlak', 'no_vgrid']
 
 
 def preprocess_clm(ds_clm, assim_vars):
@@ -47,11 +47,16 @@ def preprocess_clm(ds_clm, assim_vars):
     )
     ds_interp = _interp_vgrid(ds_added_no_vgrid)
     vertical_remap_dict = {
-        'levsoi': 'vgrid', 'levlak': 'vgrid', 'no_vgrid': 'vgrid'
+        'levsoi': 'vgrid', 'levlak': 'vgrid', 'no_vgrid': 'vgrid',
+        'levtot': 'vgrid', 'levsno': 'vgrid',
     }
 
     prepared_ds = common.replace_grid(ds_interp, vertical_remap_dict)
-    prepared_data = common.ds_to_array(prepared_ds, ['lat', 'lon', 'vgrid'])
+    if 'column' in prepared_ds.dims and 'lat' not in prepared_ds.dims:
+        grid_dims = ['column', 'vgrid']
+    else:
+        grid_dims = ['lat', 'lon', 'vgrid']
+    prepared_data = common.ds_to_array(prepared_ds, grid_dims) 
     return prepared_data
 
 
