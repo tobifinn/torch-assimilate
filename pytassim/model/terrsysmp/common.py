@@ -98,7 +98,15 @@ def array_to_ds(data):
     return prepared_ds
 
 
-def generic_postprocess(analysis_data, origin_ds):
+def get_vert_dim(array, vcoords):
+    try:
+        vert_coord = [d for d in array.dims if d in vcoords][0]
+    except IndexError:
+        vert_coord = 'None'
+    return vert_coord
+
+
+def generic_postprocess(analysis_data, origin_ds, grid_dims, vcoords):
     """
     This function can be used to post-process analysis data and incorporate
     included variables into given origin dataset. There are different steps
@@ -131,16 +139,23 @@ def generic_postprocess(analysis_data, origin_ds):
     analysis_ds = origin_ds.copy(deep=True)
     for var in pre_analysis_ds.data_vars:
         try:
-            reindexed_ana_var = pre_analysis_ds[var].dropna('vgrid', how='all')
+            data_prepared = pre_analysis_ds[var].dropna('vgrid', how='all')
+            dim_vert = get_vert_dim(analysis_ds[var], vcoords)
+            data_prepared = data_prepared.rename({'vgrid': dim_vert})
+            data_prepared = data_prepared.squeeze()
+            dims_miss = set(analysis_ds[var].dims)-set(data_prepared.dims)
+            for dim in dims_miss:
+                data_prepared = data_prepared.expand_dims(dim)
+            data_prepared = data_prepared.transpose(*analysis_ds[var].dims)
             analysis_ds[var] = analysis_ds[var].copy(
-                data=reindexed_ana_var.values.reshape(analysis_ds[var].shape)
+                data=data_prepared.values.reshape(analysis_ds[var].shape)
             )
         except KeyError:
             logger.warning('Var: {0:s} is not found'.format(var))
         except ValueError:
             logger.warning(
                 'Var: {0:s} is not broadcastable ({1:s} != {2:s})'.format(
-                    var, str(reindexed_ana_var.shape),
+                    var, str(data_prepared.shape),
                     str(analysis_ds[var].shape)
                 )
             )
