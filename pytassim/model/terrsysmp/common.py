@@ -98,12 +98,14 @@ def array_to_ds(data):
     return prepared_ds
 
 
-def get_vert_dim(array, vcoords):
-    try:
-        vert_coord = [d for d in array.dims if d in vcoords][0]
-    except IndexError:
-        vert_coord = 'None'
-    return vert_coord
+def dim_transpose(array, vcoords):
+    dim_generic = ['time', 'ensemble']
+    dim_order = [d for d in dim_generic if d in array.dims]
+    dim_order += [d for d in vcoords if d in array.dims]
+    dim_grid = list(set(array.dims) - set(dim_order))
+    dim_order += dim_grid
+    array_trans = array.transpose(*dim_order)
+    return array_trans
 
 
 def generic_postprocess(analysis_data, origin_ds, vcoords):
@@ -140,16 +142,12 @@ def generic_postprocess(analysis_data, origin_ds, vcoords):
     for var in pre_analysis_ds.data_vars:
         try:
             data_prepared = pre_analysis_ds[var].dropna('vgrid', how='all')
-            dim_vert = get_vert_dim(analysis_ds[var], vcoords)
-            data_prepared = data_prepared.rename({'vgrid': dim_vert})
-            data_prepared = data_prepared.squeeze()
-            dims_miss = set(analysis_ds[var].dims)-set(data_prepared.dims)
-            for dim in dims_miss:
-                data_prepared = data_prepared.expand_dims(dim)
-            data_prepared = data_prepared.transpose(*analysis_ds[var].dims)
-            analysis_ds[var] = analysis_ds[var].copy(
-                data=data_prepared.values.reshape(analysis_ds[var].shape)
+            data_prepared = dim_transpose(data_prepared, vcoords)
+            tmp_analysis_var = dim_transpose(analysis_ds[var], vcoords)
+            tmp_analysis_var = tmp_analysis_var.copy(
+                data=data_prepared.values.reshape(tmp_analysis_var.shape)
             )
+            analysis_ds[var] = tmp_analysis_var.transpose(*analysis_ds[var].dims)
         except KeyError:
             logger.warning('Var: {0:s} is not found'.format(var))
         except ValueError:
