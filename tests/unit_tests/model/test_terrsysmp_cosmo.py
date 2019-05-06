@@ -101,6 +101,15 @@ class TestTerrSysMPCosmo(unittest.TestCase):
         right_vgrid = np.concatenate([vcoord.values, soil1.values], axis=0)
         np.testing.assert_equal(ret_ds['vgrid'], right_vgrid)
 
+    def test_prepare_vgrid_detecs_level_wrong_order(self):
+        vcoord = self.dataset['vcoord'].expand_dims('ensemble')
+        vcoord = vcoord.rename({'level1': 'level'})
+        vcoord = vcoord.transpose('level', 'ensemble')
+        ds = self.dataset[self.assim_vars]
+        ret_ds = cosmo._prepare_vgrid(ds, vcoord)
+        np.testing.assert_equal(ret_ds['vgrid'].values[:51],
+                                vcoord.squeeze().values)
+
     def test_precosmo_calls_prepare_vgrid(self):
         vcoord = self.dataset['vcoord']
         ds = self.dataset[self.assim_vars]

@@ -126,7 +126,8 @@ def postprocess_cosmo(analysis_data, cosmo_ds):
 
 def _prepare_vgrid(ds, vcoord):
     ds = ds.copy()
-    vcoord_vals = vcoord.values.reshape(-1, vcoord.shape[-1])[0, :]
+    dims_non_vert = [d for d in vcoord.dims if d not in _cosmo_vcoords]
+    vcoord_vals = vcoord.mean(dim=dims_non_vert).values
     if 'soil1' in ds.coords:
         ds['soil1'] = ds['soil1'].copy(data=ds['soil1']*(-1))
         vgrid_coords = np.concatenate([vcoord_vals, ds['soil1'].values])
