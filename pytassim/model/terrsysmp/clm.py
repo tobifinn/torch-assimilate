@@ -36,7 +36,7 @@ from . import common
 logger = logging.getLogger(__name__)
 
 
-_clm_vcoords = ['levsoi', 'levtot', 'levsno', 'levlak', 'no_vgrid']
+_clm_vcoords = ['levsoi', 'levtot', 'levsno', 'levlak', 'no_vgrid', 'vgrid']
 
 
 def preprocess_clm(ds_clm, assim_vars):
