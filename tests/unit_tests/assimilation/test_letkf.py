@@ -72,16 +72,19 @@ class TestLETKFCorr(unittest.TestCase):
     def test_update_state_calls_prepare(self):
         obs_tuple = (self.obs, self.obs)
         prepared_states = self.algorithm._prepare(self.state, obs_tuple)
+        pseudo_state = self.state + 1
         with patch('pytassim.assimilation.filter.letkf.LETKFCorr._prepare',
                    return_value=prepared_states) as prepare_patch:
-            _ = self.algorithm.update_state(self.state, obs_tuple,
-                                            self.state.time[-1].values)
-        prepare_patch.assert_called_once_with(self.state, obs_tuple)
+            _ = self.algorithm.update_state(
+                self.state, obs_tuple, pseudo_state, self.state.time[-1].values
+            )
+        prepare_patch.assert_called_once_with(pseudo_state, obs_tuple)
 
     def test_update_state_returns_valid_state(self):
         obs_tuple = (self.obs, self.obs)
-        analysis = self.algorithm.update_state(self.state, obs_tuple,
-                                               self.state.time[-1].values)
+        analysis = self.algorithm.update_state(
+            self.state, obs_tuple, self.state, self.state.time[-1].values
+        )
         self.assertTrue(analysis.state.valid)
 
     def test_dummy_localization_returns_equal_grids(self):
@@ -108,7 +111,8 @@ class TestLETKFCorr(unittest.TestCase):
         use_obs = obs_weights > 0
         with patch('pytassim.testing.dummy.DummyLocalization.localize_obs',
                   return_value=(use_obs, obs_weights)) as loc_patch:
-           _ = self.algorithm.update_state(self.state, obs_tuple, ana_time)
+           _ = self.algorithm.update_state(self.state, obs_tuple,
+                                           self.state, ana_time)
         self.assertEqual(loc_patch.call_count, nr_grid_points)
 
     def test_wo_localization_letkf_equals_etkf_smoothing(self):
@@ -124,7 +128,7 @@ class TestLETKFCorr(unittest.TestCase):
         ana_time = self.state.time[-1].values
         obs_tuple = (self.obs, self.obs.copy())
         assimilated_state = self.algorithm.assimilate(self.state, obs_tuple,
-                                                      ana_time)
+                                                      self.state, ana_time)
         self.assertFalse(np.any(np.isnan(assimilated_state.values)))
 
     def test_letkfuncorr_sets_gen_weights_func(self):
