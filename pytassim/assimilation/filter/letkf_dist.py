@@ -113,7 +113,7 @@ class DistributedLETKFCorr(LETKFCorr):
             raise TypeError('Given distributed pool needs a '
                             'concurrent.futures-like `submit` method!')
 
-    def update_state(self, state, observations, analysis_time):
+    def update_state(self, state, observations, pseudo_state, analysis_time):
         """
         This method updates the state based on given observations and analysis
         time. This method prepares different states, localize these states,
@@ -125,8 +125,7 @@ class DistributedLETKFCorr(LETKFCorr):
         Parameters
         ----------
         state : :py:class:`xarray.DataArray`
-            This state is used to generate an observation-equivalent. It is
-            further updated by this assimilation algorithm and given
+            This state is updated by this assimilation algorithm and given
             ``observation``. This :py:class:`~xarray.DataArray` should have
             four coordinates, which are specified in
             :py:class:`pytassim.state.ModelState`.
@@ -136,6 +135,10 @@ class DistributedLETKFCorr(LETKFCorr):
             many :py:class:`xarray.Dataset` can be used to assimilate different
             variables. For the observation state, these observations are
             stacked such that the observation state contains all observations.
+        pseudo_state : :py:class:`xarray.DataArray`
+            This state is used to generate an observation-equivalent. This
+             :py:class:`~xarray.DataArray` should have four coordinates, which
+             are specified in :py:class:`pytassim.state.ModelState`.
         analysis_time : :py:class:`datetime.datetime`
             This analysis time determines at which point the state is updated.
 
@@ -148,7 +151,8 @@ class DistributedLETKFCorr(LETKFCorr):
         """
         logger.info('####### DISTRIBUTED LETKF #######')
         logger.info('Starting with specific preparation')
-        innov, hx_perts, obs_cov, obs_grid = self._prepare(state, observations)
+        innov, hx_perts, obs_cov, obs_grid = self._prepare(pseudo_state,
+                                                           observations)
         back_state = state.transpose('grid', 'var_name', 'time', 'ensemble')
         state_mean, state_perts = back_state.state.split_mean_perts()
 
