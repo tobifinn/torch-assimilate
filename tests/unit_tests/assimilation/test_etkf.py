@@ -299,6 +299,16 @@ class TestETKFCorr(unittest.TestCase):
         np.testing.assert_equal(prepared_obs[1], returned_state[2])
         np.testing.assert_equal(prepared_obs[2], returned_state[3])
 
+    def test_update_calls_prepare_with_pseudo_state(self):
+        pseudo_state = self.state + 1
+        obs_tuple = (self.obs, self.obs.copy())
+        returned_state = self.algorithm._prepare(pseudo_state, obs_tuple)
+        with patch('pytassim.assimilation.filter.etkf.ETKFCorr._prepare',
+                   return_value=returned_state) as prepare_patch:
+            self.algorithm.update_state(self.state, obs_tuple, pseudo_state,
+                                        self.state.time[-1].values)
+        prepare_patch.assert_called_once_with(pseudo_state, obs_tuple)
+
     def test_calc_c_chol_calculates_c_based_on_cholesky_decomp(self):
         obs_tuple = [self.obs, ] * 5
         _, obs_cov, _ = self.algorithm._prepare_obs(obs_tuple)
@@ -541,8 +551,9 @@ class TestETKFCorr(unittest.TestCase):
         prepared_states = self.algorithm._prepare(self.state, obs_tuple)
         with patch('pytassim.assimilation.filter.etkf.ETKFCorr._prepare',
                    return_value=prepared_states) as prepare_patch:
-            _ = self.algorithm.update_state(self.state, obs_tuple,
-                                            self.state.time[-1].values)
+            _ = self.algorithm.update_state(
+                self.state, obs_tuple, self.state, self.state.time[-1].values
+            )
         prepare_patch.assert_called_once_with(self.state, obs_tuple)
 
     def test_etkf_sets_gen_func_to_corr(self):
@@ -558,7 +569,7 @@ class TestETKFCorr(unittest.TestCase):
         )
         self.algorithm._gen_weights_func = MagicMock(return_value=weights)
         _ = self.algorithm.update_state(self.state, obs_tuple,
-                                        self.state.time[-1].values)
+                                        self.state, self.state.time[-1].values)
         self.algorithm._gen_weights_func.assert_called_once()
 
     def test_weights_matmul_applies_matmul(self):
@@ -604,8 +615,9 @@ class TestETKFCorr(unittest.TestCase):
                                                  state_perts)
         with patch('pytassim.assimilation.filter.etkf.ETKFCorr._apply_weights',
                    return_value=analysis) as apply_patch:
-            _ = self.algorithm.update_state(self.state, obs_tuple,
-                                            self.state.time[-1].values)
+            _ = self.algorithm.update_state(
+                self.state, obs_tuple, self.state, self.state.time[-1].values
+            )
         apply_patch.assert_called_once()
 
     def test_update_state_returns_analysis(self):
@@ -621,7 +633,7 @@ class TestETKFCorr(unittest.TestCase):
         analysis = analysis.transpose('var_name', 'time', 'ensemble', 'grid')
 
         ret_analysis = self.algorithm.update_state(self.state, obs_tuple,
-                                                   ana_time)
+                                                   self.state, ana_time)
 
         xr.testing.assert_equal(ret_analysis, analysis)
         self.assertTrue(ret_analysis.state.valid)
@@ -640,7 +652,7 @@ class TestETKFCorr(unittest.TestCase):
         analysis = analysis.transpose('var_name', 'time', 'ensemble', 'grid')
 
         ret_analysis = self.algorithm.update_state(self.state, obs_tuple,
-                                                   ana_time)
+                                                   self.state, ana_time)
 
         xr.testing.assert_equal(ret_analysis, analysis)
 
@@ -696,7 +708,8 @@ class TestETKFCorr(unittest.TestCase):
         torch_states = self.algorithm._states_to_torch(*prepared_states)[:-1]
         trg = 'pytassim.assimilation.filter.etkf.ETKFCorr._states_to_torch'
         with patch(trg, return_value=torch_states) as torch_patch:
-            _ = self.algorithm.update_state(self.state, obs_tuple, ana_time)
+            _ = self.algorithm.update_state(self.state, obs_tuple, self.state,
+                                            ana_time)
         torch_patch.assert_called_once()
 
     def test_algorithm_works(self):
@@ -704,7 +717,7 @@ class TestETKFCorr(unittest.TestCase):
         ana_time = self.state.time[-1].values
         obs_tuple = (self.obs, self.obs.copy())
         assimilated_state = self.algorithm.assimilate(self.state, obs_tuple,
-                                                      ana_time)
+                                                      None, ana_time)
         self.assertFalse(np.any(np.isnan(assimilated_state.values)))
 
 
@@ -777,7 +790,7 @@ class TestETKFUncorr(unittest.TestCase):
         ana_time = self.state.time[-1].values
         obs_tuple = (self.obs, self.obs.copy())
         assimilated_state = self.algorithm.assimilate(self.state, obs_tuple,
-                                                      ana_time)
+                                                      None, ana_time)
         self.assertFalse(np.any(np.isnan(assimilated_state.values)))
 
 
