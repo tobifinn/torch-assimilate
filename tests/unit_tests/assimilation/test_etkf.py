@@ -174,10 +174,8 @@ class TestAnalyticalSolution(unittest.TestCase):
             self.back_prec, self.innov, self.hx_perts, self.obs_cov
         )
         state_mean, state_perts = self.state.state.split_mean_perts()
-        del_ana_mean = np.matmul(
-            state_perts.transpose('var_name', 'time', 'grid', 'ensemble'),
-            wa.numpy()
-        )
+        perts_t = state_perts.transpose('var_name', 'time', 'grid', 'ensemble')
+        del_ana_mean = np.matmul(perts_t.values, wa.numpy())
         ana_mean = state_mean + del_ana_mean
         ret_state = self.algorithm._apply_weights(wa, w_perts, state_mean,
                                                   state_perts)
@@ -187,10 +185,8 @@ class TestAnalyticalSolution(unittest.TestCase):
         wa, w_perts = etkf_core.gen_weights_corr(self.back_prec, self.innov,
                                             self.hx_perts, self.obs_cov)
         state_mean, state_perts = self.state.state.split_mean_perts()
-        del_ana_perts = np.matmul(
-            state_perts.transpose('var_name', 'time', 'grid', 'ensemble'),
-            w_perts.numpy()
-        )
+        perts_t = state_perts.transpose('var_name', 'time', 'grid', 'ensemble')
+        del_ana_perts = np.matmul(perts_t.values, w_perts.numpy())
         ret_state = self.algorithm._apply_weights(wa, w_perts, state_mean,
                                                   state_perts)
         ret_ana_perts = ret_state - ret_state.mean('ensemble')
