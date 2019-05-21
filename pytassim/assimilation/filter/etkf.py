@@ -121,7 +121,7 @@ class ETKFCorr(FilterAssimilation):
         logger.info('####### Global ETKF #######')
         logger.info('Starting with specific preparation')
         prepared_states = self._prepare(
-            state, observations, pseudo_state
+            pseudo_state, observations,
         )[:-1]
         logger.info('Transfering the data to torch')
         innov, hx_perts, obs_cov = self._states_to_torch(*prepared_states)
@@ -137,7 +137,7 @@ class ETKFCorr(FilterAssimilation):
         logger.info('Finished with analysis creation')
         return analysis
 
-    def _prepare(self, state, observations, pseudo_state):
+    def _prepare(self, pseudo_state, observations):
         """
         This method prepares the different parts of the state. It calculates
         statistics in observation space and concatenates given observations into
@@ -147,7 +147,7 @@ class ETKFCorr(FilterAssimilation):
 
         Parameters
         ----------
-        state : :py:class:`xarray.DataArray`
+        pseudo_state : :py:class:`xarray.DataArray`
             This state is used to generate an observation-equivalent. It is
             further updated by this assimilation algorithm and given
             ``observation``. This :py:class:`~xarray.DataArray` should have
@@ -159,10 +159,6 @@ class ETKFCorr(FilterAssimilation):
             many :py:class:`xarray.Dataset` can be used to assimilate different
             variables. For the observation state, these observations are
             stacked such that the observation state contains all observations.
-        pseudo_state : :py:class:`xarray.DataArray`
-            This state is used to generate an observation-equivalent. This
-             :py:class:`~xarray.DataArray` should have four coordinates, which
-             are specified in :py:class:`pytassim.state.ModelState`.
 
         Returns
         -------
