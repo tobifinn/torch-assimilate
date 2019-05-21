@@ -78,7 +78,7 @@ class TestLETKFDistributed(unittest.TestCase):
         obs_tuple = (self.obs, self.obs)
         state_mean, state_perts = self.state.state.split_mean_perts()
         assimilated_state = letkf_filter.assimilate(self.state, obs_tuple,
-                                                    ana_time)
+                                                    self.state, ana_time)
         delta_ana = assimilated_state - state_mean
         delta_ana = delta_ana.transpose('grid', 'var_name', 'time', 'ensemble')
 
@@ -104,8 +104,9 @@ class TestLETKFDistributed(unittest.TestCase):
         ana_time = self.state.time[-1].values
         obs_tuple = (self.obs, self.obs)
         assimilated_state = self.algorithm.assimilate(self.state, obs_tuple,
-                                                      ana_time)
-        letkf_state = letkf_filter.assimilate(self.state, obs_tuple, ana_time)
+                                                      self.state, ana_time)
+        letkf_state = letkf_filter.assimilate(self.state, obs_tuple, self.state,
+                                              ana_time)
         xr.testing.assert_allclose(assimilated_state, letkf_state)
 
     def test_localization_works(self):
@@ -115,8 +116,9 @@ class TestLETKFDistributed(unittest.TestCase):
         ana_time = self.state.time[-1].values
         obs_tuple = (self.obs, self.obs)
         assimilated_state = self.algorithm.assimilate(self.state, obs_tuple,
-                                                      ana_time)
-        letkf_state = letkf_filter.assimilate(self.state, obs_tuple, ana_time)
+                                                      self.state, ana_time)
+        letkf_state = letkf_filter.assimilate(self.state, obs_tuple, self.state,
+                                              ana_time)
         xr.testing.assert_allclose(assimilated_state, letkf_state)
 
     def test_letkfuncorr_sets_gen_weights_func(self):
