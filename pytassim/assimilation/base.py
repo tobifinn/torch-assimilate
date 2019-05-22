@@ -160,6 +160,18 @@ class BaseAssimilation(object):
                 pass
         return obs_equivalent, filtered_observations
 
+    def _grid_index_to_array(self, index):
+        raw_index_array = np.atleast_1d(index.values)
+        if isinstance(raw_index_array[0], tuple):
+            shape = (-1, len(raw_index_array[0]))
+        elif raw_index_array.ndim > 1:
+            shape = raw_index_array.shape
+        else:
+            shape = (-1, 1)
+        dtype = ','.join(['float']*shape[-1])
+        index_array = np.array(index, dtype=dtype).view(float).reshape(*shape)
+        return index_array
+
     def _prepare_obs(self, observations):
         state_stacked_list = []
         cov_stacked_list = []
@@ -182,7 +194,7 @@ class BaseAssimilation(object):
             cov_stacked_list.append(stacked_cov)
         state_concat = xr.concat(state_stacked_list, dim='obs_id')
         state_values = state_concat.values
-        state_grid = state_concat.obs_grid_1.values
+        state_grid = self._grid_index_to_array(state_concat['obs_grid_1'])
         if self._correlated:
             state_covariance = scipy.linalg.block_diag(*cov_stacked_list)
         else:

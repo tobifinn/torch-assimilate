@@ -225,7 +225,7 @@ class TestETKFCorr(unittest.TestCase):
         _, _, returned_grid = self.algorithm._prepare_obs(
             (self.obs, self.obs)
         )
-        np.testing.assert_equal(obs_grid, returned_grid)
+        np.testing.assert_equal(obs_grid.reshape(-1, 1), returned_grid)
 
     def test_prepare_obs_returns_obs_cov_matrix(self):
         len_time = len(self.obs.time)
@@ -249,7 +249,7 @@ class TestETKFCorr(unittest.TestCase):
         )
         np.testing.assert_equal(returned_obs, obs_stacked.values)
         np.testing.assert_equal(returned_cov, stacked_cov)
-        np.testing.assert_equal(returned_grid, obs_stacked.obs_grid_1.values)
+        np.testing.assert_equal(returned_grid, obs_stacked.obs_grid_1.values.reshape(-1, 1))
 
     def test_prepare_state_returns_state_array(self):
         hx = self.obs.obs.operator(self.state)
