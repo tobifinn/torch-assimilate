@@ -176,12 +176,12 @@ class DistributedLETKFCorr(LETKFCorr):
             processes.append(tmp_process)
 
         logger.info('Waiting until jobs are finished')
-        for _ in tqdm(as_completed(processes), total=total_steps):
+        for _ in tqdm(as_completed(processes), total=total_steps, smoothing=0):
             pass
 
         logger.info('Gathering the analysis')
         state_perts.values = torch.cat(
-            [p.result()[0] for p in tqdm(processes, total=total_steps)], dim=0
+            [p.result()[0] for p in tqdm(processes, total=total_steps, smoothing=0)], dim=0
         ).numpy()
         analysis = (state_mean+state_perts).transpose(*state.dims)
         logger.info('Finished with analysis creation')
