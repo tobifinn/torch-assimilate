@@ -56,9 +56,10 @@ class GaspariCohn(BaseLocalization):
         This functions takes two different grid lists and estimates a distance
         between these two grids.
     """
-    def __init__(self, length_scale, dist_func):
+    def __init__(self, length_scale, dist_func, epsilon=1E-5):
         self.radius = np.atleast_1d(length_scale)
         self.dist_func = dist_func
+        self.epsilon = epsilon
         self._thres = [2, 1]
 
     @staticmethod
@@ -115,7 +116,7 @@ class GaspariCohn(BaseLocalization):
                 tmp_weights[conds[0]] = self._f2(dist_radius[conds[0]])
                 tmp_weights[conds[1]] = self._f1(dist_radius[conds[1]])
             weights *= tmp_weights
-        use_obs = weights != 0
+        use_obs = weights > self.epsilon
         return use_obs, weights
 
 
