@@ -25,7 +25,6 @@
 
 # System modules
 import logging
-from concurrent.futures import as_completed
 import itertools
 from math import ceil
 
@@ -33,6 +32,7 @@ from math import ceil
 import torch
 import numpy as np
 from tqdm import tqdm
+from dask.distributed import as_completed
 
 # Internal modules
 from .letkf import LETKFCorr, local_etkf
@@ -167,11 +167,25 @@ class DistributedLETKFCorr(LETKFCorr):
         processes = []
         total_steps = ceil(len_state_grid/self.chunksize)
         logger.info('Starting with job submission')
+        if hasattr(self.pool, 'scatter'):
+            futures = self.pool.scatter(
+                (self._gen_weights_func, innov, hx_perts,
+                 obs_cov, back_prec, obs_grid, state_grid, back_state,
+                 self.localization), broadcast=True
+            )
+            weight_func, innov, hx_perts, obs_cov, back_prec, \
+                obs_grid, state_grid, back_state, localization = futures
+        else:
+            weight_func, innov, hx_perts, obs_cov, back_prec, \
+                obs_grid, state_grid, back_state, localization = \
+                self._gen_weights_func, innov, hx_perts, \
+                obs_cov, back_prec, obs_grid, state_grid, back_state, \
+                self.localization
         for ind in tqdm(grid_inds, total=total_steps):
             tmp_process = self.pool.submit(
-                local_etkf_batch, self._gen_weights_func, ind, innov, hx_perts,
+                local_etkf_batch, weight_func, ind, innov, hx_perts,
                 obs_cov, back_prec, obs_grid, state_grid, back_state,
-                self.localization
+                localization
             )
             processes.append(tmp_process)
 
@@ -180,8 +194,9 @@ class DistributedLETKFCorr(LETKFCorr):
             pass
 
         logger.info('Gathering the analysis')
+        tqdm_results = tqdm(processes, total=total_steps, smoothing=0)
         state_perts.values = torch.cat(
-            [p.result()[0] for p in tqdm(processes, total=total_steps, smoothing=0)], dim=0
+            [p.result()[0] for p in tqdm_results], dim=0
         ).numpy()
         analysis = (state_mean+state_perts).transpose(*state.dims)
         logger.info('Finished with analysis creation')
