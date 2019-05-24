@@ -57,7 +57,7 @@ class Normalizer(BaseTransformer):
     Parameters
     ----------
     ens_stat : iterable(any)
-        These ensemble statistics are used to normalize the first guess and to
+        These ensemble statistics are used to normalize the background and to
         revert the normalization of the analysis. The first item of this
         iterable is used as mean value, while the second item is used as
         standard deviation.
@@ -67,15 +67,20 @@ class Normalizer(BaseTransformer):
         as given observations and is used in the same order as given
         observations. Every item should be an iterable, which is used for mean
         (first item) and standard deviation (second item).
+    fg_stat : iterable(any)
+        These first guess statistics are used to normalize the first guess
+        array. The first item of this iterable is used as mean value, while the
+        second item is used as standard deviation.
     """
-    def __init__(self, ens_stat, obs_stat):
+    def __init__(self, ens_stat, obs_stat, fg_stat):
         self.ens_stat = ens_stat
         self.obs_stat = obs_stat
+        self.fg_stat = fg_stat
 
-    def pre(self, first_guess, observations):
+    def pre(self, background, observations, first_guess):
         """
-        This method normalizes given `first_guess` and `observations` by their
-        set statistics with
+        This method normalizes given `background`, `observations` and
+        `first_guess`by their set statistics with
 
         .. math::
 
@@ -84,7 +89,7 @@ class Normalizer(BaseTransformer):
 
         Parameters
         ----------
-        first_guess : :py:class:`xarray.DataArray`
+        background : :py:class:`xarray.DataArray`
             This array is normalized by set ensemble statistics. This first
             guess should be a valid state.
         observations : iterable(:py:class:`xarray.Dataset`)
@@ -94,16 +99,22 @@ class Normalizer(BaseTransformer):
             observation statistics. These observations should be valid
             observations with `observation` and `covariance` as
             :py:class:`xarray.DataArray`.
+        first_guess : :py:class:`xarray.DataArray`
+            This array is normalized by set ensemble statistics. This first
+            guess should be a valid state.
 
         Returns
         -------
-        first_guess : :py:class:`xarray.DataArray`
-            The centered and scaled first guess field.
+        background : :py:class:`xarray.DataArray`
+            The centered and scaled background field.
         observations : iterable(:py:class:`xarray.Dataset`)
             The normalized observations with centered and scaled observation
             values.
+        first_guess : :py:class:`xarray.DataArray`
+            The centered and scaled first guess field.
         """
-        first_guess = (first_guess - self.ens_stat[0]) / self.ens_stat[1]
+        background = (background - self.ens_stat[0]) / self.ens_stat[1]
+        first_guess = (first_guess - self.fg_stat[0]) / self.fg_stat[1]
         obs_list = []
         for k, obs in enumerate(observations):
             tmp_obs = obs.copy(deep=True)
@@ -111,9 +122,9 @@ class Normalizer(BaseTransformer):
             tmp_obs['observations'] /= self.obs_stat[k][1]
             tmp_obs.obs.operator = obs.obs.operator.__func__
             obs_list.append(tmp_obs)
-        return first_guess, obs_list
+        return background, obs_list, first_guess
 
-    def post(self, analysis, first_guess, observations):
+    def post(self, analysis, background, observations, first_guess):
         """
         This method reverts the normalization of the analysis based on set
         ensemble statistics.
@@ -123,10 +134,12 @@ class Normalizer(BaseTransformer):
         analysis : :py:class:`xarray.DataArray`
             The normalization of this analysis field is reverted. This should be
             a valid state.
-        first_guess : :py:class:`xarray.DataArray`
-            This first guess is not used in this normalization method.
+        background : :py:class:`xarray.DataArray`
+            This background is not used in this normalization method.
         observations : iterable(:py:class:`xarray.Dataset`)
             These observations are not used in this normalization method.
+        first_guess : :py:class:`xarray.DataArray`
+            This first guess is not used in this normalization method.
 
         Returns
         -------

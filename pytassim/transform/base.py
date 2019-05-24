@@ -42,34 +42,40 @@ class BaseTransformer(object):
     normalization or something completely different.
     """
     @abc.abstractmethod
-    def pre(self, first_guess, observations):
+    def pre(self, background, observations, first_guess):
         """
         This transform method is called before the assimilation and can change
         input ``first_guess`` and ``observations``.
         Parameters
         ----------
-        first_guess : :py:class:`xarray.DataArray`
-            This first guess array is manipulated by this method and should be
+        background : :py:class:`xarray.DataArray`
+            This background array is manipulated by this method and should be
             a valid state array.
         observations : iterable(:py:class:`xarray.Dataset`
             These observations are manipulated by this method and should be
             valid observation datasets with observations and covariance as
             array.
+        first_guess : :py:class:`xarray.DataArray`
+            This first guess array is manipulated by this method and should be
+            a valid state array.
 
         Returns
         -------
-        first_guess : :py:class:`xarray.DataArray`
-            This first guess field was manipulated by this method and is a valid
-            state array.
+        background : :py:class:`xarray.DataArray`
+            This background array was manipulated by this method and should be
+            a valid state array.
         observations : iterable(:py:class:`xarray.Dataset`
             These observations were manipulated by this method and are
             valid observation datasets with observations and covariance as
             array.
+        first_guess : :py:class:`xarray.DataArray`
+            This first guess field was manipulated by this method and is a valid
+            state array.
         """
         pass
 
     @abc.abstractmethod
-    def post(self, analysis, first_guess, observations):
+    def post(self, analysis, background, observations, first_guess):
         """
         This transform method is called after the assimilation and can change
         input ``analysis``. Additional ``first_guess`` and ``observations`` can
@@ -80,13 +86,16 @@ class BaseTransformer(object):
         analysis : :py:class:`xarray.DataArray`
             This analysis array is manipulated by this method and should be
             a valid state array.
-        first_guess : :py:class:`xarray.DataArray`
-            This first guess array can be used to manipulate given analysis and
+        background : :py:class:`xarray.DataArray`
+            This background array can be used to manipulate given analysis and
             should be a valid state array.
         observations : iterable(:py:class:`xarray.Dataset`
             These observations can be used to manipulate the analysis and should
             be valid observation datasets with observations and covariance as
             array.
+        first_guess : :py:class:`xarray.DataArray`
+            This first guess array can be used to manipulate given analysis and
+            should be a valid state array.
 
         Returns
         -------
