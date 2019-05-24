@@ -85,13 +85,15 @@ class Autoencoder(object):
         This optimizer is used to update the trainable parameters of this
         autoencoder.
     """
-    def __init__(self, inference_net, obs_operator, ):
+    def __init__(self, inference_net, obs_operator, normalizer=None,):
         self.inference_net = inference_net
         self.obs_operator = obs_operator
         self.recon_loss = None
         self.back_loss = None
         self.optimizer = None
         self.grad_optim = True
+        self.lam_loss = {'recon': 1, 'back': 1}
+        self.normalizer = normalizer
 
     @property
     def trainable_params(self):
@@ -172,7 +174,13 @@ class Autoencoder(object):
             observation=observation, prior=prior, prior_ensemble=prior_ensemble,
             noise=noise
         )
-        recon_obs = self.obs_operator(analysis)
+        if self.normalizer:
+            tmp_analysis = self.normalizer.post(
+                analysis, prior, observation, prior
+            )
+        else:
+            tmp_analysis = analysis
+        recon_obs = self.obs_operator(tmp_analysis)
         return analysis, recon_obs
 
     def _get_train_losses(self, observation, prior=None, prior_ensemble=None,
@@ -192,11 +200,12 @@ class Autoencoder(object):
             prior_ensemble=prior_ensemble, noise=noise
         )
 
-        total_loss = back_loss + recon_loss
+        total_loss = self.lam_loss['back'] * back_loss
+        total_loss = total_loss + self.lam_loss['recon'] * recon_loss
         return total_loss, back_loss, recon_loss
 
     def set_grad(self, observation, prior=None, prior_ensemble=None,
-                  noise=None):
+                 noise=None):
         self.check_trainable()
 
         self.inference_net.train()
@@ -207,8 +216,7 @@ class Autoencoder(object):
             observation=observation, prior=prior, prior_ensemble=prior_ensemble,
             noise=noise
         )
-        back_loss.backward(retain_graph=True)
-        recon_loss.backward()
+        total_loss.backward()
         return total_loss, back_loss, recon_loss
 
     def train(self, observation, prior=None, prior_ensemble=None, noise=None,
