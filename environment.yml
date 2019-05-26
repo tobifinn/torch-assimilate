@@ -10,3 +10,5 @@ dependencies:
     - scipy
     - tqdm
     - pytables
+    - dask
+    - pip
