@@ -30,9 +30,10 @@ from math import ceil
 
 # External modules
 import torch
-import numpy as np
 from tqdm import tqdm
 from dask.distributed import as_completed
+
+from dask.distributed import Client
 
 # Internal modules
 from .letkf import LETKFCorr, local_etkf
