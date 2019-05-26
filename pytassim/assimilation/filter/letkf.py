@@ -38,28 +38,20 @@ from . import etkf_core
 logger = logging.getLogger(__name__)
 
 
-def local_etkf(gen_weights_func, ind, innov, hx_perts, obs_cov, back_prec,
-               obs_grid, state_grid, state_perts, localization=None):
-    obs_weights = 1
-    if localization:
-        use_obs, obs_weights = localization.localize_obs(
-            state_grid[ind], obs_grid
-        )
-        obs_weights = torch.as_tensor(obs_weights[use_obs], dtype=innov.dtype)
-        use_obs = torch.ByteTensor(use_obs.astype(int))
-        if innov.is_cuda:
-            obs_weights = obs_weights.cuda()
-        innov = innov[use_obs]
-        hx_perts = hx_perts[use_obs]
-        obs_cov = obs_cov[use_obs, ...]
-        if obs_cov.dim() == 2:
-            obs_cov = obs_cov[..., use_obs]
-    w_mean_l, w_perts_l = gen_weights_func(
-        back_prec, innov, hx_perts, obs_cov, obs_weights
+def localize_states(localization, state_grid, obs_grid, innov, hx_perts, obs_cov):
+    use_obs, obs_weights = localization.localize_obs(
+        state_grid, obs_grid
     )
-    weights_l = (w_mean_l+w_perts_l).t()
-    ana_state_l = torch.matmul(state_perts[ind], weights_l)
-    return ana_state_l, weights_l, w_mean_l
+    obs_weights = torch.from_numpy(obs_weights[use_obs], dtype=innov.dtype)
+    use_obs = torch.from_numpy(use_obs.astype(int), dtype=torch.uint8)
+    if innov.is_cuda:
+        obs_weights = obs_weights.cuda()
+    innov = innov[use_obs]
+    hx_perts = hx_perts[use_obs]
+    obs_cov = obs_cov[use_obs, ...]
+    if obs_cov.dim() == 2:
+        obs_cov = obs_cov[..., use_obs]
+    return innov, hx_perts, obs_cov, obs_weights
 
 
 class LETKFCorr(ETKFCorr):
@@ -108,7 +100,22 @@ class LETKFCorr(ETKFCorr):
                          post_transform=post_transform)
         self.localization = localization
 
-    def update_state(self, state, observations, pseudo_state, analysis_time):
+    def _local_etkf(self, gen_weights_func, ind, innov, hx_perts, obs_cov, back_prec,
+                    obs_grid, state_grid, state_perts, localization=None):
+        if localization:
+            innov, hx_perts, obs_cov, obs_weights = localize_states(
+                localization, state_grid[ind], obs_grid, innov, hx_perts, obs_cov
+            )
+        else:
+            obs_weights = 1
+        w_mean_l, w_perts_l = gen_weights_func(
+            back_prec, innov, hx_perts, obs_cov, obs_weights
+        )
+        weights_l = (w_mean_l + w_perts_l).t()
+        ana_state_l = torch.matmul(state_perts[ind], weights_l)
+        return ana_state_l, weights_l, w_mean_l
+
+    def update_state(self, state, observations, analysis_time):
         """
         This method updates the state based on given observations and analysis
         time. This method prepares different states, localize these states,
