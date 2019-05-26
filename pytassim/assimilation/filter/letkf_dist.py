@@ -35,6 +35,7 @@ from tqdm import tqdm
 from dask.distributed import as_completed
 
 from dask.distributed import Client
+import dask
 
 # Internal modules
 from .letkf import LETKFCorr, local_etkf
@@ -105,6 +106,7 @@ class DistributedLETKFCorr(LETKFCorr):
                  gpu=False, pre_transform=None, post_transform=None):
         super().__init__(localization, inf_factor, smoother, gpu, pre_transform,
                          post_transform)
+        self._check_client_cluster(client, cluster)
         self._cluster = None
         self._client = None
         self._client_init = None
@@ -112,7 +114,6 @@ class DistributedLETKFCorr(LETKFCorr):
         self.client = client
         self.cluster = cluster
         self.chunksize = chunksize
-        self._check_client_cluster()
 
     @staticmethod
     def _validate_client(client):
@@ -212,54 +213,44 @@ class DistributedLETKFCorr(LETKFCorr):
         logger.info('Starting with specific preparation')
         innov, hx_perts, obs_cov, obs_grid = self._prepare(pseudo_state,
                                                            observations)
+        innov, hx_perts, obs_cov, obs_grid = self._prepare(state, observations)
+
+
         back_state = state.transpose('grid', 'var_name', 'time', 'ensemble')
         state_mean, state_perts = back_state.state.split_mean_perts()
+        state_perts = state_perts.chunk({'grid': self.chunksize, 'var_name': -1, 'time': -1, 'ensemble': -1})
+        state_grid = state_perts.grid.chunk({'grid': self.chunksize})
 
-        logger.info('Transfering the data to torch')
+        logger.info('Scatter the data to processes')
         back_prec = self._get_back_prec(len(back_state.ensemble))
-        innov, hx_perts, obs_cov, back_state = self._states_to_torch(
-            innov, hx_perts, obs_cov, state_perts.values,
-        )
-        state_grid = state_perts.grid.values
-        len_state_grid = len(state_grid)
-        grid_inds = list(self._slice_data(range(len_state_grid)))
-        processes = []
-        total_steps = ceil(len_state_grid/self.chunksize)
-        logger.info('Starting with job submission')
-        if hasattr(self.pool, 'scatter'):
-            futures = self.pool.scatter(
-                (self._gen_weights_func, innov, hx_perts,
-                 obs_cov, back_prec, obs_grid, state_grid, back_state,
-                 self.localization), broadcast=True
-            )
-            weight_func, innov, hx_perts, obs_cov, back_prec, \
-                obs_grid, state_grid, back_state, localization = futures
-        else:
-            weight_func, innov, hx_perts, obs_cov, back_prec, \
-                obs_grid, state_grid, back_state, localization = \
-                self._gen_weights_func, innov, hx_perts, \
-                obs_cov, back_prec, obs_grid, state_grid, back_state, \
-                self.localization
-        for ind in tqdm(grid_inds, total=total_steps):
-            tmp_process = self.pool.submit(
-                local_etkf_batch, weight_func, ind, innov, hx_perts,
-                obs_cov, back_prec, obs_grid, state_grid, back_state,
-                localization
-            )
-            processes.append(tmp_process)
+        innov, hx_perts, obs_cov = self._states_to_torch(innov, hx_perts, obs_cov,)
 
-        logger.info('Waiting until jobs are finished')
-        for _ in tqdm(as_completed(processes), total=total_steps, smoothing=0):
-            pass
+        innov, hx_perts, obs_cov, back_prec = self.client.scatter([innov, hx_perts, obs_cov, back_prec], broadcast=True)
+        print(innov)
 
-        logger.info('Gathering the analysis')
-        tqdm_results = tqdm(processes, total=total_steps, smoothing=0)
-        state_perts.values = torch.cat(
-            [p.result()[0] for p in tqdm_results], dim=0
-        ).numpy()
-        analysis = (state_mean+state_perts).transpose(*state.dims)
-        logger.info('Finished with analysis creation')
-        return analysis
+        # processes = []
+        # total_steps = ceil(len_state_grid/self.chunksize)
+        # logger.info('Starting with job submission')
+        # delayed_etkf_batch = dask.delayed(local_etkf_batch)
+        # for ind in tqdm(grid_inds, total=total_steps):
+        #     tmp_process = self.pool.submit(
+        #         local_etkf_batch, self._gen_weights_func, ind, innov, hx_perts,
+        #         obs_cov, back_prec, obs_grid, state_grid, back_state,
+        #         self.localization
+        #     )
+        #     processes.append(tmp_process)
+        #
+        # # logger.info('Waiting until jobs are finished')
+        # # for _ in tqdm(as_completed(processes), total=total_steps):
+        # #     pass
+        # #
+        # # logger.info('Gathering the analysis')
+        # # state_perts.values = torch.cat(
+        # #     [p.result()[0] for p in tqdm(processes, total=total_steps)], dim=0
+        # # ).numpy()
+        # analysis = (state_mean+state_perts).transpose(*state.dims)
+        # logger.info('Finished with analysis creation')
+        # return analysis
 
     def _slice_data(self, data):
         data = iter(data)
@@ -270,9 +261,8 @@ class DistributedLETKFCorr(LETKFCorr):
             else:
                 yield chunk
 
-    @staticmethod
-    def _share_states(*states):
-        shared_states = [s.share_memory_() for s in states]
+    def _scatter_states(self, *states):
+        shared_states = self.client.scatter()
         return shared_states
 
 

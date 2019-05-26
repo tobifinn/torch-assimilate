@@ -26,15 +26,14 @@ Created for torch-assimilate
 import unittest
 import logging
 import os
-import datetime
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-import time
 
 # External modules
 import xarray as xr
 import torch
 import numpy as np
 import scipy.spatial.distance
+
+from dask.distributed import LocalCluster, Client
 
 # Internal modules
 from pytassim.assimilation.filter.letkf import LETKFCorr, local_etkf
@@ -52,9 +51,6 @@ BASE_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
 
 
-POOL = ThreadPoolExecutor(max_workers=1)
-
-
 def dist_func(state_grid, obs_grid):
     state_grid = state_grid[None, None]
     obs_grid = obs_grid[..., None]
@@ -64,7 +60,9 @@ def dist_func(state_grid, obs_grid):
 
 class TestLETKFDistributed(unittest.TestCase):
     def setUp(self):
-        self.algorithm = DistributedLETKFCorr(POOL)
+        self.cluster = LocalCluster(n_workers=1, threads_per_worker=1)
+        self.client = Client(self.cluster)
+        self.algorithm = DistributedLETKFCorr(client=self.client)
         state_path = os.path.join(DATA_PATH, 'test_state.nc')
         self.state = xr.open_dataarray(state_path).load()
         self.back_prec = self.algorithm._get_back_prec(len(self.state.ensemble))
