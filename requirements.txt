@@ -3,3 +3,6 @@ scipy
 xarray
 tqdm
 pytables
+dask
+torch
+torchvision
