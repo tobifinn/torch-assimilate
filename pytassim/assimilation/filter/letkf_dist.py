@@ -36,32 +36,21 @@ from dask.distributed import as_completed
 
 from dask.distributed import Client
 import dask
+import dask.bag as db
+import dask.array as da
 
 # Internal modules
-from .letkf import LETKFCorr, local_etkf
+from .letkf import LETKFCorr, localize_states
 from .etkf_core import gen_weights_uncorr
 
 
 logger = logging.getLogger(__name__)
 
 
-def local_etkf_batch(gen_weights_func, ind, innov, hx_perts, obs_cov, back_prec,
-                     obs_grid, state_grid, state_perts, localization=None):
-    ana_state = []
-    weights = []
-    w_mean = []
-    for i in ind:
-        ana_state_l, weights_l, w_mean_l = local_etkf(
-            gen_weights_func, i, innov, hx_perts, obs_cov, back_prec, obs_grid,
-            state_grid, state_perts, localization
-        )
-        ana_state.append(ana_state_l)
-        weights.append(weights_l)
-        w_mean.append(w_mean_l)
-    ana_state = torch.stack(ana_state)
-    weights = torch.stack(weights)
-    w_mean = torch.stack(w_mean)
-    return ana_state, weights, w_mean
+def generate_weights(localized_states, back_prec, gen_weights_func):
+    w_mean_l, w_perts_l = gen_weights_func(back_prec, *localized_states)
+    weights = w_mean_l + w_perts_l.t()
+    return weights
 
 
 class DistributedLETKFCorr(LETKFCorr):
@@ -210,47 +199,32 @@ class DistributedLETKFCorr(LETKFCorr):
             is on, then the time axis has only one element.
         """
         logger.info('####### DISTRIBUTED LETKF #######')
-        logger.info('Starting with specific preparation')
+        logger.info('Starting with applying observation operator')
         innov, hx_perts, obs_cov, obs_grid = self._prepare(pseudo_state,
                                                            observations)
-        innov, hx_perts, obs_cov, obs_grid = self._prepare(state, observations)
-
-
+        logger.info('Chunking the background state')
         back_state = state.transpose('grid', 'var_name', 'time', 'ensemble')
         state_mean, state_perts = back_state.state.split_mean_perts()
         state_perts = state_perts.chunk({'grid': self.chunksize, 'var_name': -1, 'time': -1, 'ensemble': -1})
-        state_grid = state_perts.grid.chunk({'grid': self.chunksize})
+        state_grid = state_perts.grid.values
 
         logger.info('Scatter the data to processes')
         back_prec = self._get_back_prec(len(back_state.ensemble))
         innov, hx_perts, obs_cov = self._states_to_torch(innov, hx_perts, obs_cov,)
-
         innov, hx_perts, obs_cov, back_prec = self.client.scatter([innov, hx_perts, obs_cov, back_prec], broadcast=True)
-        print(innov)
+        innov, hx_perts, obs_cov, back_prec = self.client.scatter([innov, hx_perts, obs_cov, back_prec], broadcast=True)
 
-        # processes = []
-        # total_steps = ceil(len_state_grid/self.chunksize)
-        # logger.info('Starting with job submission')
-        # delayed_etkf_batch = dask.delayed(local_etkf_batch)
-        # for ind in tqdm(grid_inds, total=total_steps):
-        #     tmp_process = self.pool.submit(
-        #         local_etkf_batch, self._gen_weights_func, ind, innov, hx_perts,
-        #         obs_cov, back_prec, obs_grid, state_grid, back_state,
-        #         self.localization
-        #     )
-        #     processes.append(tmp_process)
-        #
-        # # logger.info('Waiting until jobs are finished')
-        # # for _ in tqdm(as_completed(processes), total=total_steps):
-        # #     pass
-        # #
-        # # logger.info('Gathering the analysis')
-        # # state_perts.values = torch.cat(
-        # #     [p.result()[0] for p in tqdm(processes, total=total_steps)], dim=0
-        # # ).numpy()
-        # analysis = (state_mean+state_perts).transpose(*state.dims)
-        # logger.info('Finished with analysis creation')
-        # return analysis
+        logger.info('Estimate weights')
+        state_grid_db = db.from_sequence(state_grid, partition_size=self.chunksize)
+        delayed_local_func = dask.delayed(localize_states)
+        localized_states = state_grid_db.map(
+            delayed_local_func, obs_grid=obs_grid, innov=innov, hx_perts=hx_perts,
+            obs_cov=obs_cov, localization=self.localization
+        )
+        delayed_gen_weights_func = dask.delayed(generate_weights)
+        weights = localized_states.map(delayed_gen_weights_func, back_prec=back_prec,
+                                       gen_weights_func=self._gen_weights_func)
+        print(weights.compute()[0].compute().shape)
 
     def _slice_data(self, data):
         data = iter(data)
