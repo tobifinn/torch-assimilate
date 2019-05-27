@@ -26,18 +26,12 @@
 # System modules
 import logging
 import itertools
-from math import ceil
 import warnings
 
 # External modules
-import torch
-from tqdm import tqdm
-from dask.distributed import as_completed
-
 from dask.distributed import Client
 import dask
 import dask.bag as db
-import dask.array as da
 
 # Internal modules
 from .letkf import LETKFCorr, localize_states
@@ -49,7 +43,7 @@ logger = logging.getLogger(__name__)
 
 def generate_weights(localized_states, back_prec, gen_weights_func):
     w_mean_l, w_perts_l = gen_weights_func(back_prec, *localized_states)
-    weights = w_mean_l + w_perts_l.t()
+    weights = (w_mean_l + w_perts_l.t()).numpy()
     return weights
 
 
@@ -209,7 +203,8 @@ class DistributedLETKFCorr(LETKFCorr):
         state_grid = state_perts.grid.values
 
         logger.info('Scatter the data to processes')
-        back_prec = self._get_back_prec(len(back_state.ensemble))
+        ens_mems = len(back_state.ensemble)
+        back_prec = self._get_back_prec(ens_mems)
         innov, hx_perts, obs_cov = self._states_to_torch(innov, hx_perts, obs_cov,)
         innov, hx_perts, obs_cov, back_prec = self.client.scatter([innov, hx_perts, obs_cov, back_prec], broadcast=True)
         innov, hx_perts, obs_cov, back_prec = self.client.scatter([innov, hx_perts, obs_cov, back_prec], broadcast=True)
@@ -224,7 +219,7 @@ class DistributedLETKFCorr(LETKFCorr):
         delayed_gen_weights_func = dask.delayed(generate_weights)
         weights = localized_states.map(delayed_gen_weights_func, back_prec=back_prec,
                                        gen_weights_func=self._gen_weights_func)
-        print(weights.compute()[0].compute().shape)
+
 
     def _slice_data(self, data):
         data = iter(data)
