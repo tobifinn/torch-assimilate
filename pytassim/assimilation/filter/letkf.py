@@ -38,19 +38,22 @@ from . import etkf_core
 logger = logging.getLogger(__name__)
 
 
-def localize_states(localization, state_grid, obs_grid, innov, hx_perts, obs_cov):
-    use_obs, obs_weights = localization.localize_obs(
-        state_grid, obs_grid
-    )
-    obs_weights = torch.from_numpy(obs_weights[use_obs], dtype=innov.dtype)
-    use_obs = torch.from_numpy(use_obs.astype(int), dtype=torch.uint8)
-    if innov.is_cuda:
-        obs_weights = obs_weights.cuda()
-    innov = innov[use_obs]
-    hx_perts = hx_perts[use_obs]
-    obs_cov = obs_cov[use_obs, ...]
-    if obs_cov.dim() == 2:
-        obs_cov = obs_cov[..., use_obs]
+def localize_states(state_grid, obs_grid, innov, hx_perts, obs_cov, localization):
+    if localization is None:
+        obs_weights = 1
+    else:
+        use_obs, obs_weights = localization.localize_obs(
+            state_grid, obs_grid
+        )
+        obs_weights = torch.from_numpy(obs_weights[use_obs], dtype=innov.dtype)
+        use_obs = torch.from_numpy(use_obs.astype(int), dtype=torch.uint8)
+        if innov.is_cuda:
+            obs_weights = obs_weights.cuda()
+        innov = innov[use_obs]
+        hx_perts = hx_perts[use_obs]
+        obs_cov = obs_cov[use_obs, ...]
+        if obs_cov.dim() == 2:
+            obs_cov = obs_cov[..., use_obs]
     return innov, hx_perts, obs_cov, obs_weights
 
 
