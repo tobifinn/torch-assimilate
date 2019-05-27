@@ -45,8 +45,8 @@ def localize_states(state_grid, obs_grid, innov, hx_perts, obs_cov, localization
         use_obs, obs_weights = localization.localize_obs(
             state_grid, obs_grid
         )
-        obs_weights = torch.from_numpy(obs_weights[use_obs], dtype=innov.dtype)
-        use_obs = torch.from_numpy(use_obs.astype(int), dtype=torch.uint8)
+        obs_weights = torch.as_tensor(obs_weights[use_obs], dtype=innov.dtype)
+        use_obs = torch.ByteTensor(use_obs.astype(int))
         if innov.is_cuda:
             obs_weights = obs_weights.cuda()
         innov = innov[use_obs]
