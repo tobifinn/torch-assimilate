@@ -50,20 +50,24 @@ def generate_weights(localized_states, back_prec, gen_weights_func):
 class DistributedLETKFCorr(LETKFCorr):
     """
     This is a dask-based implementation of the `localized ensemble transform
-    Kalman filter` :cite:`hunt_efficient_2007` for correlated observations. This dask-based implementation is based on
+    Kalman filter` :cite:`hunt_efficient_2007` for correlated observations.
+    This dask-based implementation is based on
     :py:class:``~dask.distributed.Client``.
 
     Parameters
     ----------
     client : :py:class:``~dask.distributed.Client`` or None
-        This dask distributed client is used to parallelize the processes. Either this client or ``cluster`` has to be
+        This dask distributed client is used to parallelize the processes.
+        Either this client or ``cluster`` has to be
         specified. Default is None.
     cluster : compatible to :py:class:``~dask.disributed.LocalCluster`` or None
-        This dask cluster is used to initialize a :py:class:``~dask.distributed.Client``, if no client is specified.
+        This dask cluster is used to initialize a :py:class:``~dask.distributed.
+        Client``, if no client is specified.
         Either this cluster or a ``client`` has to be given. Default is None.
     chunksize : int, optional
-        The data is splitted up such that every chunk has this number of samples. This influences the performance of
-        this distributed version of the LETKF. Default is 10.
+        The data is splitted up such that every chunk has this number of
+        samples. This influences the performance of this distributed version of
+        the LETKF. Default is 10.
     localization : obj or None, optional
         This localization is used to localize and constrain observations
         spatially. If this localization is None, no localization is applied such
@@ -85,7 +89,8 @@ class DistributedLETKFCorr(LETKFCorr):
         or CPU (False): Default is None. For small models, estimation of the
         weights on CPU is faster than on GPU!.
     """
-    def __init__(self, client=None, cluster=None, chunksize=10, localization=None, inf_factor=1.0, smoother=True,
+    def __init__(self, client=None, cluster=None, chunksize=10,
+                 localization=None, inf_factor=1.0, smoother=True,
                  gpu=False, pre_transform=None, post_transform=None):
         super().__init__(localization, inf_factor, smoother, gpu, pre_transform,
                          post_transform)
@@ -107,8 +112,12 @@ class DistributedLETKFCorr(LETKFCorr):
         return hasattr(cluster, "scheduler_address")
 
     def _check_client_cluster(self, client, cluster):
-        if not self._validate_client(client) and not self._validate_cluster(cluster):
-            raise ValueError('Either a client or a cluster have to be specified!')
+        not_valid_cluster = not self._validate_cluster(cluster)
+        not_valid_client = not self._validate_client(client)
+        if not_valid_client and not_valid_cluster:
+            raise ValueError(
+                'Either a client or a cluster have to be specified!'
+            )
 
     @property
     def _client_manually_set(self):
@@ -127,13 +136,16 @@ class DistributedLETKFCorr(LETKFCorr):
                 self._client_init = Client(self._cluster)
             else:
                 warnings.warn(
-                    'I will not initialize a new client with this given cluster, because a client is manually set.',
+                    'I will not initialize a new client with this given '
+                    'cluster, because a client is manually set.',
                     category=UserWarning
                 )
         elif cluster is None:
             self._cluster = None
         else:
-            raise TypeError('Cluster has to be either a valid dask cluster or None!')
+            raise TypeError(
+                'Cluster has to be either a valid dask cluster or None!'
+            )
 
     @property
     def client(self):
@@ -148,13 +160,15 @@ class DistributedLETKFCorr(LETKFCorr):
                 self._client_init = new_client
             else:
                 warnings.warn(
-                    'I will not set a new client, because the old client was initialized with a cluster',
-                    category=UserWarning
+                    'I will not set a new client, because the old client was '
+                    'initialized with a cluster', category=UserWarning
                 )
         elif new_client is None:
             self._client = None
         else:
-            raise TypeError('Client has to be either a valid dask client or None!')
+            raise TypeError(
+                'Client has to be either a valid dask client or None!'
+            )
 
     def update_state(self, state, observations, pseudo_state, analysis_time):
         """
@@ -199,27 +213,33 @@ class DistributedLETKFCorr(LETKFCorr):
         logger.info('Chunking the background state')
         back_state = state.transpose('grid', 'var_name', 'time', 'ensemble')
         state_mean, state_perts = back_state.state.split_mean_perts()
-        state_perts = state_perts.chunk({'grid': self.chunksize, 'var_name': -1, 'time': -1, 'ensemble': -1})
+        state_perts = state_perts.chunk(
+            {'grid': self.chunksize, 'var_name': -1, 'time': -1, 'ensemble': -1}
+        )
         state_grid = state_perts.grid.values
 
         logger.info('Scatter the data to processes')
         ens_mems = len(back_state.ensemble)
         back_prec = self._get_back_prec(ens_mems)
-        innov, hx_perts, obs_cov = self._states_to_torch(innov, hx_perts, obs_cov,)
-        innov, hx_perts, obs_cov, back_prec = self.client.scatter([innov, hx_perts, obs_cov, back_prec], broadcast=True)
-        innov, hx_perts, obs_cov, back_prec = self.client.scatter([innov, hx_perts, obs_cov, back_prec], broadcast=True)
+        innov, hx_perts, obs_cov = self._states_to_torch(innov, hx_perts,
+                                                         obs_cov,)
+        innov, hx_perts, obs_cov, back_prec = self.client.scatter(
+            [innov, hx_perts, obs_cov, back_prec], broadcast=True
+        )
 
         logger.info('Estimate weights')
-        state_grid_db = db.from_sequence(state_grid, partition_size=self.chunksize)
+        state_grid_db = db.from_sequence(state_grid,
+                                         partition_size=self.chunksize)
         delayed_local_func = dask.delayed(localize_states)
         localized_states = state_grid_db.map(
-            delayed_local_func, obs_grid=obs_grid, innov=innov, hx_perts=hx_perts,
-            obs_cov=obs_cov, localization=self.localization
+            delayed_local_func, obs_grid=obs_grid, innov=innov,
+            hx_perts=hx_perts, obs_cov=obs_cov, localization=self.localization
         )
         delayed_gen_weights_func = dask.delayed(generate_weights)
-        weights = localized_states.map(delayed_gen_weights_func, back_prec=back_prec,
-                                       gen_weights_func=self._gen_weights_func)
-
+        weights = localized_states.map(
+            delayed_gen_weights_func, back_prec=back_prec,
+            gen_weights_func=self._gen_weights_func
+        )
 
     def _slice_data(self, data):
         data = iter(data)
