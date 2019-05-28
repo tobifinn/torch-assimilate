@@ -56,7 +56,7 @@ class TestTerrSysMPCosmo(unittest.TestCase):
     def test_dataset_can_be_reconstructed(self):
         pre_arr = cosmo.preprocess_cosmo(self.dataset, self.assim_vars)
         post_ds = cosmo.postprocess_cosmo(pre_arr, self.dataset)
-        xr.testing.assert_identical(post_ds, self.dataset)
+        xr.testing.assert_equal(post_ds, self.dataset)
 
     def test_preprocess_selects_only_available_vars(self):
         with self.assertLogs(level=logging.WARNING) as log:

@@ -102,7 +102,7 @@ def dim_transpose(array, vcoords):
     dim_generic = ['time', 'ensemble']
     dim_order = [d for d in dim_generic if d in array.dims]
     dim_order += [d for d in vcoords+['vgrid', ] if d in array.dims]
-    dim_grid = list(set(array.dims) - set(dim_order))
+    dim_grid = [d for d in array.dims if d not in dim_order]
     dim_order += dim_grid
     array_trans = array.transpose(*dim_order)
     return array_trans
