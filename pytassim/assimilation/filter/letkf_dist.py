@@ -25,7 +25,6 @@
 
 # System modules
 import logging
-from concurrent.futures import as_completed
 import itertools
 from math import ceil
 
@@ -33,6 +32,7 @@ from math import ceil
 import torch
 import numpy as np
 from tqdm import tqdm
+from dask.distributed import as_completed
 
 # Internal modules
 from .letkf import LETKFCorr, local_etkf
@@ -113,7 +113,7 @@ class DistributedLETKFCorr(LETKFCorr):
             raise TypeError('Given distributed pool needs a '
                             'concurrent.futures-like `submit` method!')
 
-    def update_state(self, state, observations, analysis_time):
+    def update_state(self, state, observations, pseudo_state, analysis_time):
         """
         This method updates the state based on given observations and analysis
         time. This method prepares different states, localize these states,
@@ -125,8 +125,7 @@ class DistributedLETKFCorr(LETKFCorr):
         Parameters
         ----------
         state : :py:class:`xarray.DataArray`
-            This state is used to generate an observation-equivalent. It is
-            further updated by this assimilation algorithm and given
+            This state is updated by this assimilation algorithm and given
             ``observation``. This :py:class:`~xarray.DataArray` should have
             four coordinates, which are specified in
             :py:class:`pytassim.state.ModelState`.
@@ -136,6 +135,10 @@ class DistributedLETKFCorr(LETKFCorr):
             many :py:class:`xarray.Dataset` can be used to assimilate different
             variables. For the observation state, these observations are
             stacked such that the observation state contains all observations.
+        pseudo_state : :py:class:`xarray.DataArray`
+            This state is used to generate an observation-equivalent. This
+             :py:class:`~xarray.DataArray` should have four coordinates, which
+             are specified in :py:class:`pytassim.state.ModelState`.
         analysis_time : :py:class:`datetime.datetime`
             This analysis time determines at which point the state is updated.
 
@@ -148,7 +151,8 @@ class DistributedLETKFCorr(LETKFCorr):
         """
         logger.info('####### DISTRIBUTED LETKF #######')
         logger.info('Starting with specific preparation')
-        innov, hx_perts, obs_cov, obs_grid = self._prepare(state, observations)
+        innov, hx_perts, obs_cov, obs_grid = self._prepare(pseudo_state,
+                                                           observations)
         back_state = state.transpose('grid', 'var_name', 'time', 'ensemble')
         state_mean, state_perts = back_state.state.split_mean_perts()
 
@@ -163,21 +167,36 @@ class DistributedLETKFCorr(LETKFCorr):
         processes = []
         total_steps = ceil(len_state_grid/self.chunksize)
         logger.info('Starting with job submission')
+        if hasattr(self.pool, 'scatter'):
+            futures = self.pool.scatter(
+                (self._gen_weights_func, innov, hx_perts,
+                 obs_cov, back_prec, obs_grid, state_grid, back_state,
+                 self.localization), broadcast=True
+            )
+            weight_func, innov, hx_perts, obs_cov, back_prec, \
+                obs_grid, state_grid, back_state, localization = futures
+        else:
+            weight_func, innov, hx_perts, obs_cov, back_prec, \
+                obs_grid, state_grid, back_state, localization = \
+                self._gen_weights_func, innov, hx_perts, \
+                obs_cov, back_prec, obs_grid, state_grid, back_state, \
+                self.localization
         for ind in tqdm(grid_inds, total=total_steps):
             tmp_process = self.pool.submit(
-                local_etkf_batch, self._gen_weights_func, ind, innov, hx_perts,
+                local_etkf_batch, weight_func, ind, innov, hx_perts,
                 obs_cov, back_prec, obs_grid, state_grid, back_state,
-                self.localization
+                localization
             )
             processes.append(tmp_process)
 
         logger.info('Waiting until jobs are finished')
-        for _ in tqdm(as_completed(processes), total=total_steps):
+        for _ in tqdm(as_completed(processes), total=total_steps, smoothing=0):
             pass
 
         logger.info('Gathering the analysis')
+        tqdm_results = tqdm(processes, total=total_steps, smoothing=0)
         state_perts.values = torch.cat(
-            [p.result()[0] for p in tqdm(processes, total=total_steps)], dim=0
+            [p.result()[0] for p in tqdm_results], dim=0
         ).numpy()
         analysis = (state_mean+state_perts).transpose(*state.dims)
         logger.info('Finished with analysis creation')

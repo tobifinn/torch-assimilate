@@ -66,7 +66,7 @@ def dummy_obs_operator(self, state):
     return pseudo_obs
 
 
-def dummy_update_state(self, state, observations, analysis_time):
+def dummy_update_state(self, state, observations, pseudo_state, analysis_time):
     """
     This dummy update state can be used to patch
     :py:meth:`~pytassim.assimilation.base.BaseAssimilation.update_state` for
@@ -86,6 +86,10 @@ def dummy_update_state(self, state, observations, analysis_time):
     observations : :py:class:`xarray.Dataset` or \
     iterable(:py:class:`xarray.Dataset`)
         These observations are no used in this dummy method.
+    pseudo_state : :py:class:`xarray.DataArray`
+        This state is used to generate an observation-equivalent. This
+         :py:class:`~xarray.DataArray` should have four coordinates, which
+         are specified in :py:class:`pytassim.state.ModelState`.
     analysis_time : :py:class:`datetime.datetime`
         This analysis time determines at which point the state is updated.
 
@@ -147,6 +151,13 @@ def dummy_distance(a, b):
 
 
 class DummyNeuralModule(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.linear = torch.nn.Linear(16, 8, bias=False)
+
+    def forward(self, in_tensor):
+        return self.linear(in_tensor)
+
     @staticmethod
-    def assimilate(state, *args):
+    def assimilate(state, *args, **kwargs):
         return state

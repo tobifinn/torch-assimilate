@@ -145,6 +145,18 @@ class TestBaseAssimilation(unittest.TestCase):
 
     @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
            side_effect=dummy_update_state, autospec=True)
+    def test_assimilate_validates_pseudo_state(self, _):
+        pstate = self.state + 1
+        with patch('pytassim.assimilation.base.BaseAssimilation.'
+                   '_validate_state') as valid_mock:
+            _ = self.algorithm.assimilate(self.state, self.obs, pstate,
+                                          None)
+            valid_mock.assert_called()
+        xr.testing.assert_equal(valid_mock.call_args_list[1][0][0], pstate)
+
+
+    @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
+           side_effect=dummy_update_state, autospec=True)
     def test_assimilate_validates_observations(self, _):
         with patch('pytassim.assimilation.base.BaseAssimilation.'
                    '_validate_observations') as valid_mock:
@@ -156,12 +168,26 @@ class TestBaseAssimilation(unittest.TestCase):
            side_effect=dummy_update_state, autospec=True)
     def test_assimilate_calls_update_state(self, update_mock):
         self.algorithm.smoother = True
-        _ = self.algorithm.assimilate(self.state, self.obs, None)
+        pstate = self.state + 1
+        _ = self.algorithm.assimilate(self.state, self.obs, pstate, None)
         latest_time = self.state.time[-1]
         update_mock.assert_called_once()
         xr.testing.assert_equal(update_mock.call_args[0][1], self.state)
         xr.testing.assert_equal(update_mock.call_args[0][2][0], self.obs,)
-        np.testing.assert_equal(update_mock.call_args[0][3], latest_time.values)
+        xr.testing.assert_equal(update_mock.call_args[0][3], pstate)
+        np.testing.assert_equal(update_mock.call_args[0][4], latest_time.values)
+
+    @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
+           side_effect=dummy_update_state, autospec=True)
+    def test_assimilate_uses_state_wo_pseudo(self, update_mock):
+        self.algorithm.smoother = True
+        _ = self.algorithm.assimilate(self.state, self.obs, None, None)
+        latest_time = self.state.time[-1]
+        update_mock.assert_called_once()
+        xr.testing.assert_equal(update_mock.call_args[0][1], self.state)
+        xr.testing.assert_equal(update_mock.call_args[0][2][0], self.obs,)
+        xr.testing.assert_equal(update_mock.call_args[0][3], self.state)
+        np.testing.assert_equal(update_mock.call_args[0][4], latest_time.values)
 
     @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
            side_effect=dummy_update_state, autospec=True)
@@ -174,20 +200,20 @@ class TestBaseAssimilation(unittest.TestCase):
            side_effect=dummy_update_state, autospec=True)
     def test_assimilate_validates_analysis(self, _):
         analysis = dummy_update_state(self.algorithm, self.state, self.obs,
-                                      self.state.time[-1])
+                                      None, self.state.time[-1])
         with patch('pytassim.assimilation.base.BaseAssimilation.'
                    '_validate_state') as valid_mock:
-            _ = self.algorithm.assimilate(self.state, self.obs, None)
-        self.assertEqual(valid_mock.call_count, 2)
-        xr.testing.assert_equal(valid_mock.call_args_list[1][0][0], analysis)
+            _ = self.algorithm.assimilate(self.state, self.obs, None, None)
+        self.assertEqual(valid_mock.call_count, 3)
+        xr.testing.assert_equal(valid_mock.call_args_list[-1][0][0], analysis)
 
     @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
            side_effect=dummy_update_state, autospec=True)
     def test_assimilate_returns_analysis(self, _):
         analysis = dummy_update_state(self.algorithm, self.state, self.obs,
-                                      self.state.time[-1])
+                                      None, self.state.time[-1])
         returned_analysis = self.algorithm.assimilate(self.state, self.obs,
-                                                      None)
+                                                      None, None)
         xr.testing.assert_equal(analysis, returned_analysis)
 
     def test_apply_obs_operator_filters_obs_wo_operator(self):

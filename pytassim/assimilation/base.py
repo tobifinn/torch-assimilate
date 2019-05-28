@@ -123,7 +123,7 @@ class BaseAssimilation(object):
         return valid_time.values
 
     @staticmethod
-    def _apply_obs_operator(state, observations):
+    def _apply_obs_operator(pseudo_state, observations):
         """
         This method applies the observation operator on given state. The
         observation operator has to be set within given observations. It is
@@ -132,7 +132,7 @@ class BaseAssimilation(object):
 
         Parameters
         ----------
-        state : :py:class:`xarray.DataArray`
+        pseudo_state : :py:class:`xarray.DataArray`
             This state is used as base state to apply set observation operator.
         observations : iterable(:py:class:`xarray.Dataset`)
             These observations are used as basis for the observation operators.
@@ -154,11 +154,23 @@ class BaseAssimilation(object):
         filtered_observations = []
         for obs in observations:
             try:
-                obs_equivalent.append(obs.obs.operator(state))
+                obs_equivalent.append(obs.obs.operator(pseudo_state))
                 filtered_observations.append(obs)
             except NotImplementedError:
                 pass
         return obs_equivalent, filtered_observations
+
+    def _grid_index_to_array(self, index):
+        raw_index_array = np.atleast_1d(index.values)
+        if isinstance(raw_index_array[0], tuple):
+            shape = (-1, len(raw_index_array[0]))
+        elif raw_index_array.ndim > 1:
+            shape = raw_index_array.shape
+        else:
+            shape = (-1, 1)
+        dtype = ','.join(['float']*shape[-1])
+        index_array = np.array(index, dtype=dtype).view(float).reshape(*shape)
+        return index_array
 
     def _prepare_obs(self, observations):
         state_stacked_list = []
@@ -182,7 +194,7 @@ class BaseAssimilation(object):
             cov_stacked_list.append(stacked_cov)
         state_concat = xr.concat(state_stacked_list, dim='obs_id')
         state_values = state_concat.values
-        state_grid = state_concat.obs_grid_1.values
+        state_grid = self._grid_index_to_array(state_concat['obs_grid_1'])
         if self._correlated:
             state_covariance = scipy.linalg.block_diag(*cov_stacked_list)
         else:
@@ -190,7 +202,7 @@ class BaseAssimilation(object):
         return state_values, state_covariance, state_grid
 
     @abc.abstractmethod
-    def update_state(self, state, observations, analysis_time):
+    def update_state(self, state, observations, pseudo_state, analysis_time):
         """
         This method is called by
         :py:meth:`~pytassim.assimilation.base.BaseAssimilation.assimilate` and
@@ -199,8 +211,7 @@ class BaseAssimilation(object):
         Parameters
         ----------
         state : :py:class:`xarray.DataArray`
-            This state is used to generate an observation-equivalent. It is
-            further updated by this assimilation algorithm and given
+            This state is updated by this assimilation algorithm and given
             ``observation``. This :py:class:`~xarray.DataArray` should have
             four coordinates, which are specified in
             :py:class:`pytassim.state.ModelState`.
@@ -212,6 +223,10 @@ class BaseAssimilation(object):
             stacked such that the observation state contains all observations.
             The :py:class:`xarray.Dataset` are validated with
             :py:class:`pytassim.observation.Observation.valid`
+        pseudo_state : :py:class:`xarray.DataArray`
+            This state is used to generate an observation-equivalent. This
+             :py:class:`~xarray.DataArray` should have four coordinates, which
+             are specified in :py:class:`pytassim.state.ModelState`.
         analysis_time : :py:class:`datetime.datetime`
             This analysis time determines at which point the state is updated.
 
@@ -224,7 +239,8 @@ class BaseAssimilation(object):
         """
         pass
 
-    def assimilate(self, state, observations, analysis_time=None):
+    def assimilate(self, state, observations, pseudo_state=None,
+                   analysis_time=None):
         """
         This assimilate the ``observations`` in given background ``state`` and
         creates an analysis for given ``analysis_time``. The observations need
@@ -234,15 +250,17 @@ class BaseAssimilation(object):
         method validates given state and observations, gets analysis time and
         calls
         :py:meth:`~pytassim.assimilation.base.BaseAssimilation.update_state`.
+        If state to assimilate is given, this state is translated into
+        observation space.
 
         Parameters
         ----------
         state : :py:class:`xarray.DataArray`
-            This state is used to generate an observation-equivalent. It is
-            further updated by this assimilation algorithm and given
+            This state is updated by this assimilation algorithm and given
             ``observation``. This :py:class:`~xarray.DataArray` should have
             four coordinates, which are specified in
-            :py:class:`pytassim.state.ModelState`.
+            :py:class:`pytassim.state.ModelState`. If no pseudo_state is
+            specified, this state is also used to generate pseudo observations.
         observations : :py:class:`xarray.Dataset` or \
         iterable(:py:class:`xarray.Dataset`)
             These observations are used to update given state. An iterable of
@@ -251,6 +269,11 @@ class BaseAssimilation(object):
             stacked such that the observation state contains all observations.
             The :py:class:`xarray.Dataset` are validated with
             :py:class:`pytassim.observation.Observation.valid`
+        pseudo_state : :py:class:`xarray.DataArray` or None
+            If this additional state is given, this state is used to create
+            pseudo-observations. This :py:class:`~xarray.DataArray` should have
+            four coordinates, which are specified in
+            :py:class:`pytassim.state.ModelState`.
         analysis_time : :py:class:`datetime.datetime` or None, optional
             This analysis time determines at which point the state is updated.
             If the analysis time is None, than the last time point in given
@@ -271,7 +294,10 @@ class BaseAssimilation(object):
             return state
         if not isinstance(observations, (list, set, tuple)):
             observations = (observations, )
+        if pseudo_state is None:
+            pseudo_state = state
         self._validate_state(state)
+        self._validate_state(pseudo_state)
         self._validate_observations(observations)
         analysis_time = self._get_analysis_time(state, analysis_time)
         if isinstance(analysis_time, datetime.datetime):
@@ -284,18 +310,23 @@ class BaseAssimilation(object):
             back_state = state
         else:
             logger.info('Assimilation in non-smoother mode')
+            pseudo_state = pseudo_state.sel(time=[analysis_time, ])
             back_state = state.sel(time=[analysis_time, ])
             observations = [obs.sel(time=[analysis_time, ])
                             for obs in observations]
         if self.pre_transform:
             for trans in self.pre_transform:
-                back_state, observations = trans.pre(back_state, observations)
+                back_state, observations, pseudo_state = trans.pre(
+                    back_state, observations, pseudo_state
+                )
         logger.info('Finished with general preparation')
-        analysis = self.update_state(back_state, observations, analysis_time)
+        analysis = self.update_state(back_state, observations, pseudo_state,
+                                     analysis_time)
         logger.info('Created the analysis, starting with post-processing')
         if self.post_transform:
             for trans in self.post_transform:
-                analysis = trans.post(analysis, back_state, observations)
+                analysis = trans.post(analysis, back_state, observations,
+                                      pseudo_state)
         self._validate_state(analysis)
         end_time = time.time()
         logger.info('Finished assimilation after {0:.2f} s'.format(
