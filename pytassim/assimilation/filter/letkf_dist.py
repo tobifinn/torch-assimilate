@@ -39,6 +39,7 @@ import numpy as np
 # Internal modules
 from .letkf import LETKFCorr, localize_states
 from .etkf_core import gen_weights_uncorr
+from pytassim.utilities.dask import bag_to_array
 
 
 logger = logging.getLogger(__name__)
@@ -50,11 +51,12 @@ def generate_weights(localized_states, back_prec, gen_weights_func):
     return weights
 
 
-def bag_to_array(bag_to_transform, shape):
-    arr_list = [da.from_delayed(ele, shape=shape, dtype=np.float64)
-                for ele in bag_to_transform]
-    out_array = da.stack(arr_list, axis=0).rechunk(-1)
-    return out_array
+def apply_weights_chunkwise(back_perts, weights):
+    ana_perts = da.einsum(
+        'ijkl,lkm->ijml', back_perts[0], weights,
+        optimize=False
+    )
+    return ana_perts
 
 
 class DistributedLETKFCorr(LETKFCorr):
@@ -252,13 +254,17 @@ class DistributedLETKFCorr(LETKFCorr):
         weights_array = weights.map_partitions(
             bag_to_array, shape=(ens_mems, ens_mems)
         )
-        weights_array = dask.delayed(da.concatenate)(weights_array, axis=0)
 
-        logger.info('Apply weights to array')
-        ana_perts = dask.delayed(da.einsum)(
-            'ijkl,lkm->ijml', state_perts.data, weights_array,
-            optimize=True
+        logger.info('Apply weights to perturbations')
+        perts_bag = db.from_sequence(state_perts.data.to_delayed()[0, 0, 0])
+        chunksize = tuple(c[0] for c in state_perts.chunks)
+        perts_bag = perts_bag.map(
+            da.from_delayed, shape=chunksize, dtype=state_perts.dtype
         )
+
+        applied_weights = db.map_partitions(apply_weights_chunkwise, perts_bag,
+                                            weights_array)
+        ana_perts = dask.delayed(da.concatenate)(applied_weights, axis=-1)
 
         logger.info('Create analysis perturbations')
         ana_perts = state_perts.copy(data=ana_perts.compute())
