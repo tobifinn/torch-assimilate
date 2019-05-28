@@ -118,7 +118,7 @@ class LETKFCorr(ETKFCorr):
         ana_state_l = torch.matmul(state_perts[ind], weights_l)
         return ana_state_l, weights_l, w_mean_l
 
-    def update_state(self, state, observations, analysis_time):
+    def update_state(self, state, observations, pseudo_state, analysis_time):
         """
         This method updates the state based on given observations and analysis
         time. This method prepares different states, localize these states,
