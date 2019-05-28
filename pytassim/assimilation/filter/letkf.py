@@ -38,7 +38,8 @@ from . import etkf_core
 logger = logging.getLogger(__name__)
 
 
-def localize_states(state_grid, obs_grid, innov, hx_perts, obs_cov, localization):
+def localize_states(state_grid, obs_grid, innov, hx_perts, obs_cov,
+                    localization):
     if localization is None:
         obs_weights = 1
     else:
@@ -55,6 +56,19 @@ def localize_states(state_grid, obs_grid, innov, hx_perts, obs_cov, localization
         if obs_cov.dim() == 2:
             obs_cov = obs_cov[..., use_obs]
     return innov, hx_perts, obs_cov, obs_weights
+
+
+def local_etkf(gen_weights_func, ind, innov, hx_perts, obs_cov, back_prec,
+               obs_grid, state_grid, state_perts, localization=None):
+    innov_l, hx_perts_l, obs_cov_l, obs_weights_l = localize_states(
+        state_grid[ind], obs_grid, innov, hx_perts, obs_cov, localization
+    )
+    w_mean_l, w_perts_l = gen_weights_func(
+        back_prec, innov_l, hx_perts_l, obs_cov_l, obs_weights_l
+    )
+    weights_l = (w_mean_l+w_perts_l).t()
+    ana_state_l = torch.matmul(state_perts[ind], weights_l)
+    return ana_state_l, weights_l, w_mean_l
 
 
 class LETKFCorr(ETKFCorr):
@@ -102,21 +116,6 @@ class LETKFCorr(ETKFCorr):
                          pre_transform=pre_transform,
                          post_transform=post_transform)
         self.localization = localization
-
-    def _local_etkf(self, gen_weights_func, ind, innov, hx_perts, obs_cov, back_prec,
-                    obs_grid, state_grid, state_perts, localization=None):
-        if localization:
-            innov, hx_perts, obs_cov, obs_weights = localize_states(
-                localization, state_grid[ind], obs_grid, innov, hx_perts, obs_cov
-            )
-        else:
-            obs_weights = 1
-        w_mean_l, w_perts_l = gen_weights_func(
-            back_prec, innov, hx_perts, obs_cov, obs_weights
-        )
-        weights_l = (w_mean_l + w_perts_l).t()
-        ana_state_l = torch.matmul(state_perts[ind], weights_l)
-        return ana_state_l, weights_l, w_mean_l
 
     def update_state(self, state, observations, pseudo_state, analysis_time):
         """

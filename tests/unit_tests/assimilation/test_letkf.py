@@ -90,7 +90,7 @@ class TestLETKFCorr(unittest.TestCase):
     def test_dummy_localization_returns_equal_grids(self):
         obs_tuple = (self.obs, self.obs)
         prepared_states = self.algorithm._prepare(self.state, obs_tuple)
-        obs_weights = (np.abs(prepared_states[-1]-10) < 10).astype(float)
+        obs_weights = (np.abs(prepared_states[-1]-10) < 10).astype(float)[:, 0]
         use_obs = obs_weights > 0
 
         localization = DummyLocalization()
@@ -107,7 +107,7 @@ class TestLETKFCorr(unittest.TestCase):
         nr_grid_points = len(self.state.grid)
         obs_tuple = (self.obs, self.obs)
         prepared_states = self.algorithm._prepare(self.state, obs_tuple)
-        obs_weights = (np.abs(prepared_states[-1]-10) < 10).astype(float)
+        obs_weights = (np.abs(prepared_states[-1]-10) < 10).astype(float)[:, 0]
         use_obs = obs_weights > 0
         with patch('pytassim.testing.dummy.DummyLocalization.localize_obs',
                   return_value=(use_obs, obs_weights)) as loc_patch:
