@@ -311,10 +311,10 @@ class DistributedLETKFUncorr(DistributedLETKFCorr):
         or CPU (False): Default is None. For small models, estimation of the
         weights on CPU is faster than on GPU!.
     """
-    def __init__(self, pool, chunksize=10, localization=None, inf_factor=1.0,
-                 smoother=True, gpu=False, pre_transform=None,
-                 post_transform=None):
-        super().__init__(pool=pool, chunksize=chunksize,
+    def __init__(self, client=None, cluster=None, chunksize=10,
+                 localization=None, inf_factor=1.0,  smoother=True, gpu=False,
+                 pre_transform=None, post_transform=None):
+        super().__init__(client=client, cluster=cluster, chunksize=chunksize,
                          localization=localization, inf_factor=inf_factor,
                          smoother=smoother, gpu=gpu,
                          pre_transform=pre_transform,

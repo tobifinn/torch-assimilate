@@ -69,6 +69,7 @@ class TestLETKFDistributed(unittest.TestCase):
         obs_path = os.path.join(DATA_PATH, 'test_single_obs.nc')
         self.obs = xr.open_dataset(obs_path).load()
         self.obs.obs.operator = dummy_obs_operator
+        self.localization = DummyLocalization()
 
     def test_local_etkf_same_results_as_letkf(self):
         letkf_filter = LETKFCorr()
@@ -87,11 +88,12 @@ class TestLETKFDistributed(unittest.TestCase):
         state = self.state.transpose('grid', 'var_name', 'time', 'ensemble')
         state_mean, state_perts = state.state.split_mean_perts()
         torch_back_perts = torch.from_numpy(state_perts.values)
-        torch_grid = torch.from_numpy(state_mean.grid.values)
+        torch_grid = state_mean.grid.values
         for i, _ in enumerate(torch_grid):
             ana_pert, _, _ = local_etkf(
                 self.algorithm._gen_weights_func, i, innov, hx_perts, obs_cov,
-                self.back_prec, None, None, torch_back_perts
+                self.back_prec, state_mean.grid.values, prepared_states[-1],
+                torch_back_perts
             )
             np.testing.assert_almost_equal(
                 delta_ana.values[i], ana_pert.numpy()
@@ -103,9 +105,10 @@ class TestLETKFDistributed(unittest.TestCase):
         obs_tuple = (self.obs, self.obs)
         assimilated_state = self.algorithm.assimilate(self.state, obs_tuple,
                                                       self.state, ana_time)
+        assimilated_state.load()
         letkf_state = letkf_filter.assimilate(self.state, obs_tuple, self.state,
                                               ana_time)
-        xr.testing.assert_allclose(assimilated_state, letkf_state)
+        np.testing.assert_allclose(assimilated_state.values, letkf_state.values)
 
     def test_localization_works(self):
         localization = DummyLocalization()
@@ -120,11 +123,13 @@ class TestLETKFDistributed(unittest.TestCase):
         xr.testing.assert_allclose(assimilated_state, letkf_state)
 
     def test_letkfuncorr_sets_gen_weights_func(self):
-        self.assertEqual(DistributedLETKFUncorr(pool=POOL)._gen_weights_func,
-                         etkf_core.gen_weights_uncorr)
+        self.assertEqual(
+            DistributedLETKFUncorr(client=self.client)._gen_weights_func,
+            etkf_core.gen_weights_uncorr
+        )
 
     def test_letkfuncorr_sets_correlated_to_false(self):
-        self.assertFalse(DistributedLETKFUncorr(pool=POOL)._correlated)
+        self.assertFalse(DistributedLETKFUncorr(client=self.client)._correlated)
 
 
 if __name__ == '__main__':
