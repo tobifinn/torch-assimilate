@@ -34,6 +34,8 @@ import dask
 import dask.bag as db
 import dask.array as da
 
+import numpy as np
+
 # Internal modules
 from .letkf import LETKFCorr, localize_states
 from .etkf_core import gen_weights_uncorr
@@ -44,12 +46,12 @@ logger = logging.getLogger(__name__)
 
 def generate_weights(localized_states, back_prec, gen_weights_func):
     w_mean_l, w_perts_l = gen_weights_func(back_prec, *localized_states)
-    weights = (w_mean_l + w_perts_l.t()).numpy()
+    weights = (w_mean_l + w_perts_l).t().numpy()
     return weights
 
 
 def bag_to_array(bag_to_transform, shape):
-    arr_list = [da.from_delayed(ele, shape=shape, dtype=float)
+    arr_list = [da.from_delayed(ele, shape=shape, dtype=np.float64)
                 for ele in bag_to_transform]
     out_array = da.stack(arr_list, axis=0).rechunk(-1)
     return out_array
@@ -251,6 +253,7 @@ class DistributedLETKFCorr(LETKFCorr):
             bag_to_array, shape=(ens_mems, ens_mems)
         )
         weights_array = dask.delayed(da.concatenate)(weights_array, axis=0)
+
         logger.info('Apply weights to array')
         ana_perts = dask.delayed(da.einsum)(
             'ijkl,lkm->ijml', state_perts.data, weights_array,
