@@ -71,6 +71,9 @@ class TestLETKFDistributed(unittest.TestCase):
         self.obs.obs.operator = dummy_obs_operator
         self.localization = DummyLocalization()
 
+    def tearDown(self) -> None:
+        self.client.close()
+
     def test_local_etkf_same_results_as_letkf(self):
         letkf_filter = LETKFCorr()
         ana_time = self.state.time[-1].values
