@@ -32,6 +32,7 @@ import warnings
 from dask.distributed import Client
 import dask
 import dask.bag as db
+import dask.array as da
 
 # Internal modules
 from .letkf import LETKFCorr, localize_states
@@ -45,6 +46,13 @@ def generate_weights(localized_states, back_prec, gen_weights_func):
     w_mean_l, w_perts_l = gen_weights_func(back_prec, *localized_states)
     weights = (w_mean_l + w_perts_l.t()).numpy()
     return weights
+
+
+def bag_to_array(bag_to_transform, shape):
+    arr_list = [da.from_delayed(ele, shape=shape, dtype=float)
+                for ele in bag_to_transform]
+    out_array = da.stack(arr_list, axis=0).rechunk(-1)
+    return out_array
 
 
 class DistributedLETKFCorr(LETKFCorr):
@@ -210,16 +218,15 @@ class DistributedLETKFCorr(LETKFCorr):
         logger.info('Starting with applying observation operator')
         innov, hx_perts, obs_cov, obs_grid = self._prepare(pseudo_state,
                                                            observations)
-        logger.info('Chunking the background state')
-        back_state = state.transpose('grid', 'var_name', 'time', 'ensemble')
-        state_mean, state_perts = back_state.state.split_mean_perts()
+        logger.info('Chunking background state')
+        state_mean, state_perts = state.state.split_mean_perts()
         state_perts = state_perts.chunk(
             {'grid': self.chunksize, 'var_name': -1, 'time': -1, 'ensemble': -1}
         )
         state_grid = state_perts.grid.values
 
         logger.info('Scatter the data to processes')
-        ens_mems = len(back_state.ensemble)
+        ens_mems = len(state.ensemble)
         back_prec = self._get_back_prec(ens_mems)
         innov, hx_perts, obs_cov = self._states_to_torch(innov, hx_perts,
                                                          obs_cov,)
@@ -240,6 +247,22 @@ class DistributedLETKFCorr(LETKFCorr):
             delayed_gen_weights_func, back_prec=back_prec,
             gen_weights_func=self._gen_weights_func
         )
+        weights_array = weights.map_partitions(
+            bag_to_array, shape=(ens_mems, ens_mems)
+        )
+        weights_array = dask.delayed(da.concatenate)(weights_array, axis=0)
+        logger.info('Apply weights to array')
+        ana_perts = dask.delayed(da.einsum)(
+            'ijkl,lkm->ijml', state_perts.data, weights_array,
+            optimize=True
+        )
+
+        logger.info('Create analysis perturbations')
+        ana_perts = state_perts.copy(data=ana_perts.compute())
+
+        logger.info('Create analysis')
+        analysis = ana_perts + state_mean
+        return analysis
 
     def _slice_data(self, data):
         data = iter(data)
