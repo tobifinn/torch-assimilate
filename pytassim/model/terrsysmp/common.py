@@ -144,10 +144,13 @@ def generic_postprocess(analysis_data, origin_ds, vcoords):
             data_prepared = pre_analysis_ds[var].dropna('vgrid', how='all')
             data_prepared = dim_transpose(data_prepared, vcoords)
             tmp_analysis_var = dim_transpose(analysis_ds[var], vcoords)
-            tmp_analysis_var = tmp_analysis_var.copy(
-                data=data_prepared.values.reshape(tmp_analysis_var.shape)
+            tmp_analysis_var.data = data_prepared.data.reshape(
+                tmp_analysis_var.shape
             )
-            analysis_ds[var] = tmp_analysis_var.transpose(*analysis_ds[var].dims)
+            analysis_ds[var] = tmp_analysis_var.transpose(
+                *analysis_ds[var].dims
+            )
+            logger.info('Post-processed {0:s}'.format(var))
         except KeyError:
             logger.warning('Var: {0:s} is not found'.format(var))
         except ValueError:
