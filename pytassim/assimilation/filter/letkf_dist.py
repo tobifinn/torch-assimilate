@@ -249,9 +249,6 @@ class DistributedLETKFCorr(LETKFCorr):
         back_prec = self._get_back_prec(ens_mems)
         innov, hx_perts, obs_cov = self._states_to_torch(innov, hx_perts,
                                                          obs_cov,)
-        obs_grid, innov, hx_perts, obs_cov, back_prec = self._client_init.persist(
-            [obs_grid, innov, hx_perts, obs_cov, back_prec]
-        )
         state_perts_data = self._client_init.persist(state_perts.data)
         state_grid = self._client_init.persist(
             da.from_array(state_perts.grid.values, chunks=self.chunksize)
