@@ -249,12 +249,14 @@ class DistributedLETKFCorr(LETKFCorr):
         back_prec = self._get_back_prec(ens_mems)
         innov, hx_perts, obs_cov = self._states_to_torch(innov, hx_perts,
                                                          obs_cov,)
-        #innov, hx_perts, obs_cov, back_prec = self.client.scatter(
-        #    [innov, hx_perts, obs_cov, back_prec], broadcast=False
-        #)
+        obs_grid, innov, hx_perts, obs_cov, back_prec = self._client_init.persist(
+            [obs_grid, innov, hx_perts, obs_cov, back_prec]
+        )
+        state_perts_data = self._client_init.persist(state_perts.data)
+        state_grid = self._client_init.persist(
+            da.from_array(state_perts.grid.values, chunks=self.chunksize)
+        )
 
-        state_grid = da.from_array(state_perts.grid.values,
-                                   chunks=self.chunksize)
         ana_perts = []
         for k, grid_block in enumerate(state_grid.blocks):
             localized_states = localize_state_chunkwise(
@@ -264,7 +266,7 @@ class DistributedLETKFCorr(LETKFCorr):
             weights_l = gen_weights_chunkwise(localized_states, back_prec,
                                               self._gen_weights_func)
             torch_perts = dask.delayed(torch.as_tensor)(
-                state_perts.data.blocks[..., k], dtype=weights_l.dtype
+                state_perts_data.blocks[..., k], dtype=weights_l.dtype
             )
             ana_perts_l = apply_weights_chunkwise(
                 torch_perts, weights_l
