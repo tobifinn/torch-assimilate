@@ -31,8 +31,9 @@ import warnings
 # External modules
 from dask.distributed import Client
 import dask
-import dask.bag as db
 import dask.array as da
+
+import torch
 
 import numpy as np
 
@@ -44,17 +45,34 @@ from .etkf_core import gen_weights_uncorr
 logger = logging.getLogger(__name__)
 
 
-def generate_weights(localized_states, back_prec, gen_weights_func):
-    w_mean_l, w_perts_l = gen_weights_func(back_prec, *localized_states)
-    weights = (w_mean_l + w_perts_l).t().numpy()
+@dask.delayed
+def localize_state_chunkwise(state_grid, obs_grid, innov, hx_perts, obs_cov,
+                             localization):
+    localized_states = [
+        localize_states(
+            grid_l, obs_grid, innov, hx_perts, obs_cov, localization
+        )
+        for grid_l in state_grid
+    ]
+    return localized_states
+
+
+@dask.delayed
+def gen_weights_chunkwise(localized_states, back_prec, gen_weights_func):
+    weights = []
+    for state_l in localized_states:
+        w_mean_l, w_perts_l = gen_weights_func(back_prec, *state_l)
+        weights.append((w_mean_l + w_perts_l).t())
+    weights = torch.stack(weights, dim=0)
     return weights
 
 
-def bag_to_array(bag_to_transform, shape):
-    arr_list = [da.from_delayed(ele, shape=shape, dtype=np.float64)
-                for ele in bag_to_transform]
-    out_array = da.stack(arr_list, axis=0).rechunk(-1)
-    return out_array
+@dask.delayed
+def apply_weights_chunkwise(back_state, weights):
+    ana_perts = torch.einsum(
+        'ijkl,lkm->ijml', back_state, weights,
+    )
+    return ana_perts
 
 
 class DistributedLETKFCorr(LETKFCorr):
@@ -225,7 +243,6 @@ class DistributedLETKFCorr(LETKFCorr):
         state_perts = state_perts.chunk(
             {'grid': self.chunksize, 'var_name': -1, 'time': -1, 'ensemble': -1}
         )
-        state_grid = state_perts.grid.values
 
         logger.info('Scatter the data to processes')
         ens_mems = len(state.ensemble)
@@ -236,32 +253,29 @@ class DistributedLETKFCorr(LETKFCorr):
             [innov, hx_perts, obs_cov, back_prec], broadcast=True
         )
 
-        logger.info('Estimate weights')
-        state_grid_db = db.from_sequence(state_grid,
-                                         partition_size=self.chunksize)
-        delayed_local_func = dask.delayed(localize_states)
-        localized_states = state_grid_db.map(
-            delayed_local_func, obs_grid=obs_grid, innov=innov,
-            hx_perts=hx_perts, obs_cov=obs_cov, localization=self.localization
-        )
-        delayed_gen_weights_func = dask.delayed(generate_weights)
-        weights = localized_states.map(
-            delayed_gen_weights_func, back_prec=back_prec,
-            gen_weights_func=self._gen_weights_func
-        )
-        weights_array = weights.map_partitions(
-            bag_to_array, shape=(ens_mems, ens_mems)
-        )
-        weights_array = dask.delayed(da.concatenate)(weights_array, axis=0)
-
-        logger.info('Apply weights to array')
-        ana_perts = dask.delayed(da.einsum)(
-            'ijkl,lkm->ijml', state_perts.data, weights_array,
-            optimize=True
-        )
+        state_grid = da.from_array(state_perts.grid.values,
+                                   chunks=self.chunksize)
+        ana_perts = []
+        for k, grid_block in enumerate(state_grid.blocks):
+            localized_states = localize_state_chunkwise(
+                grid_block, obs_grid, innov, hx_perts, obs_cov,
+                self.localization
+            )
+            weights_l = gen_weights_chunkwise(localized_states, back_prec,
+                                              self._gen_weights_func)
+            torch_perts = dask.delayed(torch.as_tensor)(
+                state_perts.data.blocks[..., k], dtype=weights_l.dtype
+            )
+            ana_perts_l = apply_weights_chunkwise(
+                torch_perts, weights_l
+            )
+            ana_perts.append(ana_perts_l.numpy())
+        ana_perts = dask.delayed(da.concatenate)(ana_perts, axis=-1)
+        ana_perts = da.from_delayed(ana_perts, shape=state_perts.data.shape,
+                                    dtype=state_perts.data.dtype)
 
         logger.info('Create analysis perturbations')
-        ana_perts = state_perts.copy(data=ana_perts.compute())
+        ana_perts = state_perts.copy(data=ana_perts)
 
         logger.info('Create analysis')
         analysis = ana_perts + state_mean

@@ -51,13 +51,6 @@ BASE_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
 
 
-def dist_func(state_grid, obs_grid):
-    state_grid = state_grid[None, None]
-    obs_grid = obs_grid[..., None]
-    distance = scipy.spatial.distance.cdist(state_grid, obs_grid)
-    return distance
-
-
 class TestLETKFDistributed(unittest.TestCase):
     def setUp(self):
         self.cluster = LocalCluster(n_workers=1, threads_per_worker=1)
@@ -108,7 +101,7 @@ class TestLETKFDistributed(unittest.TestCase):
         obs_tuple = (self.obs, self.obs)
         assimilated_state = self.algorithm.assimilate(self.state, obs_tuple,
                                                       self.state, ana_time)
-        assimilated_state.load()
+        assimilated_state = assimilated_state.compute()
         letkf_state = letkf_filter.assimilate(self.state, obs_tuple, self.state,
                                               ana_time)
         np.testing.assert_allclose(assimilated_state.values, letkf_state.values)
@@ -121,6 +114,7 @@ class TestLETKFDistributed(unittest.TestCase):
         obs_tuple = (self.obs, self.obs)
         assimilated_state = self.algorithm.assimilate(self.state, obs_tuple,
                                                       self.state, ana_time)
+        assimilated_state = assimilated_state.compute()
         letkf_state = letkf_filter.assimilate(self.state, obs_tuple, self.state,
                                               ana_time)
         xr.testing.assert_allclose(assimilated_state, letkf_state)
