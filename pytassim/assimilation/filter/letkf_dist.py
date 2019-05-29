@@ -249,9 +249,9 @@ class DistributedLETKFCorr(LETKFCorr):
         back_prec = self._get_back_prec(ens_mems)
         innov, hx_perts, obs_cov = self._states_to_torch(innov, hx_perts,
                                                          obs_cov,)
-        innov, hx_perts, obs_cov, back_prec = self.client.scatter(
-            [innov, hx_perts, obs_cov, back_prec], broadcast=True
-        )
+        #innov, hx_perts, obs_cov, back_prec = self.client.scatter(
+        #    [innov, hx_perts, obs_cov, back_prec], broadcast=False
+        #)
 
         state_grid = da.from_array(state_perts.grid.values,
                                    chunks=self.chunksize)
@@ -271,14 +271,12 @@ class DistributedLETKFCorr(LETKFCorr):
             )
             ana_perts.append(ana_perts_l.numpy())
         ana_perts = dask.delayed(da.concatenate)(ana_perts, axis=-1)
-        ana_perts = da.from_delayed(ana_perts, shape=state_perts.data.shape,
-                                    dtype=state_perts.data.dtype)
 
         logger.info('Create analysis perturbations')
-        ana_perts = state_perts.copy(data=ana_perts)
+        ana_perts = state_perts.copy(data=ana_perts.compute())
 
         logger.info('Create analysis')
-        analysis = ana_perts + state_mean
+        analysis = (ana_perts + state_mean).load()
         return analysis
 
     def _slice_data(self, data):
