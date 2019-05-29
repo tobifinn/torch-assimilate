@@ -122,6 +122,7 @@ def postprocess_cosmo(analysis_data, cosmo_ds):
         analysis_data, cosmo_ds,
         vcoords=_cosmo_vcoords
     )
+    logger.info('Finished post-processing of COSMO')
     return analysis_ds
 
 
