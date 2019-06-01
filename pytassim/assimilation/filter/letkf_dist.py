@@ -274,10 +274,7 @@ class DistributedLETKFCorr(LETKFCorr):
         ana_perts = dask.delayed(da.concatenate)(ana_perts, axis=-1)
 
         logger.info('Create analysis perturbations')
-        ana_perts = self._client_init.persist(ana_perts)
-        progress(ana_perts)
-        wait([ana_perts])
-        ana_perts = state_perts.copy(data=ana_perts)
+        ana_perts = state_perts.copy(data=ana_perts.compute())
 
         logger.info('Create analysis')
         analysis = (ana_perts + state_mean).load()
