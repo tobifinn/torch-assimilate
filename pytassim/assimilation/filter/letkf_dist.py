@@ -29,9 +29,10 @@ import itertools
 import warnings
 
 # External modules
-from dask.distributed import Client
+from distributed import Client
 import dask
 import dask.array as da
+from distributed.diagnostics import progress
 
 import torch
 
@@ -253,6 +254,7 @@ class DistributedLETKFCorr(LETKFCorr):
         state_grid = self._client_init.persist(
             da.from_array(state_perts.grid.values, chunks=self.chunksize)
         )
+        self._client_init.wait([state_perts_data, state_grid])
 
         ana_perts = []
         for k, grid_block in enumerate(state_grid.blocks):
@@ -272,7 +274,10 @@ class DistributedLETKFCorr(LETKFCorr):
         ana_perts = dask.delayed(da.concatenate)(ana_perts, axis=-1)
 
         logger.info('Create analysis perturbations')
-        ana_perts = state_perts.copy(data=ana_perts.compute())
+        ana_perts = self._client_init.persist(ana_perts)
+        progress(ana_perts)
+        self._client_init.wait([ana_perts])
+        ana_perts = state_perts.copy(data=ana_perts)
 
         logger.info('Create analysis')
         analysis = (ana_perts + state_mean).load()
