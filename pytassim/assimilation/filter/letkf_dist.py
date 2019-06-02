@@ -29,7 +29,7 @@ import itertools
 import warnings
 
 # External modules
-from distributed import Client, wait
+from distributed import Client, wait, Future
 import dask
 import dask.array as da
 from distributed.diagnostics import progress
@@ -261,6 +261,8 @@ class DistributedLETKFCorr(LETKFCorr):
 
         ana_perts = []
         for k, grid_block in enumerate(state_grid.blocks):
+            if isinstance(grid_block, Future):
+                grid_block = grid_block.result()
             localized_states = localize_state_chunkwise(
                 grid_block, obs_grid, innov, hx_perts, obs_cov,
                 self.localization
