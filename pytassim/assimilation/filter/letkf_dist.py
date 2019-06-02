@@ -251,11 +251,12 @@ class DistributedLETKFCorr(LETKFCorr):
         innov, hx_perts, obs_cov = self._states_to_torch(
             innov, hx_perts, obs_cov,
         )
-        state_perts_data = state_perts.data.persist()
+        state_perts_data = state_perts.data
         state_grid = da.from_array(
             state_perts.grid.values, chunks=self.chunksize
-        ).persist()
-        wait([state_perts_data, state_grid])
+        )
+        persisted_computes = self._client_init.persist([state_perts_data, state_grid])
+        state_perts_data, state_grid = self._client_init.gather(persisted_computes)
 
         ana_perts = []
         for k, grid_block in enumerate(state_grid.blocks):
