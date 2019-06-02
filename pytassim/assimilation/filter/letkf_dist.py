@@ -49,6 +49,8 @@ logger = logging.getLogger(__name__)
 @dask.delayed
 def localize_state_chunkwise(state_grid, obs_grid, innov, hx_perts, obs_cov,
                              localization):
+    if isinstance(state_grid, Future):
+        state_grid = state_grid.result()
     localized_states = [
         localize_states(
             grid_l, obs_grid, innov, hx_perts, obs_cov, localization
@@ -261,8 +263,6 @@ class DistributedLETKFCorr(LETKFCorr):
 
         ana_perts = []
         for k, grid_block in enumerate(state_grid.blocks):
-            if isinstance(grid_block, Future):
-                grid_block = grid_block.result()
             localized_states = localize_state_chunkwise(
                 grid_block, obs_grid, innov, hx_perts, obs_cov,
                 self.localization
