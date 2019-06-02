@@ -64,7 +64,7 @@ def gen_weights_chunkwise(localized_states, back_prec, gen_weights_func):
     for state_l in localized_states:
         w_mean_l, w_perts_l = gen_weights_func(back_prec, *state_l)
         weights.append((w_mean_l + w_perts_l).t())
-    weights = torch.stack(weights, dim=0)
+    weights = torch.stack(weights, dim=0).detach()
     return weights
 
 
@@ -72,7 +72,7 @@ def gen_weights_chunkwise(localized_states, back_prec, gen_weights_func):
 def apply_weights_chunkwise(back_state, weights):
     ana_perts = torch.einsum(
         'ijkl,lkm->ijml', back_state, weights,
-    )
+    ).detach()
     return ana_perts
 
 
@@ -272,7 +272,7 @@ class DistributedLETKFCorr(LETKFCorr):
             ana_perts_l = apply_weights_chunkwise(
                 torch_perts, weights_l
             )
-            ana_perts.append(ana_perts_l.numpy())
+            ana_perts.append(ana_perts_l.detach().numpy())
         ana_perts = dask.delayed(da.concatenate)(ana_perts, axis=-1)
 
         logger.info('Create analysis perturbations')
