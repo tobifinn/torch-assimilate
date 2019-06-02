@@ -257,6 +257,7 @@ class DistributedLETKFCorr(LETKFCorr):
         )
         persisted_computes = self._client_init.persist([state_perts_data, state_grid])
         state_perts_data, state_grid = self._client_init.gather(persisted_computes)
+        wait([state_perts_data, state_grid])
 
         ana_perts = []
         for k, grid_block in enumerate(state_grid.blocks):
