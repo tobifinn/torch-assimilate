@@ -53,7 +53,9 @@ DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
 
 class TestLETKFDistributed(unittest.TestCase):
     def setUp(self):
-        self.cluster = LocalCluster(n_workers=1, threads_per_worker=1)
+        self.cluster = LocalCluster(
+            n_workers=1, threads_per_worker=1, local_dir="/tmp/dask_work"
+        )
         self.client = Client(self.cluster)
         self.algorithm = DistributedLETKFCorr(client=self.client)
         state_path = os.path.join(DATA_PATH, 'test_state.nc')
@@ -66,6 +68,7 @@ class TestLETKFDistributed(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.client.close()
+        self.cluster.close()
 
     def test_local_etkf_same_results_as_letkf(self):
         letkf_filter = LETKFCorr()
