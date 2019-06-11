@@ -39,7 +39,7 @@ rnd = np.random.RandomState(42)
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 
 class TestLorenz96(unittest.TestCase):

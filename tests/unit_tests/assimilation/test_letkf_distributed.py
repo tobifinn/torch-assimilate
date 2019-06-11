@@ -45,7 +45,7 @@ from pytassim.localization import GaspariCohn
 from pytassim.assimilation.filter import etkf_core
 
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 rnd = np.random.RandomState(42)
 
 BASE_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))

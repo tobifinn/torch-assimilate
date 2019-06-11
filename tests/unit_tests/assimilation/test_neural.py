@@ -38,7 +38,7 @@ from pytassim.assimilation.neural.neural import NeuralAssimilation
 from pytassim.testing import DummyNeuralModule, if_gpu_decorator
 
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 BASE_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')

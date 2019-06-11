@@ -37,7 +37,7 @@ from pytassim.assimilation.base import BaseAssimilation
 import pytassim.testing.dummy as utils
 
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 rnd = np.random.RandomState(42)
 
 BASE_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))

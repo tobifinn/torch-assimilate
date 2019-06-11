@@ -39,7 +39,7 @@ from pytassim.model.terrsysmp import preprocess_cosmo
 from pytassim.assimilation import ETKFUncorr
 
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 BASE_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 DATA_PATH = '/scratch/local1/Data/phd_thesis/test_data'
