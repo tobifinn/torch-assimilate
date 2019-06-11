@@ -232,8 +232,8 @@ class DistributedLETKFCorr(LETKFCorr):
         state_grid = da.from_array(
             state_perts.grid.values, chunks=self.chunksize
         )
-        persisted_computes = self._client_init.persist([state_perts_data, state_grid])
-        state_perts_data, state_grid = self._client_init.gather(persisted_computes)
+        persisted_computes = self.client.persist([state_perts_data, state_grid])
+        state_perts_data, state_grid = self.client.gather(persisted_computes)
         wait([state_perts_data, state_grid])
 
         ana_perts = []
