@@ -245,19 +245,6 @@ class DistributedLETKFCorr(LETKFCorr):
         analysis = (ana_perts + state_mean).load()
         return analysis
 
-    def _slice_data(self, data):
-        data = iter(data)
-        while True:
-            chunk = tuple(itertools.islice(data, self.chunksize))
-            if not chunk:
-                return
-            else:
-                yield chunk
-
-    def _scatter_states(self, *states):
-        shared_states = self.client.scatter()
-        return shared_states
-
 
 class DistributedLETKFUncorr(DistributedLETKFCorr):
     """
