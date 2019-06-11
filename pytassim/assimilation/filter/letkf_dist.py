@@ -27,7 +27,7 @@
 import logging
 
 # External modules
-from distributed import Client, wait
+from distributed import Client, wait, Future
 import dask
 import dask.array as da
 
@@ -44,6 +44,8 @@ logger = logging.getLogger(__name__)
 @dask.delayed
 def localize_state_chunkwise(state_grid, obs_grid, innov, hx_perts, obs_cov,
                              localization):
+    if isinstance(state_grid, Future):
+        state_grid = state_grid.result()
     localized_states = [
         localize_states(
             grid_l, obs_grid, innov, hx_perts, obs_cov, localization
@@ -59,7 +61,7 @@ def gen_weights_chunkwise(localized_states, back_prec, gen_weights_func):
     for state_l in localized_states:
         w_mean_l, w_perts_l = gen_weights_func(back_prec, *state_l)
         weights.append((w_mean_l + w_perts_l).t())
-    weights = torch.stack(weights, dim=0)
+    weights = torch.stack(weights, dim=0).detach()
     return weights
 
 
@@ -67,7 +69,7 @@ def gen_weights_chunkwise(localized_states, back_prec, gen_weights_func):
 def apply_weights_chunkwise(back_state, weights):
     ana_perts = torch.einsum(
         'ijkl,lkm->ijml', back_state, weights,
-    )
+    ).detach()
     return ana_perts
 
 
@@ -226,10 +228,12 @@ class DistributedLETKFCorr(LETKFCorr):
         innov, hx_perts, obs_cov = self._states_to_torch(
             innov, hx_perts, obs_cov,
         )
-        state_perts_data = state_perts.data.persist()
+        state_perts_data = state_perts.data
         state_grid = da.from_array(
             state_perts.grid.values, chunks=self.chunksize
-        ).persist()
+        )
+        persisted_computes = self._client_init.persist([state_perts_data, state_grid])
+        state_perts_data, state_grid = self._client_init.gather(persisted_computes)
         wait([state_perts_data, state_grid])
 
         ana_perts = []
@@ -246,7 +250,7 @@ class DistributedLETKFCorr(LETKFCorr):
             ana_perts_l = apply_weights_chunkwise(
                 torch_perts, weights_l
             )
-            ana_perts.append(ana_perts_l.numpy())
+            ana_perts.append(ana_perts_l.detach().numpy())
         ana_perts = dask.delayed(da.concatenate)(ana_perts, axis=-1)
 
         logger.info('Create analysis perturbations')
