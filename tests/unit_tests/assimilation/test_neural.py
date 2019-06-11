@@ -67,7 +67,8 @@ class TestNeuralAssimilation(unittest.TestCase):
         prepared_obs = self.algorithm._prepare_obs(obs_tuple)
         with patch('pytassim.assimilation.neural.neural.NeuralAssimilation.'
                    '_prepare_obs', return_value=prepared_obs) as prepare_patch:
-            _ = self.algorithm.update_state(self.state, obs_tuple, ana_time)
+            _ = self.algorithm.update_state(self.state, obs_tuple, self.state,
+                                            ana_time)
         prepare_patch.assert_called_once_with(obs_tuple)
 
     def test_update_state_transfers_tensors_to_torch(self):
@@ -75,28 +76,32 @@ class TestNeuralAssimilation(unittest.TestCase):
         obs_tuple = (self.obs, self.obs)
         obs_state, obs_cov, _ = self.algorithm._prepare_obs(obs_tuple)
         torch_states = self.algorithm._states_to_torch(
-            self.state.values, obs_state, obs_cov
+            self.state.values, obs_state, self.state.values, obs_cov
         )
         trg = 'pytassim.assimilation.neural.neural.NeuralAssimilation.' \
               '_states_to_torch'
         with patch(trg, return_value=torch_states) as transfer_patch:
-            _ = self.algorithm.update_state(self.state, obs_tuple, ana_time)
+            _ = self.algorithm.update_state(self.state, obs_tuple, self.state,
+                                            ana_time)
         transfer_patch.assert_called_once()
         np.testing.assert_equal(transfer_patch.call_args[0][0],
                                 self.state.values)
         np.testing.assert_equal(transfer_patch.call_args[0][1], obs_state)
-        np.testing.assert_equal(transfer_patch.call_args[0][2], obs_cov)
+        np.testing.assert_equal(transfer_patch.call_args[0][2],
+                                self.state.values)
+        np.testing.assert_equal(transfer_patch.call_args[0][3], obs_cov)
 
     def test_update_state_calls_assimilate_from_module(self):
         ana_time = self.state.time[-1].values
         obs_tuple = (self.obs, self.obs)
         obs_state, obs_cov, _ = self.algorithm._prepare_obs(obs_tuple)
         torch_states = self.algorithm._states_to_torch(
-            self.state.values, obs_state, obs_cov
+            self.state.values, obs_state, self.state.values, obs_cov
         )
         trg = 'pytassim.testing.dummy.DummyNeuralModule.assimilate'
         with patch(trg, return_value=torch_states[0]) as module_patch:
-            _ = self.algorithm.update_state(self.state, obs_tuple, ana_time)
+            _ = self.algorithm.update_state(self.state, obs_tuple, self.state,
+                                            ana_time)
         module_patch.assert_called_once()
         torch.testing.assert_allclose(module_patch.call_args[0][0],
                                       torch_states[0])
@@ -104,6 +109,8 @@ class TestNeuralAssimilation(unittest.TestCase):
                                       torch_states[1])
         torch.testing.assert_allclose(module_patch.call_args[0][2],
                                       torch_states[2])
+        torch.testing.assert_allclose(module_patch.call_args[0][3],
+                                      torch_states[3])
 
     def test_update_state_returns_state_with_new_data(self):
         ana_time = self.state.time[-1].values
@@ -117,7 +124,7 @@ class TestNeuralAssimilation(unittest.TestCase):
         trg = 'pytassim.testing.dummy.DummyNeuralModule.assimilate'
         with patch(trg, return_value=torch_states[0]) as _:
             ret_ana = self.algorithm.update_state(self.state, obs_tuple,
-                                                  ana_time)
+                                                  self.state, ana_time)
         xr.testing.assert_identical(ret_ana, analysis)
 
     @if_gpu_decorator
@@ -136,7 +143,7 @@ class TestNeuralAssimilation(unittest.TestCase):
         trg = 'pytassim.testing.dummy.DummyNeuralModule.assimilate'
         with patch(trg, return_value=torch_states[0]) as _:
             ret_ana = self.algorithm.update_state(self.state, obs_tuple,
-                                                  ana_time)
+                                                  self.state, ana_time)
         xr.testing.assert_identical(ret_ana, analysis)
 
     def test_module_gets_private_module(self):
