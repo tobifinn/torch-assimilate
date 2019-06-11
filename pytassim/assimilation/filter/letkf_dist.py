@@ -88,7 +88,8 @@ class DistributedLETKFCorr(LETKFCorr):
     client : :py:class:``~dask.distributed.Client`` or None
         This dask distributed client is used to parallelize the processes.
         Either this client or ``cluster`` has to be
-        specified. Default is None.
+        specified. Default is None. If both, cluster and client, are given, then
+        client has priority.
     cluster : compatible to :py:class:``~dask.disributed.LocalCluster`` or None
         This dask cluster is used to initialize a :py:class:``~dask.distributed.
         Client``, if no client is specified.
@@ -123,14 +124,11 @@ class DistributedLETKFCorr(LETKFCorr):
                  gpu=False, pre_transform=None, post_transform=None):
         super().__init__(localization, inf_factor, smoother, gpu, pre_transform,
                          post_transform)
-        self._check_client_cluster(client, cluster)
         self._cluster = None
         self._client = None
-        self._client_init = None
         self._chunksize = 1
-        self.client = client
-        self.cluster = cluster
         self.chunksize = chunksize
+        self.set_client_cluster(client=client, cluster=cluster)
 
     @staticmethod
     def _validate_client(client):
@@ -149,55 +147,21 @@ class DistributedLETKFCorr(LETKFCorr):
             )
 
     @property
-    def _client_manually_set(self):
-        return self._validate_client(self._client)
-
-    @property
     def cluster(self):
         return self._cluster
-
-    @cluster.setter
-    def cluster(self, cluster):
-        self._check_client_cluster(self.client, cluster)
-        if self._validate_cluster(cluster):
-            self._cluster = cluster
-            if not self._client_manually_set:
-                self._client_init = Client(self._cluster)
-            else:
-                warnings.warn(
-                    'I will not initialize a new client with this given '
-                    'cluster, because a client is manually set.',
-                    category=UserWarning
-                )
-        elif cluster is None:
-            self._cluster = None
-        else:
-            raise TypeError(
-                'Cluster has to be either a valid dask cluster or None!'
-            )
 
     @property
     def client(self):
         return self._client
 
-    @client.setter
-    def client(self, new_client):
-        self._check_client_cluster(new_client, self._cluster)
-        if self._validate_client(new_client):
-            self._client = new_client
-            if self._client_manually_set:
-                self._client_init = new_client
-            else:
-                warnings.warn(
-                    'I will not set a new client, because the old client was '
-                    'initialized with a cluster', category=UserWarning
-                )
-        elif new_client is None:
-            self._client = None
+    def set_client_cluster(self, client=None, cluster=None):
+        self._check_client_cluster(client, cluster)
+        if self._validate_client(client):
+            self._client = client
+            self._cluster = client.cluster
         else:
-            raise TypeError(
-                'Client has to be either a valid dask client or None!'
-            )
+            self._cluster = cluster
+            self._client = Client(cluster)
 
     def update_state(self, state, observations, pseudo_state, analysis_time):
         """
