@@ -25,18 +25,13 @@
 
 # System modules
 import logging
-import itertools
-import warnings
 
 # External modules
 from distributed import Client, wait
 import dask
 import dask.array as da
-from distributed.diagnostics import progress
 
 import torch
-
-import numpy as np
 
 # Internal modules
 from .letkf import LETKFCorr, localize_states
@@ -155,6 +150,22 @@ class DistributedLETKFCorr(LETKFCorr):
         return self._client
 
     def set_client_cluster(self, client=None, cluster=None):
+        """
+        This method sets the client and cluster. If both are given and valid,
+        then client has priority.
+
+        Parameters
+        ----------
+        client : :py:class:``~dask.distributed.Client`` or None
+            This dask distributed client is used to parallelize the processes.
+            Either this client or ``cluster`` has to be
+            specified. Default is None.
+        cluster : compatible to :py:class:``~dask.disributed.LocalCluster`` or
+        None
+            This dask cluster is used to initialize a
+            :py:class:``~dask.distributed.Client``, if no client is specified.
+            Default is None.
+        """
         self._check_client_cluster(client, cluster)
         if self._validate_client(client):
             self._client = client
