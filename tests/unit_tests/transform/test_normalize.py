@@ -48,22 +48,30 @@ class TestNormalizer(unittest.TestCase):
         self.state = xr.open_dataarray(state_path).load()
         obs_path = os.path.join(DATA_PATH, 'test_single_obs.nc')
         self.obs = xr.open_dataset(obs_path).load()
-        self.norm = Normalizer((1, 2), ((1, 5), ))
+        self.norm = Normalizer((1, 2), ((1, 5), ), (1, 2))
 
-    def test_pre_normalize_the_first_guess(self):
+    def test_pre_normalize_background(self):
         old_state = self.state.copy(deep=True)
         normalized_array = (self.state - 1) / 2
         obs_tuple = (self.obs, )
-        first_normed, _ = self.norm.pre(self.state, obs_tuple)
-        xr.testing.assert_equal(first_normed, normalized_array)
+        bg_normed, _, _ = self.norm.pre(self.state, obs_tuple, self.state)
+        xr.testing.assert_equal(bg_normed, normalized_array)
         xr.testing.assert_equal(self.state, old_state)
 
-    def test_pre_normalize_the_observations(self):
+    def test_pre_normalize_first_guess(self):
+        old_state = self.state.copy(deep=True)
+        normalized_array = (self.state - 1) / 2
+        obs_tuple = (self.obs, )
+        _, _, fg_normed = self.norm.pre(self.state, obs_tuple, self.state)
+        xr.testing.assert_equal(fg_normed, normalized_array)
+        xr.testing.assert_equal(self.state, old_state)
+
+    def test_pre_normalize_observations(self):
         old_obs = self.obs.copy()
         normalized_obs = self.obs.copy()
         normalized_obs['observations'] = (self.obs['observations'] - 1) / 5
         obs_tuple = (self.obs, )
-        _, obs_normed = self.norm.pre(self.state, obs_tuple)
+        _, obs_normed, _ = self.norm.pre(self.state, obs_tuple, self.state)
         xr.testing.assert_equal(obs_normed[0], normalized_obs)
         xr.testing.assert_equal(self.obs, old_obs)
 
@@ -73,7 +81,7 @@ class TestNormalizer(unittest.TestCase):
         normalized_obs[0]['observations'] = (normalized_obs[0]['observations']-1) / 5
         normalized_obs[1]['observations'] = (normalized_obs[1]['observations']-1) / 2
         obs_tuple = (self.obs, self.obs)
-        _, obs_normed = self.norm.pre(self.state, obs_tuple)
+        _, obs_normed, _ = self.norm.pre(self.state, obs_tuple, self.state)
         xr.testing.assert_equal(
             obs_normed[0]['observations'], normalized_obs[0]['observations']
         )
@@ -83,14 +91,16 @@ class TestNormalizer(unittest.TestCase):
 
     def test_pre_normalize_sets_old_obs_operator(self):
         self.obs.obs.operator = dummy_obs_operator
-        _, obs_normed = self.norm.pre(self.state, (self.obs, ))
+        _, obs_normed, _ = self.norm.pre(self.state, (self.obs, ), self.state)
         self.assertTrue(inspect.ismethod(obs_normed[0].obs.operator))
 
     def test_post_normalize_analysis_based_on_ens(self):
         old_state = self.state.copy(deep=True)
         normalized_array = self.state * 2 + 1
         obs_tuple = (self.obs, )
-        analysis_normed = self.norm.post(self.state, self.state, obs_tuple)
+        analysis_normed = self.norm.post(
+            self.state, self.state, obs_tuple, self.state
+        )
         xr.testing.assert_equal(analysis_normed, normalized_array)
         xr.testing.assert_equal(self.state, old_state)
 
