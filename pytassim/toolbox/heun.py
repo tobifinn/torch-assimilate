@@ -43,9 +43,6 @@ class HeunMethod(Optimizer):
     method. If `fast` is selected, the method is based on approximated ``fast``-
     Heun's method.
 
-    This method has been proposed for SGD in `FastHeun: A second-order method
-    for stochastic gradient descent`__.
-
     Args:
         params (iterable): iterable of parameters to optimize or dicts defining
             parameter groups

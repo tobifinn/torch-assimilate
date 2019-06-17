@@ -133,7 +133,7 @@ class DummyLocalization(object):
     """
     @staticmethod
     def localize_obs(grid_ind, obs_grid):
-        obs_weights = (np.abs(obs_grid-grid_ind) < 10).astype(float)
+        obs_weights = (np.abs(obs_grid-grid_ind) < 10).astype(float)[:, 0]
         use_obs = obs_weights > 0
         return use_obs, obs_weights
 

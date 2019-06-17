@@ -42,7 +42,7 @@ from pytassim.assimilation.filter import etkf_core
 from pytassim.testing import dummy_obs_operator, DummyLocalization
 
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 BASE_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
@@ -90,7 +90,7 @@ class TestLETKFCorr(unittest.TestCase):
     def test_dummy_localization_returns_equal_grids(self):
         obs_tuple = (self.obs, self.obs)
         prepared_states = self.algorithm._prepare(self.state, obs_tuple)
-        obs_weights = (np.abs(prepared_states[-1]-10) < 10).astype(float)
+        obs_weights = (np.abs(prepared_states[-1]-10) < 10).astype(float)[:, 0]
         use_obs = obs_weights > 0
 
         localization = DummyLocalization()
@@ -107,7 +107,7 @@ class TestLETKFCorr(unittest.TestCase):
         nr_grid_points = len(self.state.grid)
         obs_tuple = (self.obs, self.obs)
         prepared_states = self.algorithm._prepare(self.state, obs_tuple)
-        obs_weights = (np.abs(prepared_states[-1]-10) < 10).astype(float)
+        obs_weights = (np.abs(prepared_states[-1]-10) < 10).astype(float)[:, 0]
         use_obs = obs_weights > 0
         with patch('pytassim.testing.dummy.DummyLocalization.localize_obs',
                   return_value=(use_obs, obs_weights)) as loc_patch:

@@ -36,7 +36,7 @@ import xarray as xr
 from pytassim.state import ModelState
 
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 BASE_PATH = os.path.dirname(os.path.realpath(__file__))
 

@@ -39,7 +39,7 @@ import numpy as np
 from pytassim.toolbox.autoencoder import Autoencoder
 
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 BASE_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
@@ -195,16 +195,6 @@ class TestAutoencoder(unittest.TestCase):
             analysis, **data_dict
         )
 
-    def test_train_calls_back_loss_backward(self):
-        self.inject_missing()
-        data_dict = dict(
-            observation=self.obs_torch, prior=1, prior_ensemble=2, noise=3
-        )
-        back_loss = self.autoencoder.back_loss.back_loss()
-        back_loss.backward = MagicMock()
-        _ = self.autoencoder.train(**data_dict)
-        back_loss.backward.assert_called_once()
-
     def test_train_calls_recon_loss_with_recon_obs_params(self):
         self.inject_missing()
         data_dict = dict(
@@ -216,15 +206,26 @@ class TestAutoencoder(unittest.TestCase):
         self.autoencoder.recon_loss.recon_loss.assert_called_once_with(
             recon_obs, **data_dict)
 
-    def test_train_calls_recon_loss_backward(self):
+    def test_train_calls_total_loss_backward(self):
         self.inject_missing()
         data_dict = dict(
             observation=self.obs_torch, prior=1, prior_ensemble=2, noise=3
         )
-        recon_loss = self.autoencoder.recon_loss.recon_loss()
+        total_loss, back_loss, recon_loss = MagicMock(), MagicMock(), \
+                                            MagicMock()
+        total_loss.backward = MagicMock()
+        back_loss.backward = MagicMock()
         recon_loss.backward = MagicMock()
-        _ = self.autoencoder.train(**data_dict)
-        recon_loss.backward.assert_called_once()
+        with patch(
+            'pytassim.toolbox.autoencoder.Autoencoder._get_train_losses',
+            return_value=(total_loss, back_loss, recon_loss)
+        ) as loss_patch:
+            recon_loss = self.autoencoder.recon_loss.recon_loss()
+            recon_loss.backward = MagicMock()
+            _ = self.autoencoder.train(**data_dict)
+        total_loss.backward.assert_called_once()
+        recon_loss.backward.assert_not_called()
+        back_loss.backward.assert_not_called()
 
     def test_train_calls_optimizer_step(self):
         self.inject_missing()

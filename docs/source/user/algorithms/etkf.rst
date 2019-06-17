@@ -16,7 +16,7 @@ implementation further allows filtering in time based on linear propagation
 assumption :cite:`hunt_four-dimensional_2004` and ensemble smoothing.
 
 As forgetting factor in time, an inflation factor can be chosen. This inflation
-factor is used to artifically inflate the background weights and leads to an
+factor is used to artificially inflate the background weights and leads to an
 inflated analysis ensemble.
 
 .. autosummary::
@@ -50,10 +50,10 @@ inflated analysis ensemble.
 It is possible to used a distributed LETKF with
 :py:class:`pytassim.assimilation.filter.letkf_dist.DistributedLETKFCorr` or
 :py:class:`pytassim.assimilation.filter.letkf_dist.DistributedLETKFUncorr`. This
-implementation is based on :py:class:`concurrent.futures.Executor`. An executor
-has to be given, where the single jobs are submitted. One job is submitted for
-a chunk of grid points and the chunksize can be specified.
-
+implementation is based on ``dask.distributed``. In a first step, the background
+data is chunked and converted in its backend to a
+:py:class:``dask.array.Array``. The implementation iterates over chunks of data
+and sends these chunks to the different workers.
 To increase the speed of the algorithm it is recommended to set
 ``OMP_NUM_THREADS=1`` as environment variable, until some pytorch functions are
 parallelized.

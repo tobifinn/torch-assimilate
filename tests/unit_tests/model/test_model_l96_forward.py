@@ -38,7 +38,7 @@ from pytassim.model.integration import RK4Integrator
 from pytassim.model.lorenz_96 import Lorenz96, forward_model
 
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 BASE_PATH = os.path.dirname(os.path.realpath(__file__))
 

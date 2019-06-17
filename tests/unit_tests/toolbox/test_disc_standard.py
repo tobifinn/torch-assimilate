@@ -26,7 +26,7 @@ Created for torch-assimilate
 import unittest
 import logging
 import os
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock, call, patch
 
 # External modules
 import xarray as xr
@@ -37,7 +37,7 @@ import numpy as np
 from pytassim.toolbox.discriminator.standard import StandardDisc
 
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 BASE_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
@@ -196,19 +196,6 @@ class TestDiscStandard(unittest.TestCase):
             self.disc.disc_loss.call_args_list[0][0][1], real_labels
         )
 
-    def test_train_backwards_real_loss(self):
-        self.inject_missing()
-        fake_data = self.obs_torch + 1
-
-        real_loss = MagicMock(spec_set=torch.zeros((1, )).to(self.obs_torch))
-        fake_loss = MagicMock(spec_set=torch.zeros((1, )).to(self.obs_torch))
-
-        self.disc.disc_loss = MagicMock(side_effect=[real_loss, fake_loss])
-        real_loss.backward = MagicMock()
-
-        _ = self.disc.train(real_data=self.obs_torch, fake_data=fake_data)
-        real_loss.backward.assert_called_once()
-
     def test_train_uses_forward_for_fake_data(self):
         self.inject_missing()
         fake = self.obs_torch + 1
@@ -247,15 +234,22 @@ class TestDiscStandard(unittest.TestCase):
             self.disc.disc_loss.call_args_list[1][0][1], fake_labels
         )
 
-    def test_train_backwards_fake_loss(self):
+    def test_train_backwards_total_loss(self):
         self.inject_missing()
         fake_data = self.obs_torch + 1
         real_loss = MagicMock(spec_set=torch.zeros((1, )).to(self.obs_torch))
         fake_loss = MagicMock(spec_set=torch.zeros((1, )).to(self.obs_torch))
-        self.disc.disc_loss = MagicMock(side_effect=[real_loss, fake_loss])
+        total_loss = MagicMock(spec_set=torch.zeros((1, )).to(self.obs_torch))
         fake_loss.backward = MagicMock()
-        _ = self.disc.train(real_data=self.obs_torch, fake_data=fake_data)
-        fake_loss.backward.assert_called_once()
+        real_loss.backward = MagicMock()
+        total_loss.backward = MagicMock()
+        trg = 'pytassim.toolbox.discriminator.standard.StandardDisc.' \
+              '_get_train_losses'
+        with patch(trg, return_value=(total_loss, real_loss, fake_loss)):
+            _ = self.disc.train(real_data=self.obs_torch, fake_data=fake_data)
+        total_loss.backward.assert_called_once()
+        fake_loss.backward.assert_not_called()
+        real_loss.backward.assert_not_called()
 
     def test_train_calls_optimizer_step(self):
         self.inject_missing()

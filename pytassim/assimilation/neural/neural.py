@@ -84,7 +84,7 @@ class NeuralAssimilation(BaseAssimilation):
         else:
             self._model = cloned_model.cpu()
 
-    def update_state(self, state, observations, analysis_time):
+    def update_state(self, state, observations, pseudo_state, analysis_time):
         """
         This method updates given `state` with given `observations`. This method
         stacks the observations and covariance together. The state values and
@@ -127,7 +127,7 @@ class NeuralAssimilation(BaseAssimilation):
         obs_state, obs_cov, _ = self._prepare_obs(observations)
         logger.info('Transferring data to torch')
         prepared_torch = self._states_to_torch(state.values, obs_state,
-                                               obs_cov)
+                                               pseudo_state.values, obs_cov)
         logger.info('Assimilating observations with model')
         torch_analysis = self.model.assimilate(*prepared_torch)
         logger.info('Gathering analysis')

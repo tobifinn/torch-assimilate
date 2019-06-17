@@ -37,7 +37,7 @@ from pytassim.assimilation.base import BaseAssimilation
 import pytassim.testing.dummy as utils
 
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 rnd = np.random.RandomState(42)
 
 BASE_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
@@ -55,8 +55,9 @@ class TestTestingUtilities(unittest.TestCase):
         assimilation = BaseAssimilation()
         ana_time = self.state.time[-1]
         sliced_state = self.state.isel(time=slice(-1, None))
-        returned_state = utils.dummy_update_state(assimilation, self.state,
-                                                  self.obs, ana_time)
+        returned_state = utils.dummy_update_state(
+            assimilation, self.state, self.obs, self.state, ana_time
+        )
         self.assertIsInstance(returned_state, xr.DataArray)
         xr.testing.assert_equal(sliced_state, returned_state)
 

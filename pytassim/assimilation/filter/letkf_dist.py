@@ -25,51 +25,76 @@
 
 # System modules
 import logging
-import itertools
-from math import ceil
 
 # External modules
+from distributed import Client, wait, Future
+import dask
+import dask.array as da
+
 import torch
-import numpy as np
-from tqdm import tqdm
-from dask.distributed import as_completed
 
 # Internal modules
-from .letkf import LETKFCorr, local_etkf
+from .letkf import LETKFCorr, localize_states
 from .etkf_core import gen_weights_uncorr
 
 
 logger = logging.getLogger(__name__)
 
 
-def local_etkf_batch(gen_weights_func, ind, innov, hx_perts, obs_cov, back_prec,
-                     obs_grid, state_grid, state_perts, localization=None):
-    ana_state = []
-    weights = []
-    w_mean = []
-    for i in ind:
-        ana_state_l, weights_l, w_mean_l = local_etkf(
-            gen_weights_func, i, innov, hx_perts, obs_cov, back_prec, obs_grid,
-            state_grid, state_perts, localization
+@dask.delayed
+def localize_state_chunkwise(state_grid, obs_grid, innov, hx_perts, obs_cov,
+                             localization):
+    if isinstance(state_grid, Future):
+        state_grid = state_grid.result()
+    localized_states = [
+        localize_states(
+            grid_l, obs_grid, innov, hx_perts, obs_cov, localization
         )
-        ana_state.append(ana_state_l)
-        weights.append(weights_l)
-        w_mean.append(w_mean_l)
-    ana_state = torch.stack(ana_state)
-    weights = torch.stack(weights)
-    w_mean = torch.stack(w_mean)
-    return ana_state, weights, w_mean
+        for grid_l in state_grid
+    ]
+    return localized_states
+
+
+@dask.delayed
+def gen_weights_chunkwise(localized_states, back_prec, gen_weights_func):
+    weights = []
+    for state_l in localized_states:
+        w_mean_l, w_perts_l = gen_weights_func(back_prec, *state_l)
+        weights.append((w_mean_l + w_perts_l).t())
+    weights = torch.stack(weights, dim=0).detach()
+    return weights
+
+
+@dask.delayed
+def apply_weights_chunkwise(back_state, weights):
+    ana_perts = torch.einsum(
+        'ijkl,lkm->ijml', back_state, weights,
+    ).detach()
+    return ana_perts
 
 
 class DistributedLETKFCorr(LETKFCorr):
     """
-    This is a MPI based implementation of the `localized ensemble transform
+    This is a dask-based implementation of the `localized ensemble transform
     Kalman filter` :cite:`hunt_efficient_2007` for correlated observations.
+    This dask-based implementation is based on
+    :py:class:``~dask.distributed.Client``.
 
     Parameters
     ----------
-    chunks : int, optional
-        The data is splitted up in this number of chunks.
+    client : :py:class:``~dask.distributed.Client`` or None
+        This dask distributed client is used to parallelize the processes.
+        Either this client or ``cluster`` has to be
+        specified. Default is None. If both, cluster and client, are given, then
+        client has priority.
+    cluster : compatible to :py:class:``~dask.disributed.LocalCluster`` or None
+        This dask cluster is used to initialize a :py:class:``~dask.distributed.
+        Client``, if no client is specified.
+        Either this cluster or a ``client`` has to be given. Default is None.
+    chunksize : int, optional
+        The data is splitted up such that every chunk has this number of
+        samples. This influences the performance of this distributed version of
+        the LETKF. Default is 10.
     localization : obj or None, optional
         This localization is used to localize and constrain observations
         spatially. If this localization is None, no localization is applied such
@@ -91,27 +116,65 @@ class DistributedLETKFCorr(LETKFCorr):
         or CPU (False): Default is None. For small models, estimation of the
         weights on CPU is faster than on GPU!.
     """
-    def __init__(self, pool, chunksize=10, localization=None, inf_factor=1.0,
-                 smoother=True, gpu=False, pre_transform=None,
-                 post_transform=None):
+    def __init__(self, client=None, cluster=None, chunksize=10,
+                 localization=None, inf_factor=1.0, smoother=True,
+                 gpu=False, pre_transform=None, post_transform=None):
         super().__init__(localization, inf_factor, smoother, gpu, pre_transform,
                          post_transform)
-        self._pool = None
-        self.pool = pool
+        self._cluster = None
+        self._client = None
         self._chunksize = 1
         self.chunksize = chunksize
+        self.set_client_cluster(client=client, cluster=cluster)
+
+    @staticmethod
+    def _validate_client(client):
+        return isinstance(client, Client)
+
+    @staticmethod
+    def _validate_cluster(cluster):
+        return hasattr(cluster, "scheduler_address")
+
+    def _check_client_cluster(self, client, cluster):
+        not_valid_cluster = not self._validate_cluster(cluster)
+        not_valid_client = not self._validate_client(client)
+        if not_valid_client and not_valid_cluster:
+            raise ValueError(
+                'Either a client or a cluster have to be specified!'
+            )
 
     @property
-    def pool(self):
-        return self._pool
+    def cluster(self):
+        return self._cluster
 
-    @pool.setter
-    def pool(self, new_pool):
-        if hasattr(new_pool, 'submit') and callable(new_pool.submit):
-            self._pool = new_pool
+    @property
+    def client(self):
+        return self._client
+
+    def set_client_cluster(self, client=None, cluster=None):
+        """
+        This method sets the client and cluster. If both are given and valid,
+        then client has priority.
+
+        Parameters
+        ----------
+        client : :py:class:``~dask.distributed.Client`` or None
+            This dask distributed client is used to parallelize the processes.
+            Either this client or ``cluster`` has to be
+            specified. Default is None.
+        cluster : compatible to :py:class:``~dask.disributed.LocalCluster`` or
+        None
+            This dask cluster is used to initialize a
+            :py:class:``~dask.distributed.Client``, if no client is specified.
+            Default is None.
+        """
+        self._check_client_cluster(client, cluster)
+        if self._validate_client(client):
+            self._client = client
+            self._cluster = client.cluster
         else:
-            raise TypeError('Given distributed pool needs a '
-                            'concurrent.futures-like `submit` method!')
+            self._cluster = cluster
+            self._client = Client(cluster)
 
     def update_state(self, state, observations, pseudo_state, analysis_time):
         """
@@ -150,71 +213,52 @@ class DistributedLETKFCorr(LETKFCorr):
             is on, then the time axis has only one element.
         """
         logger.info('####### DISTRIBUTED LETKF #######')
-        logger.info('Starting with specific preparation')
+        logger.info('Starting with applying observation operator')
         innov, hx_perts, obs_cov, obs_grid = self._prepare(pseudo_state,
                                                            observations)
-        back_state = state.transpose('grid', 'var_name', 'time', 'ensemble')
-        state_mean, state_perts = back_state.state.split_mean_perts()
-
-        logger.info('Transfering the data to torch')
-        back_prec = self._get_back_prec(len(back_state.ensemble))
-        innov, hx_perts, obs_cov, back_state = self._states_to_torch(
-            innov, hx_perts, obs_cov, state_perts.values,
+        logger.info('Chunking background state')
+        state_mean, state_perts = state.state.split_mean_perts()
+        state_perts = state_perts.chunk(
+            {'grid': self.chunksize, 'var_name': -1, 'time': -1, 'ensemble': -1}
         )
-        state_grid = state_perts.grid.values
-        len_state_grid = len(state_grid)
-        grid_inds = list(self._slice_data(range(len_state_grid)))
-        processes = []
-        total_steps = ceil(len_state_grid/self.chunksize)
-        logger.info('Starting with job submission')
-        if hasattr(self.pool, 'scatter'):
-            futures = self.pool.scatter(
-                (self._gen_weights_func, innov, hx_perts,
-                 obs_cov, back_prec, obs_grid, state_grid, back_state,
-                 self.localization), broadcast=True
-            )
-            weight_func, innov, hx_perts, obs_cov, back_prec, \
-                obs_grid, state_grid, back_state, localization = futures
-        else:
-            weight_func, innov, hx_perts, obs_cov, back_prec, \
-                obs_grid, state_grid, back_state, localization = \
-                self._gen_weights_func, innov, hx_perts, \
-                obs_cov, back_prec, obs_grid, state_grid, back_state, \
+
+        logger.info('Scatter the data to processes')
+        ens_mems = len(state.ensemble)
+        back_prec = self._get_back_prec(ens_mems)
+        innov, hx_perts, obs_cov = self._states_to_torch(
+            innov, hx_perts, obs_cov,
+        )
+        state_perts_data = state_perts.data
+        state_grid = da.from_array(
+            state_perts.grid.values, chunks=self.chunksize
+        )
+        persisted_computes = self.client.persist([state_perts_data, state_grid])
+        state_perts_data, state_grid = self.client.gather(persisted_computes)
+        wait([state_perts_data, state_grid])
+
+        ana_perts = []
+        for k, grid_block in enumerate(state_grid.blocks):
+            localized_states = localize_state_chunkwise(
+                grid_block, obs_grid, innov, hx_perts, obs_cov,
                 self.localization
-        for ind in tqdm(grid_inds, total=total_steps):
-            tmp_process = self.pool.submit(
-                local_etkf_batch, weight_func, ind, innov, hx_perts,
-                obs_cov, back_prec, obs_grid, state_grid, back_state,
-                localization
             )
-            processes.append(tmp_process)
+            weights_l = gen_weights_chunkwise(localized_states, back_prec,
+                                              self._gen_weights_func)
+            torch_perts = dask.delayed(torch.as_tensor)(
+                state_perts_data.blocks[..., k], dtype=weights_l.dtype
+            )
+            ana_perts_l = apply_weights_chunkwise(
+                torch_perts, weights_l
+            )
+            ana_perts.append(ana_perts_l.detach().numpy())
+        ana_perts = dask.delayed(da.concatenate)(ana_perts, axis=-1)
 
-        logger.info('Waiting until jobs are finished')
-        for _ in tqdm(as_completed(processes), total=total_steps, smoothing=0):
-            pass
+        logger.info('Create analysis perturbations')
+        ana_perts = state_perts.copy(data=ana_perts.compute())
 
-        logger.info('Gathering the analysis')
-        tqdm_results = tqdm(processes, total=total_steps, smoothing=0)
-        state_perts.values = torch.cat(
-            [p.result()[0] for p in tqdm_results], dim=0
-        ).numpy()
-        analysis = (state_mean+state_perts).transpose(*state.dims)
-        logger.info('Finished with analysis creation')
+        logger.info('Create analysis')
+        analysis = (ana_perts + state_mean).load()
         return analysis
-
-    def _slice_data(self, data):
-        data = iter(data)
-        while True:
-            chunk = tuple(itertools.islice(data, self.chunksize))
-            if not chunk:
-                return
-            else:
-                yield chunk
-
-    @staticmethod
-    def _share_states(*states):
-        shared_states = [s.share_memory_() for s in states]
-        return shared_states
 
 
 class DistributedLETKFUncorr(DistributedLETKFCorr):
@@ -247,10 +291,10 @@ class DistributedLETKFUncorr(DistributedLETKFCorr):
         or CPU (False): Default is None. For small models, estimation of the
         weights on CPU is faster than on GPU!.
     """
-    def __init__(self, pool, chunksize=10, localization=None, inf_factor=1.0,
-                 smoother=True, gpu=False, pre_transform=None,
-                 post_transform=None):
-        super().__init__(pool=pool, chunksize=chunksize,
+    def __init__(self, client=None, cluster=None, chunksize=10,
+                 localization=None, inf_factor=1.0,  smoother=True, gpu=False,
+                 pre_transform=None, post_transform=None):
+        super().__init__(client=client, cluster=cluster, chunksize=chunksize,
                          localization=localization, inf_factor=inf_factor,
                          smoother=smoother, gpu=gpu,
                          pre_transform=pre_transform,

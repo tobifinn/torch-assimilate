@@ -92,6 +92,7 @@ def postprocess_clm(analysis_data, ds_clm):
     analysis_ds = common.generic_postprocess(
         analysis_data, ds_clm, vcoords=_clm_vcoords
     )
+    logger.info('Finished post-processing of CLM')
     return analysis_ds
 
 
