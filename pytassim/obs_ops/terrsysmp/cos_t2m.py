@@ -82,6 +82,13 @@ class CosmoT2mOperator(BaseOperator):
             self._h_diff = self._calc_h_diff()
         return self._h_diff
 
+    @property
+    def cosmo_height(self):
+        cosmo_hsurf = self.cosmo_const['HSURF'].stack(grid=['rlat', 'rlon'])
+        cosmo_loc = self._localize_grid(cosmo_hsurf)
+        cosmo_height = cosmo_loc.isel(time=0).values
+        return cosmo_height
+
     @staticmethod
     def _get_cartesian(latlonalt):
         lat_rad = np.deg2rad(latlonalt[:, 0])
@@ -110,10 +117,7 @@ class CosmoT2mOperator(BaseOperator):
 
     def _calc_h_diff(self):
         station_height = self.station_df['Stations-\r\nhöhe'].values
-        cosmo_hsurf = self.cosmo_const['HSURF'].stack(grid=['rlat', 'rlon'])
-        cosmo_loc = self._localize_grid(cosmo_hsurf)
-        cosmo_height = cosmo_loc.isel(time=0).values
-        height_diff = station_height - cosmo_height
+        height_diff = station_height - self._cosmo_height
         return height_diff
 
     @staticmethod
