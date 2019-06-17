@@ -117,7 +117,7 @@ class CosmoT2mOperator(BaseOperator):
 
     def _calc_h_diff(self):
         station_height = self.station_df['Stations-\r\nhöhe'].values
-        height_diff = station_height - self._cosmo_height
+        height_diff = station_height - self.cosmo_height
         return height_diff
 
     @staticmethod
