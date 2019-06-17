@@ -27,6 +27,7 @@ import unittest
 from unittest.mock import MagicMock
 import logging
 import os
+import time
 
 # External modules
 import xarray as xr
@@ -53,11 +54,19 @@ DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
 
 
 class TestLETKFDistributed(unittest.TestCase):
-    def setUp(self):
-        self.cluster = LocalCluster(
+    @classmethod
+    def setUpClass(cls):
+        cls.cluster = LocalCluster(
             n_workers=1, threads_per_worker=1, local_dir="/tmp/dask_work"
         )
-        self.client = Client(self.cluster)
+        cls.client = Client(cls.cluster)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.client.close()
+        cls.cluster.close()
+
+    def setUp(self):
         self.algorithm = DistributedLETKFCorr(client=self.client)
         state_path = os.path.join(DATA_PATH, 'test_state.nc')
         self.state = xr.open_dataarray(state_path).load()
@@ -66,10 +75,6 @@ class TestLETKFDistributed(unittest.TestCase):
         self.obs = xr.open_dataset(obs_path).load()
         self.obs.obs.operator = dummy_obs_operator
         self.localization = DummyLocalization()
-
-    def tearDown(self):
-        self.client.close()
-        self.cluster.close()
 
     def test_cluster_gets_private_cluster(self):
         self.algorithm._cluster = None
@@ -165,17 +170,17 @@ class TestLETKFDistributed(unittest.TestCase):
             np.testing.assert_almost_equal(
                 delta_ana.values[i], ana_pert.numpy()
             )
-
-    def test_update_state_returns_same_as_letkf(self):
-        letkf_filter = LETKFCorr()
-        ana_time = self.state.time[-1].values
-        obs_tuple = (self.obs, self.obs)
-        assimilated_state = self.algorithm.assimilate(self.state, obs_tuple,
-                                                      self.state, ana_time)
-        assimilated_state = assimilated_state.compute()
-        letkf_state = letkf_filter.assimilate(self.state, obs_tuple, self.state,
-                                              ana_time)
-        np.testing.assert_allclose(assimilated_state.values, letkf_state.values)
+    #
+    # def test_update_state_returns_same_as_letkf(self):
+    #     ana_time = self.state.time[-1].values
+    #     obs_tuple = (self.obs, self.obs)
+    #     assimilated_state = self.algorithm.assimilate(self.state, obs_tuple,
+    #                                                   self.state, ana_time)
+    #
+    #     letkf_filter = LETKFCorr()
+    #     letkf_state = letkf_filter.assimilate(self.state, obs_tuple, self.state,
+    #                                           ana_time)
+    #     np.testing.assert_allclose(assimilated_state.values, letkf_state.values)
 
     def test_localization_works(self):
         localization = DummyLocalization()
