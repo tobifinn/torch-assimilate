@@ -20,3 +20,5 @@ exclude_lines =
     logger.debug
     logger.warning
     logger.error
+
+ignore_errors = True
