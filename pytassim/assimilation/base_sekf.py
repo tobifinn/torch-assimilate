@@ -30,12 +30,13 @@ import logging
 
 # Internal modules
 from .base import BaseAssimilation
+from .dask_mixin import DaskMixin
 
 
 logger = logging.getLogger(__name__)
 
 
-class BaseSekf(BaseAssimilation):
+class BaseSEKF(BaseAssimilation, DaskMixin):
     def __init__(self, b_matrix, h_jacob, smoother=True, gpu=False,
                  pre_transform=None, post_transform=None, *args, **kwargs):
         super().__init__(
