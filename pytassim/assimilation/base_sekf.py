@@ -25,9 +25,13 @@
 
 # System modules
 import logging
+import abc
 
 # External modules
 import pandas as pd
+
+import dask
+import dask.array as da
 
 # Internal modules
 from .base import BaseAssimilation
@@ -51,6 +55,15 @@ class BaseSEKF(DaskMixin, BaseAssimilation):
         self.b_matrix = b_matrix
         self.h_jacob = h_jacob
 
+    def _prepare(self, pseudo_state, observations):
+        logger.info('Apply observation operator')
+        pseudo_obs, filtered_obs = self._prepare_back_obs(pseudo_state,
+                                                          observations)
+        logger.info('Concatenate observations')
+        obs_state, obs_cov, obs_grid = self._prepare_obs(filtered_obs)
+        innov = obs_state - pseudo_obs
+        return innov, pseudo_obs, obs_cov, obs_grid
+
     @staticmethod
     def get_horizontal_grid(state):
         grid_index = state.get_index('grid')
@@ -58,3 +71,25 @@ class BaseSEKF(DaskMixin, BaseAssimilation):
             grid_index.levels[:-1], names=grid_index.names[:-1]
         )
         return hori_index
+
+    @abc.abstractmethod
+    def estimate_inc(self, sel_state, sel_innov):
+        pass
+
+    def update_state(self, state, observations, pseudo_state, analysis_time):
+        innov, pseudo_obs, obs_cov, obs_grid = self._prepare(
+            pseudo_state, observations
+        )
+
+        grid_hori = self.get_horizontal_grid(state)
+        grid_iter = self.to_dask_array(grid_hori.values)
+
+        ana_incs = []
+        for k, grid_block in enumerate(grid_iter.blocks):
+            sel_innov = innov.sel(grid=grid_block)
+            sel_state = state.sel(grid=grid_block)
+            state_inc = dask.delayed(self.estimate_inc)(sel_state, sel_innov)
+            ana_incs.append(state_inc)
+        ana_incs = dask.delayed(da.concatenate)(ana_incs, axis=-1)
+        analysis = state + ana_incs.compute()
+        return analysis
