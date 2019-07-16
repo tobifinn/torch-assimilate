@@ -47,9 +47,6 @@ class TestDistributedCase(unittest.TestCase):
             processes=False
         )
         cls.client = Client(cls.cluster)
-        cls.state = xr.open_dataarray(cls.state_path).load()
-        cls.obs = xr.open_dataset(cls.obs_path).load()
-        cls.obs.obs.operator = dummy_obs_operator
 
     @classmethod
     def tearDownClass(cls) -> None:
