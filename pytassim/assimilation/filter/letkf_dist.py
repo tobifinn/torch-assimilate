@@ -74,7 +74,7 @@ def apply_weights_chunkwise(back_state, weights):
     return ana_perts
 
 
-class DistributedLETKFCorr(LETKFCorr, DaskMixin):
+class DistributedLETKFCorr(DaskMixin, LETKFCorr):
     """
     This is a dask-based implementation of the `localized ensemble transform
     Kalman filter` :cite:`hunt_efficient_2007` for correlated observations.
@@ -122,14 +122,10 @@ class DistributedLETKFCorr(LETKFCorr, DaskMixin):
                  gpu=False, pre_transform=None, post_transform=None, *args,
                  **kwargs):
         super().__init__(
+            client=client, cluster=cluster, chunksize=chunksize,
             localization=localization, inf_factor=inf_factor, smoother=smoother,
             gpu=gpu, pre=pre_transform, post_transform=post_transform,
         )
-        self._cluster = None
-        self._client = None
-        self._chunksize = 1
-        self.chunksize = chunksize
-        self.set_client_cluster(client=client, cluster=cluster)
 
     def update_state(self, state, observations, pseudo_state, analysis_time):
         """

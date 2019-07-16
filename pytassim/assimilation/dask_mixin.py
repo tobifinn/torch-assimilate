@@ -40,6 +40,14 @@ class DaskMixin(object):
     This mixin can be used to define a common dask interface. This mixin defines
     method for specifying dask operators and helps to set-up a client.
     """
+    def __init__(self, client=None, cluster=None, chunksize=10, **kwargs):
+        super().__init__(**kwargs)
+        self._cluster = None
+        self._client = None
+        self._chunksize = 1
+        self.chunksize = chunksize
+        self.set_client_cluster(client=client, cluster=cluster)
+
     @staticmethod
     def _validate_client(client):
         return isinstance(client, Client)
