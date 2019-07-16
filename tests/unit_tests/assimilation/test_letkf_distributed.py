@@ -55,8 +55,13 @@ DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
 
 
 class TestLETKFDistributed(TestDistributedCase):
-    state_path = os.path.join(DATA_PATH, 'test_state.nc')
-    obs_path = os.path.join(DATA_PATH, 'test_single_obs.nc')
+    def setUpClass(cls) -> None:
+        super().setUpClass()
+        state_path = os.path.join(DATA_PATH, 'test_state.nc')
+        obs_path = os.path.join(DATA_PATH, 'test_single_obs.nc')
+        cls.state = xr.open_dataarray(state_path).load()
+        cls.obs = xr.open_dataset(obs_path).load()
+        cls.obs.obs.operator = dummy_obs_operator
 
     def setUp(self):
         self.algorithm = DistributedLETKFCorr(client=self.client)
