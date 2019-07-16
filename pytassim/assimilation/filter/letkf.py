@@ -111,7 +111,8 @@ class LETKFCorr(ETKFCorr):
     """
 
     def __init__(self, localization=None, inf_factor=1.0, smoother=True,
-                 gpu=False, pre_transform=None, post_transform=None):
+                 gpu=False, pre_transform=None, post_transform=None, *args,
+                 **kwargs):
         super().__init__(inf_factor=inf_factor, smoother=smoother, gpu=gpu,
                          pre_transform=pre_transform,
                          post_transform=post_transform)
