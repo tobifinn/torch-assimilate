@@ -34,7 +34,7 @@ import xarray as xr
 from dask.distributed import LocalCluster, Client
 
 # Internal modules
-from pytassim.testing import dummy_obs_operator
+
 
 logger = logging.getLogger(__name__)
 
