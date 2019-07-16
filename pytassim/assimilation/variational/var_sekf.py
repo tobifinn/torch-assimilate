@@ -27,13 +27,23 @@
 import logging
 
 # External modules
+from torch.optim.optimizer import Optimizer
 
 # Internal modules
+from .variational import VarAssimilation
 from ..base_sekf import BaseSEKF
 
 
 logger = logging.getLogger(__name__)
 
 
-class VarSEKF(BaseSEKF):
-    pass
+class VarSEKF(BaseSEKF, VarAssimilation):
+    def __init__(self, b_matrix, h_jacob, optimizer=None, client=None,
+                 cluster=None, chunksize=10, smoother=True, gpu=False,
+                 pre_transform=None, post_transform=None, **kwargs):
+        super().__init__(
+            b_matrix=b_matrix, h_jacob=h_jacob, client=client, cluster=cluster,
+            chunksize=chunksize, smoother=smoother, gpu=gpu,
+            pre_transform=pre_transform, post_transform=post_transform,
+            optimizer=optimizer, **kwargs
+        )
