@@ -183,8 +183,9 @@ class ETKFCorr(FilterAssimilation):
             a length of :math:`l`, the observation length.
         """
         logger.info('Apply observation operator')
-        hx_mean, hx_perts, filtered_obs = self._prepare_back_obs(pseudo_state,
-                                                                 observations)
+        pseudo_obs, filtered_obs = self._prepare_back_obs(pseudo_state,
+                                                          observations)
+        hx_mean, hx_perts = self._split_pseudo_obs(pseudo_obs)
         logger.info('Concatenate observations')
         obs_state, obs_cov, obs_grid = self._prepare_obs(filtered_obs)
         innov = obs_state - hx_mean
@@ -198,23 +199,9 @@ class ETKFCorr(FilterAssimilation):
         back_prec /= self.inf_factor
         return back_prec
 
-    def _prepare_back_obs(self, state, observations):
-        pseudo_obs, filtered_obs = self._apply_obs_operator(state, observations)
-        hx_mean, hx_perts = self._prepare_pseudo_obs(pseudo_obs)
-        return hx_mean, hx_perts, filtered_obs
-
     @staticmethod
-    def _prepare_pseudo_obs(pseudo_obs):
-        state_stacked_list = []
-        for obs in pseudo_obs:
-            if isinstance(obs.indexes['obs_grid_1'], pd.MultiIndex):
-                obs['obs_grid_1'] = pd.Index(
-                    obs.indexes['obs_grid_1'].values, tupleize_cols=False
-                )
-            stacked_obs = obs.stack(obs_id=('time', 'obs_grid_1'))
-            state_stacked_list.append(stacked_obs)
-        pseudo_obs_concat = xr.concat(state_stacked_list, dim='obs_id')
-        hx_mean, hx_perts = pseudo_obs_concat.state.split_mean_perts()
+    def _split_pseudo_obs(pseudo_obs):
+        hx_mean, hx_perts = pseudo_obs.state.split_mean_perts()
         return hx_mean.values, hx_perts.T.values
 
     @staticmethod

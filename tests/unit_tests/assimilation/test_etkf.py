@@ -249,22 +249,29 @@ class TestETKFCorr(unittest.TestCase):
         )
         np.testing.assert_equal(returned_obs, obs_stacked.values)
         np.testing.assert_equal(returned_cov, stacked_cov)
-        np.testing.assert_equal(returned_grid, obs_stacked.obs_grid_1.values.reshape(-1, 1))
+        np.testing.assert_equal(
+            returned_grid, obs_stacked.obs_grid_1.values.reshape(-1, 1)
+        )
 
     def test_prepare_state_returns_state_array(self):
         hx = self.obs.obs.operator(self.state)
         hx_stacked = hx.stack(obs_id=('time', 'obs_grid_1'))
         hx_concat = xr.concat([hx_stacked, hx_stacked], dim='obs_id')
         hx_mean, hx_pert = hx_concat.state.split_mean_perts()
-        returned_mean, returned_pert, _ = self.algorithm._prepare_back_obs(
-            self.state, (self.obs, self.obs)
+
+        _, obs_cov, _ = self.algorithm._prepare_obs((self.obs, self.obs))
+        pseudo_obs, _ = self.algorithm._prepare_back_obs(self.state,
+                                                         (self.obs,  self.obs))
+        returned_mean, returned_pert = self.algorithm._split_pseudo_obs(
+            pseudo_obs
         )
+
         np.testing.assert_equal(returned_mean, hx_mean.values)
         np.testing.assert_equal(returned_pert, hx_pert.T.values)
 
     def test_prepare_state_returns_filtered_obs(self):
         obs_list = (self.obs, self.obs.copy())
-        _, _, returned_obs = self.algorithm._prepare_back_obs(
+        _, returned_obs = self.algorithm._prepare_back_obs(
             self.state, obs_list
         )
         self.assertEqual(len(returned_obs), 1)
@@ -289,15 +296,19 @@ class TestETKFCorr(unittest.TestCase):
 
     def test_prepare_returns_necessary_variables(self):
         obs_tuple = (self.obs, self.obs.copy())
-        prepared_state = self.algorithm._prepare_back_obs(self.state, obs_tuple)
-        prepared_obs = self.algorithm._prepare_obs((self.obs, ))
-        innov = prepared_obs[0] - prepared_state[0]
+
+        pseudo_obs, filtered_obs = self.algorithm._prepare_back_obs(
+            self.state, obs_tuple
+        )
+        hx_mean, hx_perts = self.algorithm._split_pseudo_obs(pseudo_obs)
+        obs_state, obs_cov, obs_grid = self.algorithm._prepare_obs(filtered_obs)
+        innov = obs_state - hx_mean
 
         returned_state = self.algorithm._prepare(self.state, obs_tuple)
         np.testing.assert_equal(innov, returned_state[0])
-        np.testing.assert_equal(prepared_state[1], returned_state[1])
-        np.testing.assert_equal(prepared_obs[1], returned_state[2])
-        np.testing.assert_equal(prepared_obs[2], returned_state[3])
+        np.testing.assert_equal(hx_perts, returned_state[1])
+        np.testing.assert_equal(obs_cov, returned_state[2])
+        np.testing.assert_equal(obs_grid, returned_state[3])
 
     def test_update_calls_prepare_with_pseudo_state(self):
         pseudo_state = self.state + 1
@@ -312,7 +323,8 @@ class TestETKFCorr(unittest.TestCase):
     def test_calc_c_chol_calculates_c_based_on_cholesky_decomp(self):
         obs_tuple = [self.obs, ] * 5
         _, obs_cov, _ = self.algorithm._prepare_obs(obs_tuple)
-        _, hx_perts, _ = self.algorithm._prepare_back_obs(self.state, obs_tuple)
+        pseudo_obs, _ = self.algorithm._prepare_back_obs(self.state, obs_tuple)
+        _, hx_perts = self.algorithm._split_pseudo_obs(pseudo_obs)
         alpha = 0
         obs_cov_prod = np.matmul(obs_cov.T, obs_cov)
         obs_hx = np.matmul(obs_cov.T, hx_perts)
@@ -341,7 +353,9 @@ class TestETKFCorr(unittest.TestCase):
         self.obs['covariance'][:2, 0] = 0
         obs_tuple = [self.obs, ]
         _, obs_cov, _ = self.algorithm._prepare_obs(obs_tuple)
-        _, hx_perts, _ = self.algorithm._prepare_back_obs(self.state, obs_tuple)
+        pseudo_obs, _ = self.algorithm._prepare_back_obs(self.state,
+                                                         (self.obs, ))
+        _, hx_perts = self.algorithm._split_pseudo_obs(pseudo_obs)
         t_obs_cov = torch.tensor(obs_cov)
         t_hx_perts = torch.tensor(hx_perts)
 
@@ -357,7 +371,9 @@ class TestETKFCorr(unittest.TestCase):
         self.obs['covariance'][:2, 0] = 0
         obs_tuple = [self.obs, ]
         _, obs_cov, _ = self.algorithm._prepare_obs(obs_tuple)
-        _, hx_perts, _ = self.algorithm._prepare_back_obs(self.state, obs_tuple)
+        pseudo_obs, _ = self.algorithm._prepare_back_obs(self.state,
+                                                         (self.obs, ))
+        _, hx_perts = self.algorithm._split_pseudo_obs(pseudo_obs)
         t_obs_cov = torch.tensor(obs_cov)
         t_hx_perts = torch.tensor(hx_perts)
 
@@ -374,7 +390,9 @@ class TestETKFCorr(unittest.TestCase):
         self.obs['covariance'][:, 0] = 1
         obs_tuple = [self.obs, ] * 5
         _, obs_cov, _ = self.algorithm._prepare_obs(obs_tuple)
-        _, hx_perts, _ = self.algorithm._prepare_back_obs(self.state, obs_tuple)
+        pseudo_obs, _ = self.algorithm._prepare_back_obs(self.state,
+                                                         obs_tuple)
+        _, hx_perts = self.algorithm._split_pseudo_obs(pseudo_obs)
         obs_cov = torch.tensor(obs_cov)
         hx_perts = torch.tensor(hx_perts)
         est_c = etkf_core._compute_c_chol(hx_perts, obs_cov)
@@ -386,7 +404,9 @@ class TestETKFCorr(unittest.TestCase):
     def test_calculate_c_multiplies_with_obs_weight(self):
         obs_tuple = [self.obs, ] * 5
         _, obs_cov, _ = self.algorithm._prepare_obs(obs_tuple)
-        _, hx_perts, _ = self.algorithm._prepare_back_obs(self.state, obs_tuple)
+        pseudo_obs, _ = self.algorithm._prepare_back_obs(self.state,
+                                                         obs_tuple)
+        _, hx_perts = self.algorithm._split_pseudo_obs(pseudo_obs)
         alpha = 0
         obs_cov_prod = np.matmul(obs_cov.T, obs_cov)
         obs_hx = np.matmul(obs_cov.T, hx_perts)
@@ -421,9 +441,9 @@ class TestETKFCorr(unittest.TestCase):
 
     def test_calc_precision_returns_precision(self):
         _, obs_cov, _ = self.algorithm._prepare_obs((self.obs, ))
-        _, hx_pert, _ = self.algorithm._prepare_back_obs(
-            self.state, (self.obs,)
-        )
+        pseudo_obs, _ = self.algorithm._prepare_back_obs(self.state,
+                                                         (self.obs, ))
+        _, hx_pert = self.algorithm._split_pseudo_obs(pseudo_obs)
         nr_obs, ens_size = hx_pert.shape
         obs_cov = torch.tensor(obs_cov)
         hx_pert = torch.tensor(hx_pert)
@@ -439,8 +459,9 @@ class TestETKFCorr(unittest.TestCase):
 
     def test_eigendecomposition_returns_eig_eiginv_evects(self):
         obs_state, obs_cov, obs_grid = self.algorithm._prepare_obs((self.obs, ))
-        hx_mean, hx_pert, _ = self.algorithm._prepare_back_obs(self.state,
-                                                               (self.obs, ))
+        pseudo_obs, _ = self.algorithm._prepare_back_obs(self.state,
+                                                         (self.obs, ))
+        _, hx_pert = self.algorithm._split_pseudo_obs(pseudo_obs)
         hx_pert = torch.tensor(hx_pert).double()
         obs_cov = torch.tensor(obs_cov).double()
 
@@ -462,8 +483,9 @@ class TestETKFCorr(unittest.TestCase):
 
     def test_eigendecomposition_can_be_reverted(self):
         obs_state, obs_cov, obs_grid = self.algorithm._prepare_obs((self.obs, ))
-        hx_mean, hx_pert, _ = self.algorithm._prepare_back_obs(self.state,
-                                                               (self.obs, ))
+        pseudo_obs, _ = self.algorithm._prepare_back_obs(self.state,
+                                                         (self.obs, ))
+        hx_mean, hx_pert = self.algorithm._split_pseudo_obs(pseudo_obs)
         hx_pert = torch.tensor(hx_pert).double()
         obs_cov = torch.tensor(obs_cov).double()
 
@@ -479,8 +501,9 @@ class TestETKFCorr(unittest.TestCase):
 
     def test_eigen_cov_variance(self):
         obs_state, obs_cov, obs_grid = self.algorithm._prepare_obs((self.obs, ))
-        hx_mean, hx_pert, _ = self.algorithm._prepare_back_obs(self.state,
-                                                               (self.obs, ))
+        pseudo_obs, _ = self.algorithm._prepare_back_obs(self.state,
+                                                         (self.obs, ))
+        hx_mean, hx_pert = self.algorithm._split_pseudo_obs(pseudo_obs)
         hx_pert = torch.tensor(hx_pert).double()
         obs_cov = torch.tensor(obs_cov).double()
 
@@ -497,8 +520,9 @@ class TestETKFCorr(unittest.TestCase):
 
     def test_det_square_root_eigen_returns_weight_perts(self):
         obs_state, obs_cov, obs_grid = self.algorithm._prepare_obs((self.obs, ))
-        hx_mean, hx_pert, _ = self.algorithm._prepare_back_obs(self.state,
-                                                               (self.obs, ))
+        pseudo_obs, _ = self.algorithm._prepare_back_obs(self.state,
+                                                         (self.obs, ))
+        hx_mean, hx_pert = self.algorithm._split_pseudo_obs(pseudo_obs)
         nr_obs, ens_size = hx_pert.shape
         hx_pert = torch.tensor(hx_pert).double()
         obs_cov = torch.tensor(obs_cov).double()
@@ -518,8 +542,9 @@ class TestETKFCorr(unittest.TestCase):
 
     def test_gen_weights_returns_mean_pert_weight(self):
         obs_state, obs_cov, obs_grid = self.algorithm._prepare_obs((self.obs, ))
-        hx_mean, hx_pert, _ = self.algorithm._prepare_back_obs(self.state,
-                                                               (self.obs, ))
+        pseudo_obs, _ = self.algorithm._prepare_back_obs(self.state,
+                                                         (self.obs, ))
+        hx_mean, hx_pert = self.algorithm._split_pseudo_obs(pseudo_obs)
         hx_mean = torch.tensor(hx_mean).double()
         hx_pert = torch.tensor(hx_pert).double()
         obs_state = torch.tensor(obs_state).double()
@@ -764,7 +789,8 @@ class TestETKFUncorr(unittest.TestCase):
     def test_calculate_c_returns_same_for_diag(self):
         obs_tuple = [self.obs, ] * 5
         _, obs_cov, _ = self.algorithm._prepare_obs(obs_tuple)
-        _, hx_perts, _ = self.algorithm._prepare_back_obs(self.state, obs_tuple)
+        pseudo_obs, _ = self.algorithm._prepare_back_obs(self.state, obs_tuple)
+        _, hx_perts = self.algorithm._split_pseudo_obs(pseudo_obs)
         obs_cov = torch.tensor(obs_cov)
         hx_perts = torch.tensor(hx_perts)
         diag_c = etkf_core._compute_c_diag(hx_perts, obs_cov)
@@ -774,7 +800,8 @@ class TestETKFUncorr(unittest.TestCase):
     def test_diagonal_inverse_returns_inverse_of_diagonal_matrix(self):
         obs_tuple = [self.obs, ] * 5
         _, obs_cov, _ = self.algorithm._prepare_obs(obs_tuple)
-        _, hx_perts, _ = self.algorithm._prepare_back_obs(self.state, obs_tuple)
+        pseudo_obs, _ = self.algorithm._prepare_back_obs(self.state, obs_tuple)
+        _, hx_perts = self.algorithm._split_pseudo_obs(pseudo_obs)
         est_c = np.matmul(hx_perts.T, np.linalg.inv(np.diag(obs_cov)))
         self.assertTupleEqual(est_c.shape, hx_perts.T.shape)
 

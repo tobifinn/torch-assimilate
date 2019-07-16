@@ -122,6 +122,11 @@ class BaseAssimilation(object):
                 )
         return valid_time.values
 
+    def _prepare_back_obs(self, state, observations):
+        pseudo_obs, filtered_obs = self._apply_obs_operator(state, observations)
+        pseudo_obs_concat = self._prepare_pseudo_obs(pseudo_obs)
+        return pseudo_obs_concat, filtered_obs
+
     @staticmethod
     def _apply_obs_operator(pseudo_state, observations):
         """
@@ -160,7 +165,21 @@ class BaseAssimilation(object):
                 pass
         return obs_equivalent, filtered_observations
 
-    def _grid_index_to_array(self, index):
+    @staticmethod
+    def _prepare_pseudo_obs(pseudo_obs):
+        state_stacked_list = []
+        for obs in pseudo_obs:
+            if isinstance(obs.indexes['obs_grid_1'], pd.MultiIndex):
+                obs['obs_grid_1'] = pd.Index(
+                    obs.indexes['obs_grid_1'].values, tupleize_cols=False
+                )
+            stacked_obs = obs.stack(obs_id=('time', 'obs_grid_1'))
+            state_stacked_list.append(stacked_obs)
+        pseudo_obs_concat = xr.concat(state_stacked_list, dim='obs_id')
+        return pseudo_obs_concat
+
+    @staticmethod
+    def _grid_index_to_array(index):
         raw_index_array = np.atleast_1d(index.values)
         if isinstance(raw_index_array[0], tuple):
             shape = (-1, len(raw_index_array[0]))
