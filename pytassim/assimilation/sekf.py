@@ -37,16 +37,20 @@ logger = logging.getLogger(__name__)
 
 class BaseSekf(BaseAssimilation):
     def __init__(self, b_matrix, h_jacob, smoother=True, gpu=False,
-                 pre_transform=None, post_transform=None):
+                 pre_transform=None, post_transform=None, *args, **kwargs):
         super().__init__(
             smoother=smoother, gpu=gpu, pre_transform=pre_transform,
             post_transform=post_transform
         )
         self._b_matrix = None
         self._h_jacob = None
-        self._h_jacob_func = False
         self.b_matrix = b_matrix
         self.h_jacob = h_jacob
 
     def update_state(self, state, observations, pseudo_state, analysis_time):
-        pass
+        for grid in state_grid:
+            sel_innov = innov.sel(grid=grid)
+            sel_state = state.sel(grid=grid)
+            state_inc = estimate_inc(sel_state, sel_innov, b_matrix, h_jacob)
+            sel_ana = self_state + state_inc
+

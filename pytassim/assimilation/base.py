@@ -53,7 +53,7 @@ class BaseAssimilation(object):
     :py:meth:`~pytassim.assimilation.base.BaseAssimilation.update_state`.
     """
     def __init__(self, smoother=False, gpu=False, pre_transform=None,
-                 post_transform=None):
+                 post_transform=None, *args, **kwargs):
         self.smoother = smoother
         self.gpu = gpu
         self.pre_transform = pre_transform

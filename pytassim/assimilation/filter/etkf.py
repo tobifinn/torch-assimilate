@@ -70,7 +70,7 @@ class ETKFCorr(FilterAssimilation):
         weights on CPU is faster than on GPU!.
     """
     def __init__(self, inf_factor=1.0, smoother=True, gpu=False,
-                 pre_transform=None, post_transform=None):
+                 pre_transform=None, post_transform=None, *args, **kwargs):
         super().__init__(smoother=smoother, gpu=gpu,
                          pre_transform=pre_transform,
                          post_transform=post_transform)
