@@ -34,12 +34,13 @@ import xarray as xr
 from dask.distributed import LocalCluster, Client
 
 # Internal modules
+from pytassim.assimilation.dask_mixin import DaskMixin
 
 
 logger = logging.getLogger(__name__)
 
 
-class TestDistributedCase(unittest.TestCase):
+class DistributedCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.cluster = LocalCluster(
@@ -47,6 +48,7 @@ class TestDistributedCase(unittest.TestCase):
             processes=False
         )
         cls.client = Client(cls.cluster)
+        cls.algorithm = DaskMixin(cls.client)
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -64,7 +66,6 @@ class TestDistributedCase(unittest.TestCase):
         self.assertIsNone(self.algorithm.client)
         self.algorithm._client = 12345
         self.assertEqual(self.algorithm.client, 12345)
-
 
     def test_validate_client_checks_if_client_is_client(self):
         self.assertTrue(self.algorithm._validate_client(self.client))
