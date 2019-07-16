@@ -180,9 +180,7 @@ class DistributedLETKFCorr(DaskMixin, LETKFCorr):
             innov, hx_perts, obs_cov,
         )
         state_perts_data = state_perts.data
-        state_grid = da.from_array(
-            state_perts.grid.values, chunks=self.chunksize
-        )
+        state_grid = self.to_dask_array(state_perts.grid.values)
         persisted_computes = self.client.persist([state_perts_data, state_grid])
         state_perts_data, state_grid = self.client.gather(persisted_computes)
         wait([state_perts_data, state_grid])
