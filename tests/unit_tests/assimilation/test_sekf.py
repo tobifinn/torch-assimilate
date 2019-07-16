@@ -37,7 +37,7 @@ from dask.distributed import LocalCluster, Client
 # Internal modules
 
 from pytassim.assimilation.filter.sekf import SEKF
-from pytassim.testing import dummy_obs_operator, dummy_h_jacob
+from pytassim.testing import dummy_h_jacob
 from pytassim.testing.cases import TestDistributedCase
 
 
@@ -67,10 +67,17 @@ class TestSEKF(TestDistributedCase):
         hori_grid = state['grid'].values // vert_dim
         zipped_grid = [t for t in zip(hori_grid, vert_grid)]
         multi_grid = pd.MultiIndex.from_tuples(
-            zipped_grid, names=['hori_grid', 'vert_grid']
+            zipped_grid, names=['hgrid', 'vgrid']
         )
         state['grid'] = multi_grid
         return state
+
+    def test_get_hori_grid_extracts_hori_grid(self):
+        hori_grid = pd.MultiIndex.from_product(
+            [np.arange(10)], names=['hgrid', ]
+        )
+        returned_grid = self.algorithm.get_horizontal_grid(self.state)
+        pd.testing.assert_index_equal(returned_grid, hori_grid)
 
 
 if __name__ == '__main__':
