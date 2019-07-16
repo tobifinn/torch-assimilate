@@ -40,6 +40,7 @@ from dask.distributed import LocalCluster, Client
 # Internal modules
 from pytassim.assimilation.filter.letkf import LETKFCorr, local_etkf
 from pytassim.testing import dummy_obs_operator, DummyLocalization
+from pytassim.testing.cases import TestDistributedCase
 from pytassim.assimilation.filter.letkf_dist import DistributedLETKFCorr, \
     DistributedLETKFUncorr
 from pytassim.localization import GaspariCohn
@@ -53,28 +54,13 @@ BASE_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
 
 
-class TestLETKFDistributed(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.cluster = LocalCluster(
-            n_workers=1, threads_per_worker=1, local_dir="/tmp/dask_work",
-            processes=False
-        )
-        cls.client = Client(cls.cluster)
-
-    @classmethod
-    def tearDownClass(cls) -> None:
-        cls.client.close()
-        cls.cluster.close()
+class TestLETKFDistributed(TestDistributedCase):
+    state_path = os.path.join(DATA_PATH, 'test_state.nc')
+    obs_path = os.path.join(DATA_PATH, 'test_single_obs.nc')
 
     def setUp(self):
         self.algorithm = DistributedLETKFCorr(client=self.client)
-        state_path = os.path.join(DATA_PATH, 'test_state.nc')
-        self.state = xr.open_dataarray(state_path).load()
         self.back_prec = self.algorithm._get_back_prec(len(self.state.ensemble))
-        obs_path = os.path.join(DATA_PATH, 'test_single_obs.nc')
-        self.obs = xr.open_dataset(obs_path).load()
-        self.obs.obs.operator = dummy_obs_operator
         self.localization = DummyLocalization()
 
     def test_cluster_gets_private_cluster(self):

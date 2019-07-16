@@ -29,31 +29,11 @@ import logging
 # External modules
 
 # Internal modules
-from .base import BaseAssimilation
-from .dask_mixin import DaskMixin
+from ..base_sekf import BaseSEKF
 
 
 logger = logging.getLogger(__name__)
 
 
-class BaseSEKF(DaskMixin, BaseAssimilation):
-    def __init__(self, b_matrix, h_jacob, client=None, cluster=None,
-                 chunksize=10, smoother=True, gpu=False,
-                 pre_transform=None, post_transform=None, **kwargs):
-        super().__init__(
-            client=client, cluster=cluster, chunksize=chunksize,
-            smoother=smoother, gpu=gpu, pre_transform=pre_transform,
-            post_transform=post_transform
-        )
-        self._b_matrix = None
-        self._h_jacob = None
-        self.b_matrix = b_matrix
-        self.h_jacob = h_jacob
-
-    def update_state(self, state, observations, pseudo_state, analysis_time):
-        for grid in state_grid:
-            sel_innov = innov.sel(grid=grid)
-            sel_state = state.sel(grid=grid)
-            state_inc = estimate_inc(sel_state, sel_innov, b_matrix, h_jacob)
-            sel_ana = self_state + state_inc
-
+class SEKF(BaseSEKF):
+    pass

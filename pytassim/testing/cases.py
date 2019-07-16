@@ -25,35 +25,32 @@
 
 # System modules
 import logging
+import unittest
+import os
 
 # External modules
+import xarray as xr
+from dask.distributed import LocalCluster, Client
 
 # Internal modules
-from .base import BaseAssimilation
-from .dask_mixin import DaskMixin
-
+from pytassim.testing import dummy_obs_operator
 
 logger = logging.getLogger(__name__)
 
 
-class BaseSEKF(DaskMixin, BaseAssimilation):
-    def __init__(self, b_matrix, h_jacob, client=None, cluster=None,
-                 chunksize=10, smoother=True, gpu=False,
-                 pre_transform=None, post_transform=None, **kwargs):
-        super().__init__(
-            client=client, cluster=cluster, chunksize=chunksize,
-            smoother=smoother, gpu=gpu, pre_transform=pre_transform,
-            post_transform=post_transform
+class TestDistributedCase(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.cluster = LocalCluster(
+            n_workers=1, threads_per_worker=1, local_dir="/tmp/dask_work",
+            processes=False
         )
-        self._b_matrix = None
-        self._h_jacob = None
-        self.b_matrix = b_matrix
-        self.h_jacob = h_jacob
+        cls.client = Client(cls.cluster)
+        cls.state = xr.open_dataarray(cls.state_path).load()
+        cls.obs = xr.open_dataset(cls.obs_path).load()
+        cls.obs.obs.operator = dummy_obs_operator
 
-    def update_state(self, state, observations, pseudo_state, analysis_time):
-        for grid in state_grid:
-            sel_innov = innov.sel(grid=grid)
-            sel_state = state.sel(grid=grid)
-            state_inc = estimate_inc(sel_state, sel_innov, b_matrix, h_jacob)
-            sel_ana = self_state + state_inc
-
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.client.close()
+        cls.cluster.close()
