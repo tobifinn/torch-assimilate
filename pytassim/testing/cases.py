@@ -26,6 +26,7 @@
 # System modules
 import logging
 import unittest
+from unittest.mock import MagicMock
 import os
 
 # External modules
@@ -54,3 +55,65 @@ class TestDistributedCase(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.client.close()
         cls.cluster.close()
+
+    def test_cluster_gets_private_cluster(self):
+        self.algorithm._cluster = None
+        self.assertIsNone(self.algorithm.cluster)
+        self.algorithm._cluster = 1234
+        self.assertEqual(self.algorithm.cluster, 1234)
+
+    def test_client_gets_private_client(self):
+        self.algorithm._client = None
+        self.assertIsNone(self.algorithm.client)
+        self.algorithm._client = 12345
+        self.assertEqual(self.algorithm.client, 12345)
+
+
+    def test_validate_client_checks_if_client_is_client(self):
+        self.assertTrue(self.algorithm._validate_client(self.client))
+        self.assertFalse(self.algorithm._validate_client(1234))
+
+    def test_validate_cluster_checks_if_cluster_has_scheduler_address(self):
+        self.assertTrue(self.algorithm._validate_cluster(self.cluster))
+        self.assertFalse(self.algorithm._validate_cluster(12345))
+
+    def test_check_client_cluster_checks_if_client_or_cluster_given(self):
+        self.algorithm._check_client_cluster(self.client, self.cluster)
+        self.algorithm._check_client_cluster(self.client, None)
+        self.algorithm._check_client_cluster(None, self.cluster)
+        with self.assertRaises(ValueError):
+            self.algorithm._check_client_cluster(None, None)
+
+    def test_set_client_cluster_calls_check_client_cluster(self):
+        self.algorithm._check_client_cluster = MagicMock()
+        self.algorithm.set_client_cluster(self.client, self.cluster)
+        self.algorithm._check_client_cluster.assert_called_once_with(
+            self.client, self.cluster
+        )
+
+    def test_set_client_cluster_sets_client_if_given(self):
+        self.algorithm._client = None
+        self.algorithm.set_client_cluster(self.client, None)
+        self.assertEqual(id(self.algorithm._client), id(self.client))
+
+    def test_set_client_cluster_sets_cluster_from_client(self):
+        self.algorithm._cluster = None
+        self.algorithm.set_client_cluster(self.client, None)
+        self.assertEqual(id(self.algorithm._cluster), id(self.client.cluster))
+
+    def test_set_client_cluster_sets_cluster_from_cluster_if_no_client(self):
+        self.algorithm._cluster = None
+        self.algorithm.set_client_cluster(None, self.cluster)
+        self.assertEqual(id(self.algorithm._cluster), id(self.cluster))
+
+    def test_set_client_cluster_initialize_client_from_cluster(self):
+        self.algorithm._client = None
+        self.algorithm.set_client_cluster(None, self.cluster)
+        self.assertIsInstance(self.algorithm._client, Client)
+        self.assertEqual(id(self.algorithm._client.cluster), id(self.cluster))
+        self.algorithm.client.close()
+
+    def test_set_client_cluster_uses_client_if_both_given(self):
+        self.algorithm._client = None
+        self.algorithm.set_client_cluster(self.client, self.cluster)
+        self.assertEqual(id(self.algorithm._client), id(self.client))
