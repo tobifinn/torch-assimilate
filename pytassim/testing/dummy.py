@@ -161,3 +161,7 @@ class DummyNeuralModule(torch.nn.Module):
     @staticmethod
     def assimilate(state, *args, **kwargs):
         return state
+
+
+def dummy_h_jacob():
+    pass
