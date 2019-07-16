@@ -37,7 +37,7 @@ from dask.distributed import LocalCluster, Client
 # Internal modules
 
 from pytassim.assimilation.filter.sekf import SEKF
-from pytassim.testing import dummy_obs_operator
+from pytassim.testing import dummy_obs_operator, dummy_h_jacob
 from pytassim.testing.cases import TestDistributedCase
 
 
@@ -46,10 +46,6 @@ logging.basicConfig(level=logging.DEBUG)
 
 BASE_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
-
-
-def dummy_h_jacob():
-    pass
 
 
 class TestSEKF(TestDistributedCase):
@@ -70,7 +66,9 @@ class TestSEKF(TestDistributedCase):
         vert_grid = state['grid'].values % vert_dim
         hori_grid = state['grid'].values // vert_dim
         zipped_grid = [t for t in zip(hori_grid, vert_grid)]
-        multi_grid = pd.MultiIndex.from_tuples(zipped_grid)
+        multi_grid = pd.MultiIndex.from_tuples(
+            zipped_grid, names=['hori_grid', 'vert_grid']
+        )
         state['grid'] = multi_grid
         return state
 
