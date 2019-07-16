@@ -28,6 +28,7 @@ import logging
 
 # External modules
 from distributed import Client
+import dask.array as da
 
 # Internal modules
 
@@ -100,3 +101,20 @@ class DaskMixin(object):
             self._cluster = cluster
             self._client = Client(cluster)
 
+    def to_dask_array(self, data):
+        """
+        Gets a numpy array and transforms this numpy array into a dask array
+        with set chunksize.
+
+        Parameters
+        ----------
+        data : :py:class:`numpy.ndarray`
+            This input data array is transformed into a dask array.
+
+        Returns
+        -------
+        array_transformed : :py:class:`dask.array.Array`
+            This is the transformed data array with set chunksize.
+        """
+        array_transformed = da.from_array(data, chunks=self.chunksize)
+        return array_transformed
