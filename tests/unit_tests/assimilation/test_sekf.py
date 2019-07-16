@@ -38,7 +38,7 @@ from dask.distributed import LocalCluster, Client
 
 from pytassim.assimilation.filter.sekf import SEKF
 from pytassim.testing import dummy_h_jacob, dummy_obs_operator
-from pytassim.testing.cases import TestDistributedCase
+from pytassim.testing.cases import DistributedCase
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -48,7 +48,8 @@ BASE_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
 
 
-class TestSEKF(TestDistributedCase):
+class TestSEKF(DistributedCase):
+    @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
         state_path = os.path.join(DATA_PATH, 'test_state.nc')

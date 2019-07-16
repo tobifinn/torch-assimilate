@@ -40,7 +40,7 @@ from dask.distributed import LocalCluster, Client
 # Internal modules
 from pytassim.assimilation.filter.letkf import LETKFCorr, local_etkf
 from pytassim.testing import dummy_obs_operator, DummyLocalization
-from pytassim.testing.cases import TestDistributedCase
+from pytassim.testing.cases import DistributedCase
 from pytassim.assimilation.filter.letkf_dist import DistributedLETKFCorr, \
     DistributedLETKFUncorr
 from pytassim.localization import GaspariCohn
@@ -54,7 +54,8 @@ BASE_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
 
 
-class TestLETKFDistributed(TestDistributedCase):
+class TestLETKFDistributed(DistributedCase):
+    @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
         state_path = os.path.join(DATA_PATH, 'test_state.nc')
