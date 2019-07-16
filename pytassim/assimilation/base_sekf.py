@@ -27,6 +27,7 @@
 import logging
 
 # External modules
+import pandas as pd
 
 # Internal modules
 from .base import BaseAssimilation
@@ -50,10 +51,10 @@ class BaseSEKF(DaskMixin, BaseAssimilation):
         self.b_matrix = b_matrix
         self.h_jacob = h_jacob
 
-    def update_state(self, state, observations, pseudo_state, analysis_time):
-        for grid in state_grid:
-            sel_innov = innov.sel(grid=grid)
-            sel_state = state.sel(grid=grid)
-            state_inc = estimate_inc(sel_state, sel_innov, b_matrix, h_jacob)
-            sel_ana = self_state + state_inc
-
+    @staticmethod
+    def get_horizontal_grid(state):
+        grid_index = state.get_index('grid')
+        hori_index = pd.MultiIndex.from_product(
+            grid_index.levels[:-1], names=grid_index.names[:-1]
+        )
+        return hori_index
