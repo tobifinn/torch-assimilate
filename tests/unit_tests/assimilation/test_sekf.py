@@ -37,7 +37,8 @@ from dask.distributed import LocalCluster, Client
 
 # Internal modules
 
-from pytassim.assimilation.filter.sekf import SEKF, estimate_inc
+from pytassim.assimilation.filter.sekf import SEKFCorr, SEKFUncorr,\
+    estimate_inc_uncorr, estimate_inc_corr
 from pytassim.testing import dummy_h_jacob, dummy_obs_operator
 from pytassim.testing.cases import DistributedCase
 
@@ -55,7 +56,7 @@ class TestKalmanAnalytical(unittest.TestCase):
         obs_err = torch.Tensor([np.sqrt(0.5)])
         cov_back = torch.Tensor([[0.5]])
         h_jacob = torch.Tensor([[1]])
-        est_inc = estimate_inc(innov, h_jacob, cov_back, obs_err)
+        est_inc = estimate_inc_uncorr(innov, h_jacob, cov_back, obs_err)
         np.testing.assert_almost_equal(est_inc.numpy(), np.array([0.5]))
 
     def test_analytical_2d_solution(self):
@@ -63,7 +64,7 @@ class TestKalmanAnalytical(unittest.TestCase):
         obs_err = torch.Tensor([np.sqrt(0.5)])
         cov_back = torch.Tensor([[0.5, 0.2], [0.2, 0.5]])
         h_jacob = torch.Tensor([[1, 0]])
-        est_inc = estimate_inc(innov, h_jacob, cov_back, obs_err)
+        est_inc = estimate_inc_uncorr(innov, h_jacob, cov_back, obs_err)
         np.testing.assert_almost_equal(est_inc.numpy(), np.array([0.5, 0.2]))
 
     def test_analytical_2d_2d_obs_solution(self):
@@ -71,8 +72,20 @@ class TestKalmanAnalytical(unittest.TestCase):
         obs_err = torch.Tensor([np.sqrt(0.5), np.sqrt(0.5)])
         cov_back = torch.Tensor([[0.5, 0.2], [0.2, 0.5]])
         h_jacob = torch.Tensor([[1, 0], [1, 0]])
-        est_inc = estimate_inc(innov, h_jacob, cov_back, obs_err)
+        est_inc = estimate_inc_uncorr(innov, h_jacob, cov_back, obs_err)
         np.testing.assert_almost_equal(est_inc.numpy(), np.array([2/3, 4/15]))
+
+    def test_analytical_2d_2d_obs_corr_solution(self):
+        innov = torch.Tensor([1, 1])
+        obs_err = torch.Tensor([np.sqrt(0.5), np.sqrt(0.5)])
+        cov_obs = torch.eye(obs_err.size()[0]) * torch.pow(obs_err, 2)
+        cov_back = torch.Tensor([[0.5, 0.2], [0.2, 0.5]])
+        h_jacob = torch.Tensor([[1, 0], [1, 0]])
+        est_inc_uncorr = estimate_inc_uncorr(innov, h_jacob, cov_back, obs_err)
+        est_inc_corr = estimate_inc_corr(innov, h_jacob, cov_back, cov_obs)
+        np.testing.assert_almost_equal(
+            est_inc_corr.numpy(), est_inc_uncorr.numpy()
+        )
 
 
 class TestSEKF(unittest.TestCase):
@@ -87,10 +100,15 @@ class TestSEKF(unittest.TestCase):
 
     def setUp(self) -> None:
         self.b_matrix = np.identity(4) * 0.5
-        self.algorithm = SEKF(b_matrix=self.b_matrix, h_jacob=dummy_h_jacob)
+        self.algorithm = SEKFCorr(b_matrix=self.b_matrix, h_jacob=dummy_h_jacob)
         self.state = self.verticalize_state(self.state, 4)
+        pseudo_state = self.state.sel(vgrid=0).copy()
+        self.pseudo_state = pseudo_state.rename({'lon': 'grid'})
         self.obs = self.obs.sel(obs_grid_1=(self.obs.obs_grid_1 % 4 == 0),
                                 obs_grid_2=(self.obs.obs_grid_2 % 4 == 0))
+        self.obs['obs_grid_1'] = self.obs.obs_grid_1 // 4
+        self.obs['obs_grid_2'] = self.obs.obs_grid_2 // 4
+        self.obs.obs.operator = dummy_obs_operator
 
     @ staticmethod
     def verticalize_state(state, vert_dim=4) -> xr.DataArray:
@@ -99,18 +117,52 @@ class TestSEKF(unittest.TestCase):
         hori_grid = state['grid'].values // vert_dim
         zipped_grid = [t for t in zip(hori_grid, vert_grid)]
         multi_grid = pd.MultiIndex.from_tuples(
-            zipped_grid, names=['hgrid', 'vgrid']
+            zipped_grid, names=['lon', 'vgrid']
         )
         state['grid'] = multi_grid
         return state
 
     def test_get_hori_grid_extracts_hori_grid(self):
-        hori_grid = pd.MultiIndex.from_product(
-            [np.arange(10)], names=['hgrid', ]
+        hori_index = pd.MultiIndex.from_product(
+            [np.arange(10)], names=['lon', ]
         )
-        returned_grid = self.algorithm.get_horizontal_grid(self.state)
-        pd.testing.assert_index_equal(returned_grid, hori_grid)
+        ret_hori, ret_index = self.algorithm.get_horizontal_grid(self.state)
+        pd.testing.assert_index_equal(ret_hori, hori_index)
+        pd.testing.assert_index_equal(ret_index, self.state.get_index('grid'))
 
+    def test_functional(self):
+        analysis = self.algorithm.assimilate(
+            self.state, (self.obs, ), self.pseudo_state
+        )
+
+        state_det = self.state.mean('ensemble')
+        pseudo_state_det = self.pseudo_state.mean('ensemble')
+        hori_index, grid_index = self.algorithm.get_horizontal_grid(state_det)
+        innov, pseudo_obs, obs_cov, obs_grid = self.algorithm._prepare(
+            pseudo_state=pseudo_state_det, observations=(self.obs, )
+        )
+        for gp in hori_index:
+            tmp_innov = innov.sel(obs_grid_1=gp[0])
+            obs_to_use = (obs_grid == gp).squeeze()
+            tmp_obs_cov = obs_cov[obs_to_use, :][:, obs_to_use]
+
+            tmp_state = state_det.sel(grid=gp)
+            tmp_pseudo_obs = pseudo_obs.sel(obs_grid_1=gp[0])
+            tmp_h_jacob = self.algorithm.estimate_h_jacob(
+                tmp_state, tmp_pseudo_obs
+            )
+            tmp_b_mat = self.algorithm.estimate_b_matrix(
+                tmp_state, tmp_pseudo_obs
+            )
+
+            tmp_states = self.algorithm._states_to_torch(
+                tmp_innov.values, tmp_h_jacob, tmp_b_mat, tmp_obs_cov
+            )
+            tmp_inc = estimate_inc_corr(*tmp_states).detach().numpy()
+            ana_inc = (analysis.sel(grid=gp)-tmp_state).mean(
+                ['var_name', 'time', 'ensemble']
+            )
+            np.testing.assert_almost_equal(ana_inc, tmp_inc)
 
 
 if __name__ == '__main__':

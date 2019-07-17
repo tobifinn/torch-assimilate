@@ -29,6 +29,7 @@ import logging
 # External modules
 import torch
 import pandas as pd
+import numpy as np
 
 # Internal modules
 from .filter import FilterAssimilation
@@ -38,7 +39,7 @@ from pytassim.utilities import chol_solve
 logger = logging.getLogger(__name__)
 
 
-def estimate_inc(innov, h_jacob, cov_back, obs_err):
+def estimate_inc_uncorr(innov, h_jacob, cov_back, obs_err):
     ht = h_jacob.transpose(-1, -2)
     hb = torch.mm(h_jacob, cov_back)
     innov_prec = torch.mm(hb, ht)
@@ -52,7 +53,17 @@ def estimate_inc(innov, h_jacob, cov_back, obs_err):
     return inc_ana
 
 
-class SEKF(FilterAssimilation):
+def estimate_inc_corr(innov, h_jacob, cov_back, cov_obs):
+    ht = h_jacob.transpose(-1, -2)
+    hb = torch.mm(h_jacob, cov_back)
+    innov_prec = torch.mm(hb, ht) + cov_obs
+    norm_innov = chol_solve(innov_prec, innov).t()
+    k_dist = torch.mm(cov_back, ht)
+    inc_ana = torch.mm(k_dist, norm_innov).squeeze(-1)
+    return inc_ana
+
+
+class SEKFCorr(FilterAssimilation):
     def __init__(self, b_matrix, h_jacob, smoother=True, gpu=False,
                  pre_transform=None, post_transform=None, **kwargs):
         super().__init__(
@@ -63,6 +74,21 @@ class SEKF(FilterAssimilation):
         self._h_jacob = None
         self.b_matrix = b_matrix
         self.h_jacob = h_jacob
+        self._func_inc = estimate_inc_corr
+
+    def estimate_h_jacob(self, state, pseudo_obs):
+        if callable(self.h_jacob):
+            eval_h_jacob = self.h_jacob(state, pseudo_obs)
+        else:
+            eval_h_jacob = self.h_jacob
+        return eval_h_jacob
+
+    def estimate_b_matrix(self, state, pseudo_obs):
+        if callable(self.b_matrix):
+            eval_b_matrix = self.b_matrix(state, pseudo_obs)
+        else:
+            eval_b_matrix = self.b_matrix
+        return eval_b_matrix
 
     def _prepare(self, pseudo_state, observations):
         logger.info('Apply observation operator')
@@ -79,24 +105,40 @@ class SEKF(FilterAssimilation):
         hori_index = pd.MultiIndex.from_product(
             grid_index.levels[:-1], names=grid_index.names[:-1]
         )
-        return hori_index
+        return hori_index, grid_index
 
     def update_state(self, state, observations, pseudo_state, analysis_time):
+        state_det = state.mean('ensemble')
+        pseudo_state_det = pseudo_state.mean('ensemble')
         innov, pseudo_obs, obs_cov, obs_grid = self._prepare(
-            pseudo_state, observations
+            pseudo_state_det, observations
         )
-
-        grid_hori = self.get_horizontal_grid(state)
-        grid_iter = self.to_dask_array(grid_hori.values)
-
+        hori_index, grid_index = self.get_horizontal_grid(state)
+        state_det_hgrid = state_det.unstack('grid').stack(
+            hgrid=hori_index.names
+        )
         ana_incs = []
-        for k, grid_block in enumerate(grid_iter.blocks):
-            sel_innov = innov.sel(grid=grid_block)
-            sel_state = state.sel(grid=grid_block)
-            state_inc = dask.delayed(estimate_inc_chunkwise)(
-                sel_state, sel_innov
+        for k, grid_point in enumerate(hori_index):
+            tmp_innov = innov.sel(obs_grid_1=grid_point[0])
+            obs_to_use = (obs_grid == grid_point).squeeze()
+            tmp_obs_cov = obs_cov[obs_to_use][:, obs_to_use]
+            tmp_state = state_det_hgrid.isel(hgrid=k)
+            tmp_pseudo_obs = pseudo_obs.sel(obs_grid_1=grid_point[0])
+            tmp_h_jacob = self.estimate_h_jacob(tmp_state, tmp_pseudo_obs)
+            tmp_b_mat = self.estimate_b_matrix(tmp_state, tmp_pseudo_obs)
+
+            tmp_states = self._states_to_torch(
+                tmp_innov.values, tmp_h_jacob, tmp_b_mat, tmp_obs_cov
             )
-            ana_incs.append(state_inc)
-        ana_incs = dask.delayed(da.concatenate)(ana_incs, axis=-1)
-        analysis = state + ana_incs.compute()
+            tmp_inc = self._func_inc(*tmp_states)
+            ana_incs.append(tmp_inc.detach().numpy())
+        ana_incs = np.stack(ana_incs, axis=-1)
+        ana_incs = np.tile(ana_incs, list(state_det_hgrid.shape[:-2]) + [1, 1])
+        ana_incs = state_det_hgrid.copy(data=ana_incs)
+        ana_incs = ana_incs.unstack('hgrid').stack(grid=grid_index.names)
+        analysis = state + ana_incs
         return analysis
+
+
+class SEKFUncorr(SEKFCorr):
+    pass
