@@ -157,12 +157,13 @@ class BaseAssimilation(object):
         """
         obs_equivalent = []
         filtered_observations = []
-        for obs in observations:
+        for k_obs, obs in enumerate(observations):
             try:
                 obs_equivalent.append(obs.obs.operator(pseudo_state))
                 filtered_observations.append(obs)
             except NotImplementedError:
-                pass
+                logger.warning('Observation subset {0:d} has no observation '
+                               'operator and is disregarded'.format(k_obs))
         return obs_equivalent, filtered_observations
 
     @staticmethod
