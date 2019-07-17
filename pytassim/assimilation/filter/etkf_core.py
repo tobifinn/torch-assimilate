@@ -30,6 +30,7 @@ import logging
 import torch
 
 # Internal modules
+from pytassim.utilities import chol_solve
 
 
 logger = logging.getLogger(__name__)
@@ -208,23 +209,6 @@ def _compute_c_diag(hx_perts, obs_cov, obs_weights=1):
 
 
 def _compute_c_chol(hx_perts, obs_cov, obs_weights=1, alpha=0):
-    obs_cov_prod = torch.matmul(obs_cov.t(), obs_cov)
-    obs_hx = torch.matmul(obs_cov.t(), hx_perts)
-    mat_size = obs_cov_prod.size()[1]
-    step = mat_size + 1
-    end = mat_size * mat_size
-    calculated_c = None
-    while calculated_c is None:
-        try:
-            mat_upper = torch.cholesky(obs_cov_prod, upper=True)
-            calculated_c = torch.potrs(obs_hx, mat_upper, upper=True).t()
-        except RuntimeError:
-            obs_cov_prod.view(-1)[:end:step] -= alpha
-            if alpha == 0:
-                alpha = 0.00001
-            else:
-                alpha *= 10
-            obs_cov_prod.view(-1)[:end:step] += alpha
-    logger.debug('Cholesky decomposition alpha: {0:.2E}'.format(alpha))
+    calculated_c = chol_solve(obs_cov, hx_perts, alpha=alpha)
     calculated_c = calculated_c * obs_weights
     return calculated_c
