@@ -31,12 +31,13 @@ import os
 import xarray as xr
 import numpy as np
 import pandas as pd
+import torch
 
 from dask.distributed import LocalCluster, Client
 
 # Internal modules
 
-from pytassim.assimilation.filter.sekf import SEKF
+from pytassim.assimilation.filter.sekf import SEKF, estimate_inc
 from pytassim.testing import dummy_h_jacob, dummy_obs_operator
 from pytassim.testing.cases import DistributedCase
 
@@ -48,7 +49,33 @@ BASE_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
 
 
-class TestSEKF(DistributedCase):
+class TestKalmanAnalytical(unittest.TestCase):
+    def test_analytical_1d_solution(self):
+        innov = torch.Tensor([1])
+        obs_err = torch.Tensor([np.sqrt(0.5)])
+        cov_back = torch.Tensor([[0.5]])
+        h_jacob = torch.Tensor([[1]])
+        est_inc = estimate_inc(innov, h_jacob, cov_back, obs_err)
+        np.testing.assert_almost_equal(est_inc.numpy(), np.array([0.5]))
+
+    def test_analytical_2d_solution(self):
+        innov = torch.Tensor([1])
+        obs_err = torch.Tensor([np.sqrt(0.5)])
+        cov_back = torch.Tensor([[0.5, 0.2], [0.2, 0.5]])
+        h_jacob = torch.Tensor([[1, 0]])
+        est_inc = estimate_inc(innov, h_jacob, cov_back, obs_err)
+        np.testing.assert_almost_equal(est_inc.numpy(), np.array([0.5, 0.2]))
+
+    def test_analytical_2d_2d_obs_solution(self):
+        innov = torch.Tensor([1, 1])
+        obs_err = torch.Tensor([np.sqrt(0.5), np.sqrt(0.5)])
+        cov_back = torch.Tensor([[0.5, 0.2], [0.2, 0.5]])
+        h_jacob = torch.Tensor([[1, 0], [1, 0]])
+        est_inc = estimate_inc(innov, h_jacob, cov_back, obs_err)
+        np.testing.assert_almost_equal(est_inc.numpy(), np.array([2/3, 4/15]))
+
+
+class TestSEKF(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
@@ -60,8 +87,7 @@ class TestSEKF(DistributedCase):
 
     def setUp(self) -> None:
         self.b_matrix = np.identity(4) * 0.5
-        self.algorithm = SEKF(b_matrix=self.b_matrix, h_jacob=dummy_h_jacob,
-                              client=self.client, chunksize=10)
+        self.algorithm = SEKF(b_matrix=self.b_matrix, h_jacob=dummy_h_jacob)
         self.state = self.verticalize_state(self.state, 4)
         self.obs = self.obs.sel(obs_grid_1=(self.obs.obs_grid_1 % 4 == 0),
                                 obs_grid_2=(self.obs.obs_grid_2 % 4 == 0))
@@ -84,6 +110,7 @@ class TestSEKF(DistributedCase):
         )
         returned_grid = self.algorithm.get_horizontal_grid(self.state)
         pd.testing.assert_index_equal(returned_grid, hori_grid)
+
 
 
 if __name__ == '__main__':
