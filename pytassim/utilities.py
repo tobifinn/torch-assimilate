@@ -79,5 +79,5 @@ def chol_solve(x, y, alpha=0):
             else:
                 alpha *= 10
             cov_xx.view(-1)[:end:step] += alpha
-    logger.debug('Cholesky decomposition alpha: {0:.2E'.format(alpha))
+    logger.debug('Cholesky decomposition alpha: {0:.2E}'.format(alpha))
     return calc_beta
