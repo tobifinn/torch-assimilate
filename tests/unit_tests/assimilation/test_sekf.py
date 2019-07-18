@@ -122,13 +122,17 @@ class TestSEKF(unittest.TestCase):
         state['grid'] = multi_grid
         return state
 
-    def test_get_hori_grid_extracts_hori_grid(self):
-        hori_index = pd.MultiIndex.from_product(
-            [np.arange(10)], names=['lon', ]
+    def test_get_grid_names(self):
+        grid_names = self.state.grid.variable.level_names
+        self.assertListEqual(
+            grid_names, self.algorithm.get_grid_names(self.state)
         )
-        ret_hori, ret_index = self.algorithm.get_horizontal_grid(self.state)
-        pd.testing.assert_index_equal(ret_hori, hori_index)
-        pd.testing.assert_index_equal(ret_index, self.state.get_index('grid'))
+
+    def test_get_grid_names_raises_value_error_if_not_multiindex(self):
+        state = self.state.unstack('grid')
+        state = state.rename({'vgrid': 'grid'})
+        with self.assertRaises(ValueError):
+            _ = self.algorithm.get_grid_names(state)
 
     def test_functional(self):
         analysis = self.algorithm.assimilate(
@@ -163,6 +167,11 @@ class TestSEKF(unittest.TestCase):
                 ['var_name', 'time', 'ensemble']
             )
             np.testing.assert_almost_equal(ana_inc, tmp_inc)
+
+    def test_functional_3d_grid(self):
+        analysis = self.algorithm.assimilate(
+            self.state, (self.obs, ), self.pseudo_state
+        )
 
 
 if __name__ == '__main__':

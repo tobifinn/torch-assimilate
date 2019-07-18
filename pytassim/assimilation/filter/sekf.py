@@ -107,18 +107,25 @@ class SEKFCorr(FilterAssimilation):
         )
         return hori_index, grid_index
 
+    @staticmethod
+    def get_grid_names(state):
+        grid_variable = state['grid'].variable
+        if grid_variable.level_names is None:
+            raise ValueError('Cannot use the SEKF with an one-dimensional '
+                             'grid!')
+        else:
+            return grid_variable.level_names
+
     def update_state(self, state, observations, pseudo_state, analysis_time):
         state_det = state.mean('ensemble')
         pseudo_state_det = pseudo_state.mean('ensemble')
         innov, pseudo_obs, obs_cov, obs_grid = self._prepare(
             pseudo_state_det, observations
         )
-        hori_index, grid_index = self.get_horizontal_grid(state)
-        state_det_hgrid = state_det.unstack('grid').stack(
-            hgrid=hori_index.names
-        )
+        grid_names = self.get_grid_names(state_det)
+        state_det_hgrid = state_det.unstack('grid').stack(hgrid=grid_names[:-1])
         ana_incs = []
-        for k, grid_point in enumerate(hori_index):
+        for k, grid_point in enumerate(state_det_hgrid.hgrid.values):
             tmp_innov = innov.sel(obs_grid_1=grid_point[0])
             obs_to_use = (obs_grid == grid_point).squeeze()
             tmp_obs_cov = obs_cov[obs_to_use][:, obs_to_use]
@@ -135,7 +142,7 @@ class SEKFCorr(FilterAssimilation):
         ana_incs = np.stack(ana_incs, axis=-1)
         ana_incs = np.tile(ana_incs, list(state_det_hgrid.shape[:-2]) + [1, 1])
         ana_incs = state_det_hgrid.copy(data=ana_incs)
-        ana_incs = ana_incs.unstack('hgrid').stack(grid=grid_index.names)
+        ana_incs = ana_incs.unstack('hgrid').stack(grid=grid_names)
         analysis = state + ana_incs
         return analysis
 
