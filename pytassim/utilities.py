@@ -60,6 +60,12 @@ def chol_solve(x, y, alpha=0):
     -------
     calc_beta : :py:class:`torch.Tensor`
         The calculated :math:`\\beta`.
+
+    Raises
+    ------
+    ValueError
+        A ValueError is raised if no convergence of the cholesky iterations is
+        possible. The stop criterion is an alpha above 10E30.
     """
     x_t = x.t()
     cov_xx = torch.matmul(x_t, x)
@@ -70,6 +76,7 @@ def chol_solve(x, y, alpha=0):
     calc_beta = None
     while calc_beta is None:
         try:
+            print(cov_xx)
             mat_upper = torch.cholesky(cov_xx, upper=True)
             calc_beta = torch.potrs(cov_xy, mat_upper, upper=True).t()
         except RuntimeError:
@@ -79,5 +86,9 @@ def chol_solve(x, y, alpha=0):
             else:
                 alpha *= 10
             cov_xx.view(-1)[:end:step] += alpha
+        if alpha > 10E30 and calc_beta is None:
+            raise ValueError(
+                'No convergence for cholesky decomposition possible!'
+            )
     logger.debug('Cholesky decomposition alpha: {0:.2E}'.format(alpha))
     return calc_beta
