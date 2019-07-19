@@ -33,14 +33,11 @@ import numpy as np
 import pandas as pd
 import torch
 
-from dask.distributed import LocalCluster, Client
-
 # Internal modules
 
 from pytassim.assimilation.filter.sekf import SEKFCorr, SEKFUncorr,\
     estimate_inc_uncorr, estimate_inc_corr
-from pytassim.testing import dummy_h_jacob, dummy_obs_operator
-from pytassim.testing.cases import DistributedCase
+from pytassim.testing import dummy_h_jacob, dummy_obs_operator, if_gpu_decorator
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -88,7 +85,7 @@ class TestKalmanAnalytical(unittest.TestCase):
         )
 
 
-class TestSEKF(unittest.TestCase):
+class TestSEKFCorr(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
@@ -135,23 +132,29 @@ class TestSEKF(unittest.TestCase):
             _ = self.algorithm.get_grid_names(state)
 
     def test_functional(self):
-        analysis = self.algorithm.assimilate(
+        analysis_mean = self.algorithm.assimilate(
             self.state, (self.obs, ), self.pseudo_state
-        )
+        ).mean('ensemble')
+        analysis_inc = analysis_mean-self.state.mean('ensemble')
 
-        state_det = self.state.mean('ensemble')
-        pseudo_state_det = self.pseudo_state.mean('ensemble')
-        hori_index, grid_index = self.algorithm.get_horizontal_grid(state_det)
-        innov, pseudo_obs, obs_cov, obs_grid = self.algorithm._prepare(
-            pseudo_state=pseudo_state_det, observations=(self.obs, )
+        (
+            pseudo_obs,
+            obs_state,
+            obs_cov,
+            obs_grid,
+            work_state,
+            grid_names,
+        ) = self.algorithm._prepare_sekf(
+            state=self.state, observations=(self.obs, ),
+            pseudo_state=self.pseudo_state
         )
-        for gp in hori_index:
+        innov = self.algorithm._estimate_departure(pseudo_obs, obs_state)
+        for gp in work_state.hgrid.values:
             tmp_innov = innov.sel(obs_grid_1=gp[0])
             obs_to_use = (obs_grid == gp).squeeze()
-            tmp_obs_cov = obs_cov[obs_to_use, :][:, obs_to_use]
-
-            tmp_state = state_det.sel(grid=gp)
+            tmp_obs_cov = self.algorithm._localize_obs_cov(obs_cov, obs_to_use)
             tmp_pseudo_obs = pseudo_obs.sel(obs_grid_1=gp[0])
+            tmp_state = work_state.sel(hgrid=gp)
             tmp_h_jacob = self.algorithm.estimate_h_jacob(
                 tmp_state, tmp_pseudo_obs
             )
@@ -163,15 +166,105 @@ class TestSEKF(unittest.TestCase):
                 tmp_innov.values, tmp_h_jacob, tmp_b_mat, tmp_obs_cov
             )
             tmp_inc = estimate_inc_corr(*tmp_states).detach().numpy()
-            ana_inc = (analysis.sel(grid=gp)-tmp_state).mean(
-                ['var_name', 'time', 'ensemble']
-            )
+            ana_inc = analysis_inc.sel(grid=gp).mean(['var_name', 'time'])
             np.testing.assert_almost_equal(ana_inc, tmp_inc)
 
-    def test_functional_3d_grid(self):
-        analysis = self.algorithm.assimilate(
+    @if_gpu_decorator
+    def test_functional_gpu(self):
+        analysis_cpu = self.algorithm.assimilate(
             self.state, (self.obs, ), self.pseudo_state
         )
+
+        self.algorithm.gpu = True
+        self.algorithm.dtype = torch.float16
+        analysis_gpu = self.algorithm.assimilate(
+            self.state, (self.obs, ), self.pseudo_state
+        )
+        xr.testing.assert_equal(analysis_cpu, analysis_gpu)
+
+    def test_functional_3d_grid(self):
+        new_3d_multiindex = pd.MultiIndex.from_product(
+            (np.arange(2), np.arange(5), np.arange(4)),
+            names=['lat', 'lon', 'vgrid']
+        )
+        new_hori_multiindex = pd.MultiIndex.from_product(
+            new_3d_multiindex.levels[:-1],
+            names=new_3d_multiindex.names[:-1]
+        )
+        new_hori_multiindex_2 = pd.MultiIndex.from_product(
+            new_3d_multiindex.levels[:-1],
+            names=['{0:s}_1'.format(n) for n in new_3d_multiindex.names[:-1]]
+        )
+        state_3d = self.state.copy(deep=True)
+        state_3d['grid'] = new_3d_multiindex
+        pseudo_state_2d = self.pseudo_state.copy(deep=True)
+        pseudo_state_2d['grid'] = new_hori_multiindex
+        obs_2d = self.obs.copy(deep=True)
+        obs_2d['obs_grid_1'] = new_hori_multiindex
+        obs_2d['obs_grid_2'] = new_hori_multiindex_2
+        obs_2d.obs.operator = dummy_obs_operator
+        analysis_3d = self.algorithm.assimilate(state_3d, (obs_2d, ),
+                                                pseudo_state_2d)
+        analysis_3d['grid'] = self.state['grid']
+
+        analysis_2d = self.algorithm.assimilate(
+            self.state, (self.obs, ), self.pseudo_state
+        )
+        xr.testing.assert_equal(analysis_3d, analysis_2d)
+
+
+class TestSEKFUncorr(TestSEKFCorr):
+    def setUp(self) -> None:
+        super().setUp()
+        self.algorithm = SEKFUncorr(
+            b_matrix=self.b_matrix, h_jacob=dummy_h_jacob
+        )
+        self.obs['covariance'] = xr.DataArray(
+            np.diag(self.obs.covariance.values),
+            coords={
+                'obs_grid_1': self.obs.obs_grid_1
+            },
+            dims=['obs_grid_1']
+        )
+        self.obs.obs.operator = dummy_obs_operator
+
+    def test_functional(self):
+        analysis_mean = self.algorithm.assimilate(
+            self.state, (self.obs, ), self.pseudo_state
+        ).mean('ensemble')
+        analysis_inc = analysis_mean-self.state.mean('ensemble')
+
+        (
+            pseudo_obs,
+            obs_state,
+            obs_cov,
+            obs_grid,
+            work_state,
+            grid_names,
+        ) = self.algorithm._prepare_sekf(
+            state=self.state, observations=(self.obs, ),
+            pseudo_state=self.pseudo_state
+        )
+        innov = self.algorithm._estimate_departure(pseudo_obs, obs_state)
+        for gp in work_state.hgrid.values:
+            tmp_innov = innov.sel(obs_grid_1=gp[0])
+            obs_to_use = (obs_grid == gp).squeeze()
+            tmp_obs_cov = self.algorithm._localize_obs_cov(obs_cov, obs_to_use)
+            tmp_pseudo_obs = pseudo_obs.sel(obs_grid_1=gp[0])
+            tmp_state = work_state.sel(hgrid=gp)
+            tmp_h_jacob = self.algorithm.estimate_h_jacob(
+                tmp_state, tmp_pseudo_obs
+            )
+            tmp_b_mat = self.algorithm.estimate_b_matrix(
+                tmp_state, tmp_pseudo_obs
+            )
+
+            tmp_states = self.algorithm._states_to_torch(
+                tmp_innov.values, tmp_h_jacob, tmp_b_mat, tmp_obs_cov
+            )
+            tmp_inc = estimate_inc_uncorr(*tmp_states).detach().numpy()
+            ana_inc = analysis_inc.sel(grid=gp).mean(['var_name', 'time'])
+            np.testing.assert_almost_equal(ana_inc, tmp_inc)
 
 
 if __name__ == '__main__':
