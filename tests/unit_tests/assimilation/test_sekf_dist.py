@@ -59,7 +59,8 @@ class TestSEKFDistributed(DistributedCase):
     def setUp(self) -> None:
         self.b_matrix = np.identity(4) * 0.5
         self.algorithm = DistributedSEKFCorr(
-            client=self.client, b_matrix=self.b_matrix, h_jacob=dummy_h_jacob
+            client=self.client, b_matrix=self.b_matrix, h_jacob=dummy_h_jacob,
+            chunksize=2
         )
         self.state = self.verticalize_state(self.state, 4)
         pseudo_state = self.state.sel(vgrid=0).copy()
