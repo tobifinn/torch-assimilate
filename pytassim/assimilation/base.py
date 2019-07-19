@@ -70,6 +70,20 @@ class BaseAssimilation(object):
                             for s in states]
         return torch_states
 
+    def _prepare_obs_space(self, state, observations):
+        logger.info('Apply observation operator and filter observations')
+        pseudo_obs, filtered_obs = self._apply_obs_operator(state, observations)
+        logger.info('Concatenate pseudo observations')
+        pseudo_obs_concat = self._prepare_pseudo_obs(pseudo_obs)
+        logger.info('Prepare observations')
+        obs_state, obs_cov, obs_grid = self._prepare_obs(filtered_obs)
+        return pseudo_obs_concat, obs_state, obs_cov, obs_grid
+
+    @staticmethod
+    def _estimate_departure(prediction, target):
+        departure = target - prediction
+        return departure
+
     @staticmethod
     def _validate_state(state):
         if not isinstance(state, xr.DataArray):
@@ -121,11 +135,6 @@ class BaseAssimilation(object):
                     category=UserWarning
                 )
         return valid_time.values
-
-    def _prepare_back_obs(self, state, observations):
-        pseudo_obs, filtered_obs = self._apply_obs_operator(state, observations)
-        pseudo_obs_concat = self._prepare_pseudo_obs(pseudo_obs)
-        return pseudo_obs_concat, filtered_obs
 
     @staticmethod
     def _apply_obs_operator(pseudo_state, observations):
