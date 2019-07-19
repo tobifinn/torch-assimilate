@@ -76,7 +76,6 @@ def chol_solve(x, y, alpha=0):
     calc_beta = None
     while calc_beta is None:
         try:
-            print(cov_xx)
             mat_upper = torch.cholesky(cov_xx, upper=True)
             calc_beta = torch.potrs(cov_xy, mat_upper, upper=True).t()
         except RuntimeError:
