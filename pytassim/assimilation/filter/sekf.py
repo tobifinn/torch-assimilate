@@ -77,29 +77,38 @@ class SEKFCorr(FilterAssimilation):
         return pseudo_obs, obs_state, obs_cov, obs_grid, state_regridded, \
                grid_names
 
-    def _localize_states(self, pseudo_obs, obs_state, obs_cov, obs_grid,
-                         work_state, grid_point):
-        tmp_state = work_state.sel(hgrid=grid_point)
-        obs_to_use = np.all(obs_grid == grid_point, axis=1)
+    def _localize_obs_space(self, pseudo_obs, obs_state, obs_cov, obs_grid,
+                            grid_point):
+        obs_to_use = self._get_obs_to_use(obs_grid, grid_point)
         tmp_obs_cov = self._localize_obs_cov(obs_cov, obs_to_use)
-        tmp_pseudo_obs = pseudo_obs.isel(obs_id=obs_to_use)
+        tmp_pseudo_obs = pseudo_obs[obs_to_use]
         tmp_obs_state = obs_state[obs_to_use]
-        return tmp_pseudo_obs, tmp_obs_state, tmp_obs_cov, tmp_state
+        return tmp_pseudo_obs, tmp_obs_state, tmp_obs_cov
+
+    @staticmethod
+    def _get_obs_to_use(obs_grid, grid_point):
+        obs_grid_equality = obs_grid == grid_point
+        obs_to_use = np.ones((obs_grid_equality.shape[0]), dtype=np.bool)
+        for i in range(obs_grid_equality.shape[1]):
+            obs_to_use *= obs_grid_equality[..., i]
+        return obs_to_use
 
     @staticmethod
     def _localize_obs_cov(obs_cov, obs_to_use):
         return obs_cov[obs_to_use][:, obs_to_use]
 
-    def estimate_h_jacob(self, state, pseudo_obs):
+    def estimate_h_jacob(self, state, pseudo_obs, grid_point, analysis_time):
         if callable(self.h_jacob):
-            eval_h_jacob = self.h_jacob(state, pseudo_obs)
+            eval_h_jacob = self.h_jacob(state, pseudo_obs, grid_point,
+                                        analysis_time)
         else:
             eval_h_jacob = self.h_jacob
         return eval_h_jacob
 
-    def estimate_b_matrix(self, state, pseudo_obs):
+    def estimate_b_matrix(self, state, pseudo_obs, grid_point, analysis_time):
         if callable(self.b_matrix):
-            eval_b_matrix = self.b_matrix(state, pseudo_obs)
+            eval_b_matrix = self.b_matrix(state, pseudo_obs, grid_point,
+                                          analysis_time)
         else:
             eval_b_matrix = self.b_matrix
         return eval_b_matrix
@@ -119,29 +128,37 @@ class SEKFCorr(FilterAssimilation):
             obs_state,
             obs_cov,
             obs_grid,
-            work_state,
+            state_regridded,
             grid_names,
         ) = self._prepare_sekf(state, observations, pseudo_state)
 
+        grid_iter = state_regridded.hgrid.values
+
         ana_incs = []
-        for grid_point in work_state.hgrid.values:
+        for i, grid_point in enumerate(grid_iter):
+            tmp_state = state_regridded.values[..., i]
             (
                 tmp_pseudo_obs,
                 tmp_obs_state,
                 tmp_obs_cov,
-                tmp_state,
-            ) = self._localize_states(pseudo_obs, obs_state, obs_cov, obs_grid,
-                                      work_state, grid_point)
-            tmp_h_jacob = self.estimate_h_jacob(tmp_state, tmp_pseudo_obs)
-            tmp_b_mat = self.estimate_b_matrix(tmp_state, tmp_pseudo_obs)
+            ) = self._localize_obs_space(
+                pseudo_obs.values, obs_state, obs_cov, obs_grid, grid_point
+            )
+            tmp_h_jacob = self.estimate_h_jacob(
+                tmp_state, tmp_pseudo_obs, grid_point, analysis_time
+            )
+            tmp_b_mat = self.estimate_b_matrix(
+                tmp_state, tmp_pseudo_obs, grid_point, analysis_time
+            )
             tmp_innov = self._estimate_departure(tmp_pseudo_obs, tmp_obs_state)
             tmp_states = self._states_to_torch(
-                tmp_innov.values, tmp_h_jacob, tmp_b_mat, tmp_obs_cov
+                tmp_innov, tmp_h_jacob, tmp_b_mat, tmp_obs_cov
             )
             tmp_inc = self._func_inc(*tmp_states)
             ana_incs.append(tmp_inc.detach().numpy())
         ana_incs = np.stack(ana_incs, axis=-1)
-        ana_incs = self._ana_incs_to_state(ana_incs, work_state, grid_names)
+        ana_incs = self._ana_incs_to_state(ana_incs, state_regridded,
+                                           grid_names)
         analysis = state + ana_incs
         return analysis
 

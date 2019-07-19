@@ -163,7 +163,7 @@ class DummyNeuralModule(torch.nn.Module):
         return state
 
 
-def dummy_h_jacob(state, pseudo_obs):
+def dummy_h_jacob(state, pseudo_obs, grid_point, analysis_time):
     n_obs = pseudo_obs.shape[-1]
     n_states = state.shape[-1]
     h_jacob = np.ones((n_obs, n_states)) / n_states

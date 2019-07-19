@@ -40,7 +40,7 @@ from pytassim.assimilation.filter.sekf import SEKFCorr, SEKFUncorr,\
 from pytassim.testing import dummy_h_jacob, dummy_obs_operator, if_gpu_decorator
 
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 
 BASE_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
@@ -125,6 +125,18 @@ class TestSEKFCorr(unittest.TestCase):
             grid_names, self.algorithm.get_grid_names(self.state)
         )
 
+    def test_get_obs_to_use_comparison_to_all(self):
+        obs_grid = np.zeros((10000, 3), dtype=int)
+        obs_grid[::2, 0] = 1
+        obs_grid[::3, 1] = 1
+        obs_grid[::4, 2] = 1
+
+        grid_point = (1, 1, 1)
+        right_result = np.all(obs_grid == grid_point, axis=-1)
+        np.testing.assert_equal(
+            self.algorithm._get_obs_to_use(obs_grid, grid_point), right_result
+        )
+
     def test_get_grid_names_raises_value_error_if_not_multiindex(self):
         state = self.state.unstack('grid')
         state = state.rename({'vgrid': 'grid'})
@@ -156,10 +168,10 @@ class TestSEKFCorr(unittest.TestCase):
             tmp_pseudo_obs = pseudo_obs.sel(obs_grid_1=gp[0])
             tmp_state = work_state.sel(hgrid=gp)
             tmp_h_jacob = self.algorithm.estimate_h_jacob(
-                tmp_state, tmp_pseudo_obs
+                tmp_state, tmp_pseudo_obs, gp, None
             )
             tmp_b_mat = self.algorithm.estimate_b_matrix(
-                tmp_state, tmp_pseudo_obs
+                tmp_state, tmp_pseudo_obs, gp, None
             )
 
             tmp_states = self.algorithm._states_to_torch(
@@ -168,19 +180,19 @@ class TestSEKFCorr(unittest.TestCase):
             tmp_inc = estimate_inc_corr(*tmp_states).detach().numpy()
             ana_inc = analysis_inc.sel(grid=gp).mean(['var_name', 'time'])
             np.testing.assert_almost_equal(ana_inc, tmp_inc)
-
-    @if_gpu_decorator
-    def test_functional_gpu(self):
-        analysis_cpu = self.algorithm.assimilate(
-            self.state, (self.obs, ), self.pseudo_state
-        )
-
-        self.algorithm.gpu = True
-        self.algorithm.dtype = torch.float16
-        analysis_gpu = self.algorithm.assimilate(
-            self.state, (self.obs, ), self.pseudo_state
-        )
-        xr.testing.assert_equal(analysis_cpu, analysis_gpu)
+    #
+    # @if_gpu_decorator
+    # def test_functional_gpu(self):
+    #     analysis_cpu = self.algorithm.assimilate(
+    #         self.state, (self.obs, ), self.pseudo_state
+    #     )
+    #
+    #     self.algorithm.gpu = True
+    #     self.algorithm.dtype = torch.float16
+    #     analysis_gpu = self.algorithm.assimilate(
+    #         self.state, (self.obs, ), self.pseudo_state
+    #     )
+    #     xr.testing.assert_equal(analysis_cpu, analysis_gpu)
 
     def test_functional_3d_grid(self):
         new_3d_multiindex = pd.MultiIndex.from_product(
@@ -253,10 +265,10 @@ class TestSEKFUncorr(TestSEKFCorr):
             tmp_pseudo_obs = pseudo_obs.sel(obs_grid_1=gp[0])
             tmp_state = work_state.sel(hgrid=gp)
             tmp_h_jacob = self.algorithm.estimate_h_jacob(
-                tmp_state, tmp_pseudo_obs
+                tmp_state, tmp_pseudo_obs, gp, None
             )
             tmp_b_mat = self.algorithm.estimate_b_matrix(
-                tmp_state, tmp_pseudo_obs
+                tmp_state, tmp_pseudo_obs, gp, None
             )
 
             tmp_states = self.algorithm._states_to_torch(
@@ -265,6 +277,47 @@ class TestSEKFUncorr(TestSEKFCorr):
             tmp_inc = estimate_inc_uncorr(*tmp_states).detach().numpy()
             ana_inc = analysis_inc.sel(grid=gp).mean(['var_name', 'time'])
             np.testing.assert_almost_equal(ana_inc, tmp_inc)
+
+    # def test_speed_test(self):
+    #     dims = 200, 100, 100
+    #     multiindex = pd.MultiIndex.from_product(
+    #         (np.arange(dims[0]), np.arange(dims[1]), np.arange(dims[2])),
+    #         names=['lat', 'lon', 'vgrid']
+    #     )
+    #     rnd = np.random.RandomState(42)
+    #     state = xr.DataArray(
+    #         rnd.normal(size=(1, 1, 1, np.product(dims))),
+    #         dims=self.state.dims,
+    #         coords={
+    #             'var_name': ['x', ],
+    #             'grid': multiindex,
+    #             'time': [pd.to_datetime('1992-12-25 08:00 UTC'), ],
+    #             'ensemble': [0, ]
+    #         }
+    #     )
+    #     pseudo_state = state.sel(vgrid=0)
+    #     obs_perts = rnd.normal(scale=0.1, size=pseudo_state.shape)
+    #     obs_values = pseudo_state + obs_perts
+    #     obs_values = obs_values.rename({'grid': 'obs_grid_1'}).squeeze(
+    #         ['ensemble', 'var_name']
+    #     )
+    #     obs_stddev = xr.DataArray(
+    #         [0.5] * np.product(dims[:-1]),
+    #         coords={
+    #             'obs_grid_1': obs_values.obs_grid_1
+    #         },
+    #         dims=['obs_grid_1']
+    #     )
+    #     obs = xr.Dataset({'observations': obs_values, 'covariance': obs_stddev})
+    #     obs.obs.operator = dummy_obs_operator
+    #
+    #     b_matrix = np.eye(dims[-1]) * 2
+    #     h_jacob = np.log(np.arange(dims[-1])[::-1]+1).reshape(1, dims[-1])
+    #     self.algorithm.b_matrix = b_matrix
+    #     self.algorithm.h_jacob = h_jacob
+    #     _ = self.algorithm.assimilate(
+    #         state=state, observations=(obs, ), pseudo_state=pseudo_state
+    #     )
 
 
 if __name__ == '__main__':
