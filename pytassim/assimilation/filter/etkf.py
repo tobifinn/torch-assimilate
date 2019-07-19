@@ -182,13 +182,15 @@ class ETKFCorr(FilterAssimilation):
             localization or weighting purpose. This last axis of this array has
             a length of :math:`l`, the observation length.
         """
-        logger.info('Apply observation operator')
-        pseudo_obs, filtered_obs = self._prepare_back_obs(pseudo_state,
-                                                          observations)
+        pseudo_obs, obs_state, obs_cov, obs_grid = self._prepare_obs_space(
+            pseudo_state, observations
+        )
+        logger.info('Split pseudo observations into average and perturbations')
         hx_mean, hx_perts = self._split_pseudo_obs(pseudo_obs)
-        logger.info('Concatenate observations')
-        obs_state, obs_cov, obs_grid = self._prepare_obs(filtered_obs)
-        innov = obs_state - hx_mean
+        logger.info(
+            'Estimate innovations between pseudo average and observations'
+        )
+        innov = self._estimate_departure(hx_mean, obs_state)
         return innov, hx_perts, obs_cov, obs_grid
 
     def _get_back_prec(self, ens_mems):
