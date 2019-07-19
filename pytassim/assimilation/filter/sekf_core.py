@@ -1,7 +1,7 @@
 #!/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Created on 7/16/19
+# Created on 7/19/19
 #
 # Created for torch-assimilate
 #
@@ -27,23 +27,34 @@
 import logging
 
 # External modules
-from torch.optim.optimizer import Optimizer
+import torch
 
 # Internal modules
-from .variational import VarAssimilation
-from ..base_sekf import BaseSEKF
+from pytassim.utilities import chol_solve
 
 
 logger = logging.getLogger(__name__)
 
 
-class VarSEKF(BaseSEKF, VarAssimilation):
-    def __init__(self, b_matrix, h_jacob, optimizer=None, client=None,
-                 cluster=None, chunksize=10, smoother=True, gpu=False,
-                 pre_transform=None, post_transform=None, **kwargs):
-        super().__init__(
-            b_matrix=b_matrix, h_jacob=h_jacob, client=client, cluster=cluster,
-            chunksize=chunksize, smoother=smoother, gpu=gpu,
-            pre_transform=pre_transform, post_transform=post_transform,
-            optimizer=optimizer, **kwargs
-        )
+def estimate_inc_uncorr(innov, h_jacob, cov_back, obs_err):
+    ht = h_jacob.transpose(-1, -2)
+    hb = torch.mm(h_jacob, cov_back)
+    innov_prec = torch.mm(hb, ht)
+    mat_size = innov_prec.size()[1]
+    step = mat_size + 1
+    end = mat_size * mat_size
+    innov_prec.view(-1)[:end:step] += torch.pow(obs_err, 2)
+    norm_innov = chol_solve(innov_prec, innov).t()
+    k_dist = torch.mm(cov_back, ht)
+    inc_ana = torch.mm(k_dist, norm_innov).squeeze(-1)
+    return inc_ana
+
+
+def estimate_inc_corr(innov, h_jacob, cov_back, cov_obs):
+    ht = h_jacob.transpose(-1, -2)
+    hb = torch.mm(h_jacob, cov_back)
+    innov_prec = torch.mm(hb, ht) + cov_obs
+    norm_innov = chol_solve(innov_prec, innov).t()
+    k_dist = torch.mm(cov_back, ht)
+    inc_ana = torch.mm(k_dist, norm_innov).squeeze(-1)
+    return inc_ana

@@ -32,34 +32,11 @@ import numpy as np
 
 # Internal modules
 from .filter import FilterAssimilation
+from .sekf_core import estimate_inc_corr, estimate_inc_uncorr
 from pytassim.utilities import chol_solve
 
 
 logger = logging.getLogger(__name__)
-
-
-def estimate_inc_uncorr(innov, h_jacob, cov_back, obs_err):
-    ht = h_jacob.transpose(-1, -2)
-    hb = torch.mm(h_jacob, cov_back)
-    innov_prec = torch.mm(hb, ht)
-    mat_size = innov_prec.size()[1]
-    step = mat_size + 1
-    end = mat_size * mat_size
-    innov_prec.view(-1)[:end:step] += torch.pow(obs_err, 2)
-    norm_innov = chol_solve(innov_prec, innov).t()
-    k_dist = torch.mm(cov_back, ht)
-    inc_ana = torch.mm(k_dist, norm_innov).squeeze(-1)
-    return inc_ana
-
-
-def estimate_inc_corr(innov, h_jacob, cov_back, cov_obs):
-    ht = h_jacob.transpose(-1, -2)
-    hb = torch.mm(h_jacob, cov_back)
-    innov_prec = torch.mm(hb, ht) + cov_obs
-    norm_innov = chol_solve(innov_prec, innov).t()
-    k_dist = torch.mm(cov_back, ht)
-    inc_ana = torch.mm(k_dist, norm_innov).squeeze(-1)
-    return inc_ana
 
 
 class SEKFCorr(FilterAssimilation):
