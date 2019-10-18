@@ -63,22 +63,42 @@ class DistributedSEKFCorr(DaskMixin, SEKFCorr):
             post_transform=post_transform, **kwargs
         )
 
-    def _localize_states(self, pseudo_obs, obs_state, obs_cov, obs_grid,
-                         work_state, grid_block):
-        local_state = work_state.sel(hgrid=grid_block)
-        local_obs_state = grid_block.map_blocks(
-            lambda gp, full_state: full_state[np.all(obs_grid == gp, axis=-1)],
-            full_state=obs_state
+    def _localize_obs_space(self, pseudo_obs, obs_state, obs_cov, obs_grid,
+                            grid_block):
+        local_obs_to_use = grid_block.map_blocks(
+            lambda grid, gp: self._get_obs_to_use(grid, gp),
+            grid=obs_grid, dtype=bool
         )
-        print(local_obs_state.compute())
-        return local_pseudo_obs, local_obs_state, local_obs_cov, local_state
+        local_pseudo_obs = local_obs_to_use.map_blocks(
+            lambda obs_idx, state: state[obs_idx],
+            state=pseudo_obs, dtype=float
+        )
+        local_obs_state = local_obs_to_use.map_blocks(
+            lambda obs_idx, state: state[obs_idx],
+            state=obs_state, dtype=float
+        )
+        local_obs_cov = local_obs_to_use.map_blocks(
+            lambda obs_idx, cov: self._localize_obs_cov(cov, obs_idx),
+            dtype=float
+        )
+        return local_pseudo_obs, local_obs_state, local_obs_cov
 
-    def estimate_h_jacob(self, local_states):
-        h_jacobs = [
-            super().estimate_h_jacob(s, local_states[0][k])
-            for k, s in local_states[-1]
-        ]
-        return h_jacobs
+    def estimate_h_jacob(self, state, pseudo_obs, grid_block, analysis_time):
+        print(state.shape)
+        print(state.compute())
+        eval_h_jacob = state.map_blocks(
+            lambda l_state, block_id: l_state[..., block_id[-1]],
+            block_id=True, dtype=int, chunks=tuple(list(state.chunks[:-1])+[1])
+        )
+        print(eval_h_jacob.compute())
+        return eval_h_jacob
+
+    def _get_obs_to_use(self, obs_grid, grid_point):
+        obs_grid_equality = obs_grid == grid_point
+        obs_to_use = da.ones((obs_grid_equality.shape[0]), dtype=bool)
+        for i in range(obs_grid_equality.shape[1]):
+            obs_to_use *= obs_grid_equality[..., i]
+        return obs_to_use
 
     def update_state(self, state, observations, pseudo_state, analysis_time):
         (
@@ -90,6 +110,7 @@ class DistributedSEKFCorr(DaskMixin, SEKFCorr):
             grid_names,
         ) = self._prepare_sekf(state, observations, pseudo_state)
 
+        pseudo_obs = self.to_dask_array(pseudo_obs.values)
         obs_state = self.to_dask_array(obs_state)
         obs_cov = self.to_dask_array(obs_cov)
         obs_grid = self.to_dask_array(obs_grid)
@@ -100,20 +121,26 @@ class DistributedSEKFCorr(DaskMixin, SEKFCorr):
 
         ana_incs = []
         for k, grid_block in enumerate(grid_iter.blocks):
+            print(grid_block.compute())
+            local_state = work_state.data.blocks[..., k]
             (
-                tmp_pseudo_obs,
-                tmp_obs_state,
-                tmp_obs_cov,
-                tmp_state,
-            ) = self._localize_states(pseudo_obs, obs_state, obs_cov, obs_grid,
-                                      work_state, grid_block)
-            tmp_h_jacob = self.estimate_h_jacob(local_states)
-            tmp_b_mat = self.estimate_b_matrix(local_states)
-            tmp_innov = self._estimate_departure(
-                local_pseudo_obs, local_obs_state
+                local_pseudo_obs,
+                local_obs_state,
+                local_obs_cov,
+            ) = self._localize_obs_space(
+                pseudo_obs, obs_state, obs_cov, obs_grid, grid_block
             )
-            tmp_states = self._states_to_torch(
-                tmp_innov.values, tmp_h_jacob, tmp_b_mat, tmp_obs_cov
+            local_h_jacob = self.estimate_h_jacob(
+                local_state, local_pseudo_obs, grid_block, analysis_time
+            )
+            local_b_mat = self.estimate_b_matrix(
+                local_state, local_pseudo_obs, grid_block, analysis_time
+            )
+            local_innov = self._estimate_departure(
+                tmp_pseudo_obs, tmp_obs_state
+            )
+            local_states = self._states_to_torch(
+                tmp_innov, tmp_h_jacob, tmp_b_mat, tmp_obs_cov
             )
             tmp_inc = self._func_inc(*tmp_states)
             ana_incs.append(tmp_inc.detach().numpy())
