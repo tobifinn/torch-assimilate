@@ -59,7 +59,7 @@ class StandardDisc(object):
     """
     def __init__(self, net,):
         self.net = net
-        self.loss_func = torch.nn.BCEWithLogitsLoss()
+        self.loss_func = torch.nn.BCEWithLogitsLoss(reduction='sum')
         self.optimizer = None
         self.grad_optim = True
 
@@ -149,7 +149,8 @@ class StandardDisc(object):
             is the cross-entropy between estimated probability and labels. This
             loss has the same tensor type as given `in_data`.
         """
-        loss = self.loss_func(in_data, labels)
+        unscaled_loss = self.loss_func(in_data, labels)
+        loss = unscaled_loss * in_data.nelement() / in_data.shape[0]
         return loss
 
     def forward(self, *args, **kwargs):
