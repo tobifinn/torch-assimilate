@@ -180,11 +180,11 @@ class StandardDisc(object):
         batch_size = real_data.size()[0]
 
         real_critic = self.forward(real_data, *args, **kwargs)
-        real_labels = self.get_targets(batch_size, 1.0, real_data)
+        real_labels = self.get_targets(batch_size, 0.0, real_data)
         real_loss = self.disc_loss(real_critic, real_labels)
 
         fake_critic = self.forward(fake_data, *args, **kwargs)
-        fake_labels = self.get_targets(batch_size, 0.0, real_data)
+        fake_labels = self.get_targets(batch_size, 1.0, real_data)
         fake_loss = self.disc_loss(fake_critic, fake_labels)
 
         total_loss = real_loss + fake_loss
