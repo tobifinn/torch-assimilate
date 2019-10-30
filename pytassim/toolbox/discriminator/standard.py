@@ -330,7 +330,7 @@ class StandardDisc(object):
         batch_size = fake_data.size()[0]
 
         fake_critic = self.forward(fake_data, *args, **kwargs)
-        gen_loss = -torch.mean(fake_critic)
+        gen_loss = torch.mean(fake_critic)
         return gen_loss
 
     def recon_loss(self, recon_obs, *args, **kwargs):
