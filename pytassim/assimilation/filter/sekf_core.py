@@ -36,17 +36,20 @@ from pytassim.utilities import chol_solve
 logger = logging.getLogger(__name__)
 
 
-def estimate_inc_uncorr(innov, h_jacob, cov_back, obs_err):
-    ht = h_jacob.transpose(-1, -2)
-    hb = torch.mm(h_jacob, cov_back)
-    innov_prec = torch.mm(hb, ht)
-    mat_size = innov_prec.size()[1]
-    step = mat_size + 1
-    end = mat_size * mat_size
-    innov_prec.view(-1)[:end:step] += torch.pow(obs_err, 2)
-    norm_innov = chol_solve(innov_prec, innov).t()
-    k_dist = torch.mm(cov_back, ht)
-    inc_ana = torch.mm(k_dist, norm_innov).squeeze(-1)
+def estimate_inc_uncorr(innov, h_jacob, cov_back, cov_obs):
+    ht = h_jacob.t()
+    bht = torch.mm(cov_back, ht)
+    innov_prec = torch.mm(h_jacob, bht)
+    if innov_prec.shape[0] > 1:
+        mat_size = innov_prec.size()[1]
+        step = mat_size + 1
+        end = mat_size * mat_size
+        innov_prec.view(-1)[:end:step] += cov_obs
+        norm_innov = chol_solve(innov_prec, innov).t()
+    else:
+        innov_prec += cov_obs
+        norm_innov = innov / innov_prec
+    inc_ana = torch.mm(bht, norm_innov).squeeze(-1)
     return inc_ana
 
 
