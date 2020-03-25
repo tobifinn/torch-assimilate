@@ -59,7 +59,7 @@ class StandardDisc(object):
     """
     def __init__(self, net,):
         self.net = net
-        self.loss_func = torch.nn.BCEWithLogitsLoss()
+        self.loss_func = torch.nn.BCEWithLogitsLoss(reduction='mean')
         self.optimizer = None
         self.grad_optim = True
 
@@ -150,6 +150,7 @@ class StandardDisc(object):
             loss has the same tensor type as given `in_data`.
         """
         loss = self.loss_func(in_data, labels)
+        #loss = unscaled_loss * in_data.nelement() / in_data.shape[0]
         return loss
 
     def forward(self, *args, **kwargs):
@@ -179,11 +180,11 @@ class StandardDisc(object):
         batch_size = real_data.size()[0]
 
         real_critic = self.forward(real_data, *args, **kwargs)
-        real_labels = self.get_targets(batch_size, 1.0, real_data)
+        real_labels = self.get_targets(batch_size, 0.0, real_data)
         real_loss = self.disc_loss(real_critic, real_labels)
 
         fake_critic = self.forward(fake_data, *args, **kwargs)
-        fake_labels = self.get_targets(batch_size, 0.0, real_data)
+        fake_labels = self.get_targets(batch_size, 1.0, real_data)
         fake_loss = self.disc_loss(fake_critic, fake_labels)
 
         total_loss = real_loss + fake_loss
@@ -329,8 +330,7 @@ class StandardDisc(object):
         batch_size = fake_data.size()[0]
 
         fake_critic = self.forward(fake_data, *args, **kwargs)
-        real_labels = self.get_targets(batch_size, 1.0, fake_data)
-        gen_loss = self.disc_loss(fake_critic, real_labels)
+        gen_loss = torch.mean(fake_critic)
         return gen_loss
 
     def recon_loss(self, recon_obs, *args, **kwargs):
