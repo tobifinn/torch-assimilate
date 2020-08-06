@@ -179,9 +179,10 @@ def gen_weights_uncorr(back_prec, innov, hx_perts, obs_cov, obs_weights=1):
     return w_mean, w_perts
 
 
-def _eigendecomp(precision):
-    evals, evects = torch.symeig(precision, eigenvectors=True, upper=False)
-    evals[evals < 0] = 0
+def _eigendecomp(tensor, reg_value=0):
+    evals, evects = torch.symeig(tensor, eigenvectors=True, upper=False)
+    evals = evals.clamp(min=0)
+    evals = evals + reg_value
     evals_inv = 1 / evals
     evects_inv = evects.t()
     return evals, evects, evals_inv, evects_inv
@@ -189,7 +190,7 @@ def _eigendecomp(precision):
 
 def _det_square_root_eigen(evals_inv, evects, evects_inv):
     ens_size = evals_inv.size()[0]
-    w_perts = ((ens_size - 1) * evals_inv) ** 0.5
+    w_perts = ((ens_size - 1) * evals_inv).sqrt()
     w_perts = torch.matmul(evects, torch.diagflat(w_perts))
     w_perts = torch.matmul(w_perts, evects_inv)
     return w_perts
