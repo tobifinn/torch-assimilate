@@ -30,14 +30,50 @@ import numpy as np
 import pandas as pd
 import torch
 
+import torch.nn
+
 # External modules
 import xarray as xr
 
 # Internal modules
-from .etkf_core import gen_weights
+from .etkf_core import gen_weights, estimate_cinv
 from .filter import FilterAssimilation
+from ..utils import evd, rev_evd
 
 logger = logging.getLogger(__name__)
+
+
+class ETKFWeightsModule(torch.nn.Module):
+    def __init__(self, inf_factor=1.0):
+        super().__init__()
+        self.inf_factor = inf_factor
+
+    @staticmethod
+    def _dot_product(x, y):
+        k_mat = torch.mm(x, y.t())
+        return k_mat
+
+    @staticmethod
+    def _det_square_root_eigen(evals_inv, evects, evects_inv):
+        ens_size = evals_inv.size()[0]
+        square_root_einv = ((ens_size - 1) * evals_inv).sqrt()
+        w_perts = rev_evd(square_root_einv, evects, evects_inv)
+        return w_perts
+
+    def forward(self, normed_perts, normed_obs):
+        ens_size = normed_perts.shape[0]
+        reg_value = (ens_size-1) / self.inf_factor
+        kernel_perts = self._dot_product(normed_perts, normed_perts)
+        evals, evects, evals_inv, evects_inv = evd(kernel_perts, reg_value)
+        cov_analysed = rev_evd(evals_inv, evects, evects_inv)
+
+        kernel_obs = self._dot_product(normed_perts, normed_obs)
+        w_mean = torch.mm(cov_analysed, kernel_obs).squeeze()
+
+        square_root_einv = ((ens_size - 1) * evals_inv).sqrt()
+        w_perts = rev_evd(square_root_einv, evects, evects_inv)
+        weights = w_mean + w_perts
+        return weights, w_mean, w_perts, cov_analysed
 
 
 class ETKFCorr(FilterAssimilation):
@@ -76,8 +112,8 @@ class ETKFCorr(FilterAssimilation):
                          pre_transform=pre_transform,
                          post_transform=post_transform)
         self.inf_factor = inf_factor
-        self._back_prec = None
         self._weights = None
+        self._func_cinv = estimate_cinv
 
     @property
     def weights(self):
@@ -125,14 +161,19 @@ class ETKFCorr(FilterAssimilation):
         )[:-1]
         logger.info('Transfering the data to torch')
         innov, hx_perts, obs_cov = self._states_to_torch(*prepared_states)
-        back_prec = self._get_back_prec(len(state.ensemble))
+
+        logger.info('Normalise perturbations and observations')
+        obs_cinv = estimate_cinv(obs_cov)
+        normed_perts = hx_perts.t() @ obs_cinv
+        normed_obs = innov.view(1, -1) @ obs_cinv
+
         logger.info('Gathering the weights')
-        w_mean, w_perts = self._gen_weights_func(
-            back_prec, innov, hx_perts, obs_cov
-        )
+        reg_term = (len(state.ensemble)-1) / self.inf_factor
+        weights = gen_weights(normed_perts, normed_obs, reg_term)[0]
+
         logger.info('Applying weights to state')
         state_mean, state_perts = state.state.split_mean_perts()
-        analysis = self._apply_weights(w_mean, w_perts, state_mean, state_perts)
+        analysis = self._apply_weights(weights, state_mean, state_perts)
         analysis = analysis.transpose('var_name', 'time', 'ensemble', 'grid')
         logger.info('Finished with analysis creation')
         return analysis
@@ -189,14 +230,6 @@ class ETKFCorr(FilterAssimilation):
         obs_state, obs_cov, obs_grid = self._prepare_obs(filtered_obs)
         innov = obs_state - hx_mean
         return innov, hx_perts, obs_cov, obs_grid
-
-    def _get_back_prec(self, ens_mems):
-        back_prec = torch.eye(ens_mems, dtype=self.dtype)
-        if self.gpu:
-            back_prec = back_prec.cuda()
-        back_prec *= (ens_mems - 1)
-        back_prec /= self.inf_factor
-        return back_prec
 
     def _prepare_back_obs(self, state, observations):
         pseudo_obs, filtered_obs = self._apply_obs_operator(state, observations)
