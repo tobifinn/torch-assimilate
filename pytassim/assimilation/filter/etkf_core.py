@@ -116,3 +116,9 @@ def _det_square_root_eigen(evals_inv, evects, evects_inv):
     square_root_einv = ((ens_size - 1) * evals_inv).sqrt()
     w_perts = _rev_evd(square_root_einv, evects, evects_inv)
     return w_perts
+
+
+def estimate_cinv(mat_to_invert):
+    chol_decomp = torch.cholesky(mat_to_invert)
+    chol_inv = chol_decomp.inverse()
+    return chol_inv
