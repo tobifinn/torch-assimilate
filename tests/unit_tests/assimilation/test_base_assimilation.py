@@ -154,7 +154,6 @@ class TestBaseAssimilation(unittest.TestCase):
             valid_mock.assert_called()
         xr.testing.assert_equal(valid_mock.call_args_list[1][0][0], pstate)
 
-
     @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
            side_effect=dummy_update_state, autospec=True)
     def test_assimilate_validates_observations(self, _):
