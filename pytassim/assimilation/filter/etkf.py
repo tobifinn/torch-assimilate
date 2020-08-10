@@ -29,11 +29,12 @@ import logging
 import numpy as np
 import pandas as pd
 import torch
+
 # External modules
 import xarray as xr
 
-from .etkf_core import gen_weights_corr, gen_weights_uncorr
 # Internal modules
+from .etkf_core import gen_weights
 from .filter import FilterAssimilation
 
 logger = logging.getLogger(__name__)
@@ -77,7 +78,6 @@ class ETKFCorr(FilterAssimilation):
         self.inf_factor = inf_factor
         self._back_prec = None
         self._weights = None
-        self._gen_weights_func = gen_weights_corr
 
     @property
     def weights(self):
@@ -226,24 +226,19 @@ class ETKFCorr(FilterAssimilation):
         )
         return ana_perts
 
-    def _apply_weights(self, w_mean, w_perts, state_mean, state_pert):
+    def _apply_weights(self, weights, state_mean, state_pert):
         """
-        This method applies given weights to given state. The weights are
-        combined column-wise for efficient computing and applied to given
-        state perturbations. These non-centered analysed perturbations are then
-        added to given state mean to get the analysis.
+        This method applies given weights to given state.
+        These non-centered analysed perturbations are then added to given
+        state mean to get the analysis.
 
         Parameters
         ----------
-        w_mean : :py:class:`torch.tensor`
-            The estimated ensemble mean weights. These weights are column-wise
-            added to the weight perturbations. The shape of this tensor is
-            :math:`k`, the ensemble size.
-        w_perts : :py:class:`torch.tensor`
-            The estimated ensemble perturbations in weight space. These weights
-            are used to estimate new centered ensemble perturbations. The
-            shape of this tensor is :math:`k~x~k`, with :math:`k` as ensemble
-            size.
+        weights : :py:class:`torch.tensor`
+            The estimated ensemble weights with column-wise added mean
+            weights to the weight perturbations.
+            The shape of this tensor is :math:`k~x~k`, with :math:`k` as
+            ensemble size.
         state_mean : :py:class:`xarray.DataArray`
             This is the state mean, which is updated by non-centered analysed
             perturbations.
@@ -256,11 +251,8 @@ class ETKFCorr(FilterAssimilation):
         analysis : :py:class:`xarray.DataArray`
             The estimated analysis based on given state and weights.
         """
-        combined_weights = (w_mean + w_perts).t()
-        if self.gpu:
-            combined_weights = combined_weights.cpu()
         ana_perts = self._weights_matmul(
-            state_pert, combined_weights.numpy()
+            state_pert, weights.cpu().detach().numpy()
         )
         analysis = state_mean + ana_perts
         return analysis
@@ -301,5 +293,4 @@ class ETKFUncorr(ETKFCorr):
         super().__init__(inf_factor=inf_factor, smoother=smoother, gpu=gpu,
                          pre_transform=pre_transform,
                          post_transform=post_transform)
-        self._gen_weights_func = gen_weights_uncorr
         self._correlated = False
