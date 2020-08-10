@@ -53,21 +53,14 @@ class ETKFWeightsModule(torch.nn.Module):
         k_mat = torch.mm(x, y.t())
         return k_mat
 
-    @staticmethod
-    def _det_square_root_eigen(evals_inv, evects, evects_inv):
-        ens_size = evals_inv.size()[0]
-        square_root_einv = ((ens_size - 1) * evals_inv).sqrt()
-        w_perts = rev_evd(square_root_einv, evects, evects_inv)
-        return w_perts
-
     def forward(self, normed_perts, normed_obs):
         ens_size = normed_perts.shape[0]
         reg_value = (ens_size-1) / self.inf_factor
-        kernel_perts = self._dot_product(normed_perts, normed_perts)
+        kernel_perts = torch.mm(normed_perts, normed_perts.t())
         evals, evects, evals_inv, evects_inv = evd(kernel_perts, reg_value)
         cov_analysed = rev_evd(evals_inv, evects, evects_inv)
 
-        kernel_obs = self._dot_product(normed_perts, normed_obs)
+        kernel_obs = torch.mm(normed_perts, normed_obs.t())
         w_mean = torch.mm(cov_analysed, kernel_obs).squeeze()
 
         square_root_einv = ((ens_size - 1) * evals_inv).sqrt()
