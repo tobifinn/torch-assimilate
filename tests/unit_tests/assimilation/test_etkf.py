@@ -480,57 +480,22 @@ class TestETKFUncorr(unittest.TestCase):
     def tearDown(self):
         self.state.close()
         self.obs.close()
-    
-    def test_etkf_sets_gen_func_to_uncorr(self):
-        self.assertEqual(self.algorithm._gen_weights_func,
-                         etkf_module.gen_weights_uncorr)
 
     def test_etkf_sets_correlated_to_false(self):
         self.assertFalse(self.algorithm._correlated)
 
-    def test_prepare_obs_returns_diagonal_elements_of_cov(self):
-        len_time = len(self.obs.time)
-        stacked_cov = np.concatenate(
-            [self.obs['covariance'].values] * len_time
-        )
-        diag_cov = np.concatenate([stacked_cov, stacked_cov])
-        _, returned_cov, _ = self.algorithm._prepare_obs(
-            (self.obs, self.obs)
-        )
-        np.testing.assert_equal(returned_cov, diag_cov)
-
-    def test_calculate_c_returns_same_for_diag(self):
-        obs_tuple = [self.obs, ] * 5
-        _, obs_cov, _ = self.algorithm._prepare_obs(obs_tuple)
-        _, hx_perts, _ = self.algorithm._prepare_back_obs(self.state, obs_tuple)
-        obs_cov = torch.tensor(obs_cov)
-        hx_perts = torch.tensor(hx_perts)
-        diag_c = etkf_module._compute_c_diag(hx_perts, obs_cov)
-        chol_c = etkf_module._compute_c_chol(hx_perts, torch.diag(obs_cov))
-        torch.testing.assert_allclose(diag_c, chol_c)
-
-    def test_diagonal_inverse_returns_inverse_of_diagonal_matrix(self):
-        obs_tuple = [self.obs, ] * 5
-        _, obs_cov, _ = self.algorithm._prepare_obs(obs_tuple)
-        _, hx_perts, _ = self.algorithm._prepare_back_obs(self.state, obs_tuple)
-        est_c = np.matmul(hx_perts.T, np.linalg.inv(np.diag(obs_cov)))
-        self.assertTupleEqual(est_c.shape, hx_perts.T.shape)
-
-        t_obs_cov = torch.tensor(obs_cov)
-        t_hx_perts = torch.tensor(hx_perts)
-        ret_c = etkf_module._compute_c_diag(
-            t_hx_perts, t_obs_cov
-        ).numpy()
-        self.assertTupleEqual(ret_c.shape, hx_perts.T.shape)
-
     def test_normalise_cinv_works_with_inv_sqrt(self):
         state = torch.zeros(10, 5).normal_()
         sqrt_inv = torch.zeros(5).uniform_(1, 5)
-        norm_state = self.algorithm._normalise_cinv(
-            state, torch.eye(5) * sqrt_inv
-        )
+        norm_state = torch.mm(state, torch.eye(5) * sqrt_inv)
         ret_state = self.algorithm._normalise_cinv(state, sqrt_inv)
         torch.testing.assert_allclose(ret_state, norm_state)
+
+    def test_get_chol_inverse_ret_sqrt_inv(self):
+        cov = torch.zeros(5).uniform_(1, 5)
+        sqrt_inv = 1 / np.sqrt(cov.numpy())
+        ret_sqrt_inv = self.algorithm._get_chol_inverse(cov)
+        np.testing.assert_equal(ret_sqrt_inv.numpy(), sqrt_inv)
 
     def test_algorithm_works(self):
         self.algorithm.inf_factor = 1.2

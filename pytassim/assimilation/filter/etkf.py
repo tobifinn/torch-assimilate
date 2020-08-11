@@ -56,7 +56,7 @@ class ETKFCorr(FilterAssimilation):
 
     Parameters
     ----------
-    smoothing : bool, optional
+    smoother : bool, optional
         Indicates if this filter should be run in smoothing or in filtering
         mode. In smoothing mode, no analysis time is selected from given state
         and the ensemble weights are applied to the whole state. In filtering
@@ -301,7 +301,7 @@ class ETKFUncorr(ETKFCorr):
 
     Parameters
     ----------
-    smoothing : bool, optional
+    smoother : bool, optional
         Indicates if this filter should be run in smoothing or in filtering
         mode. In smoothing mode, no analysis time is selected from given state
         and the ensemble weights are applied to the whole state. In filtering
@@ -325,7 +325,12 @@ class ETKFUncorr(ETKFCorr):
         self._correlated = False
 
     @staticmethod
+    def _normalise_cinv(state, cinv):
+        normed_state = state * cinv
+        return normed_state
+
+    @staticmethod
     def _get_chol_inverse(cov):
         sqrt_cov = cov.sqrt()
-        sqrt_inv = sqrt_cov.inverse()
+        sqrt_inv = 1 / sqrt_cov
         return sqrt_inv
