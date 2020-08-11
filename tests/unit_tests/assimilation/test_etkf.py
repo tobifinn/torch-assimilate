@@ -226,6 +226,21 @@ class TestETKFCorr(unittest.TestCase):
         self.state.close()
         self.obs.close()
 
+    def test_inf_factor_returns_private(self):
+        self.algorithm._inf_factor = 3.2
+        self.assertEqual(self.algorithm.inf_factor, 3.2)
+
+    def test_inf_factor_sets_private_inf_factor(self):
+        self.algorithm._inf_factor = None
+        self.algorithm.inf_factor = 3.2
+        self.assertEqual(self.algorithm._inf_factor, 3.2)
+
+    def test_inf_factor_sets_new_weight_gen(self):
+        old_id = id(self.algorithm._weight_gen)
+        self.algorithm.inf_factor = 3.2
+        self.assertNotEqual(id(self.algorithm._weight_gen), old_id)
+        self.assertEqual(self.algorithm._weight_gen.inf_factor, 3.2)
+
     def test_prepare_obs_stackes_and_concats_obs(self):
         obs_stacked = self.obs['observations'].stack(
             obs_id=('time', 'obs_grid_1')
@@ -268,22 +283,21 @@ class TestETKFCorr(unittest.TestCase):
         )
         np.testing.assert_equal(returned_obs, obs_stacked.values)
         np.testing.assert_equal(returned_cov, stacked_cov)
-        np.testing.assert_equal(returned_grid, obs_stacked.obs_grid_1.values.reshape(-1, 1))
+        np.testing.assert_equal(returned_grid,
+                                obs_stacked.obs_grid_1.values.reshape(-1, 1))
 
     def test_prepare_state_returns_state_array(self):
         hx = self.obs.obs.operator(self.state)
         hx_stacked = hx.stack(obs_id=('time', 'obs_grid_1'))
         hx_concat = xr.concat([hx_stacked, hx_stacked], dim='obs_id')
-        hx_mean, hx_pert = hx_concat.state.split_mean_perts()
-        returned_mean, returned_pert, _ = self.algorithm._prepare_back_obs(
+        pseudo_obs, _ = self.algorithm._get_pseudo_obs(
             self.state, (self.obs, self.obs)
         )
-        np.testing.assert_equal(returned_mean, hx_mean.values)
-        np.testing.assert_equal(returned_pert, hx_pert.T.values)
+        np.testing.assert_equal(pseudo_obs, hx_concat.data)
 
     def test_prepare_state_returns_filtered_obs(self):
         obs_list = (self.obs, self.obs.copy())
-        _, _, returned_obs = self.algorithm._prepare_back_obs(
+        _, returned_obs = self.algorithm._get_pseudo_obs(
             self.state, obs_list
         )
         self.assertEqual(len(returned_obs), 1)
@@ -291,10 +305,10 @@ class TestETKFCorr(unittest.TestCase):
 
     def test_prepare_calls_prepare_state(self):
         obs_tuple = (self.obs, self.obs.copy())
-        prepared_state = self.algorithm._prepare_back_obs(self.state, obs_tuple)
-        trg = 'pytassim.assimilation.filter.etkf.ETKFCorr._prepare_back_obs'
+        prepared_state = self.algorithm._get_pseudo_obs(self.state, obs_tuple)
+        trg = 'pytassim.assimilation.filter.etkf.ETKFCorr._get_pseudo_obs'
         with patch(trg, return_value=prepared_state) as prepare_patch:
-            _ = self.algorithm._prepare(self.state, obs_tuple)
+            _ = self.algorithm._get_states(self.state, obs_tuple)
         prepare_patch.assert_called_once_with(self.state, obs_tuple)
 
     def test_prepare_calls_prepare_obs_with_filtered_obs(self):
@@ -302,27 +316,35 @@ class TestETKFCorr(unittest.TestCase):
         prepared_obs = self.algorithm._prepare_obs((self.obs, ))
         with patch('pytassim.assimilation.filter.etkf.ETKFCorr._prepare_obs',
                    return_value=prepared_obs) as prepare_patch:
-            _ = self.algorithm._prepare(self.state, obs_tuple)
+            _ = self.algorithm._get_states(self.state, obs_tuple)
         prepare_patch.assert_called_once()
         self.assertListEqual([self.obs, ], prepare_patch.call_args[0][0])
 
+    def test_cat_pseudo_obs_returns_numpy(self):
+        obs_tuple = (self.obs, self.obs.copy())
+        pseudo_obs_list, _ = self.algorithm._apply_obs_operator(self.state,
+                                                                obs_tuple)
+        pseudo_obs = self.algorithm._cat_pseudo_obs(pseudo_obs_list)
+        self.assertIsInstance(pseudo_obs, np.ndarray)
+
     def test_prepare_returns_necessary_variables(self):
         obs_tuple = (self.obs, self.obs.copy())
-        prepared_state = self.algorithm._prepare_back_obs(self.state, obs_tuple)
-        prepared_obs = self.algorithm._prepare_obs((self.obs, ))
-        innov = prepared_obs[0] - prepared_state[0]
+        prepared_state, filtered_obs = self.algorithm._get_pseudo_obs(
+            self.state, obs_tuple
+        )
+        prepared_obs = self.algorithm._prepare_obs(filtered_obs)
 
-        returned_state = self.algorithm._prepare(self.state, obs_tuple)
-        np.testing.assert_equal(innov, returned_state[0])
-        np.testing.assert_equal(prepared_state[1], returned_state[1])
-        np.testing.assert_equal(prepared_obs[1], returned_state[2])
-        np.testing.assert_equal(prepared_obs[2], returned_state[3])
+        returned_state = self.algorithm._get_states(self.state, obs_tuple)
+        np.testing.assert_equal(returned_state[0], prepared_state)
+        np.testing.assert_equal(returned_state[1], prepared_obs[0])
+        np.testing.assert_equal(returned_state[2], prepared_obs[1])
+        np.testing.assert_equal(returned_state[3], prepared_obs[2])
 
     def test_update_calls_prepare_with_pseudo_state(self):
         pseudo_state = self.state + 1
         obs_tuple = (self.obs, self.obs.copy())
-        returned_state = self.algorithm._prepare(pseudo_state, obs_tuple)
-        with patch('pytassim.assimilation.filter.etkf.ETKFCorr._prepare',
+        returned_state = self.algorithm._get_states(pseudo_state, obs_tuple)
+        with patch('pytassim.assimilation.filter.etkf.ETKFCorr._get_states',
                    return_value=returned_state) as prepare_patch:
             self.algorithm.update_state(self.state, obs_tuple, pseudo_state,
                                         self.state.time[-1].values)
@@ -330,25 +352,17 @@ class TestETKFCorr(unittest.TestCase):
 
     def test_update_state_uses_prepare_function(self):
         obs_tuple = (self.obs, self.obs)
-        prepared_states = self.algorithm._prepare(self.state, obs_tuple)
-        with patch('pytassim.assimilation.filter.etkf.ETKFCorr._prepare',
+        prepared_states = self.algorithm._get_states(self.state, obs_tuple)
+        with patch('pytassim.assimilation.filter.etkf.ETKFCorr._get_states',
                    return_value=prepared_states) as prepare_patch:
             _ = self.algorithm.update_state(
                 self.state, obs_tuple, self.state, self.state.time[-1].values
             )
         prepare_patch.assert_called_once_with(self.state, obs_tuple)
 
-    def test_get_obs_cinvUses_choleksy_inv(self):
-        perts = torch.zeros(100, 5).normal_()
-        cov = (perts.t() @ perts) / 99
-        chol_decomp = np.linalg.cholesky(cov.numpy())
-        right_cinv = np.linalg.inv(chol_decomp)
-        ret_cinv = etkf_module.estimate_cinv(cov)
-        np.testing.assert_almost_equal(ret_cinv, right_cinv)
-
     def test_transfer_states_transfers_arguments_to_tensor(self):
         obs_tuple = (self.obs, self.obs)
-        prepared_states = self.algorithm._prepare(self.state, obs_tuple)
+        prepared_states = self.algorithm._get_states(self.state, obs_tuple)
         ret_states = self.algorithm._states_to_torch(*prepared_states)
         for k, state in enumerate(ret_states):
             self.assertIsInstance(state, torch.Tensor)
@@ -369,7 +383,7 @@ class TestETKFCorr(unittest.TestCase):
     def test_update_states_uses_states_to_torch(self):
         ana_time = self.state.time[-1].values
         obs_tuple = (self.obs, self.obs.copy())
-        prepared_states = self.algorithm._prepare(self.state, obs_tuple)
+        prepared_states = self.algorithm._get_states(self.state, obs_tuple)
         torch_states = self.algorithm._states_to_torch(*prepared_states)[:-1]
         trg = 'pytassim.assimilation.filter.etkf.ETKFCorr._states_to_torch'
         with patch(trg, return_value=torch_states) as torch_patch:
@@ -377,8 +391,69 @@ class TestETKFCorr(unittest.TestCase):
                                             ana_time)
         torch_patch.assert_called_once()
 
+    def test_get_obs_cinv(self):
+        perts = torch.zeros(100, 5).normal_()
+        cov = (perts.t() @ perts) / 99
+        chol_decomp = np.linalg.cholesky(cov.numpy())
+        right_cinv = np.linalg.inv(chol_decomp)
+        ret_cinv = self.algorithm._get_chol_inverse(cov)
+        np.testing.assert_almost_equal(ret_cinv, right_cinv)
+
+    def test_uses_get_obs_cinv(self):
+        ana_time = self.state.time[-1].values
+        obs_tuple = (self.obs, self.obs.copy())
+        prepared_states = self.algorithm._get_states(self.state, obs_tuple)
+        torch_states = self.algorithm._states_to_torch(*prepared_states)[:-1]
+        obs_cinv = self.algorithm._get_chol_inverse(torch_states[-1])
+
+        trg = 'pytassim.assimilation.filter.etkf.ETKFCorr._get_chol_inverse'
+        with patch(trg, return_value=obs_cinv) as cinv_patch:
+            _ = self.algorithm.update_state(self.state, obs_tuple, self.state,
+                                            ana_time)
+        cinv_patch.assert_called_once()
+
+    def test_center_tensor_centers_original_tensor(self):
+        test_tensor = torch.zeros(10, 5).normal_(mean=1.)
+        test_mean = test_tensor.mean(dim=-2, keepdim=True)
+        centered_tensor = test_tensor-test_mean
+        ret_tensor, = self.algorithm._centre_tensors(test_tensor)
+        torch.testing.assert_allclose(ret_tensor, centered_tensor)
+
+    def test_center_tensor_centers_arguments(self):
+        test_tensor = torch.zeros(10, 5).normal_(mean=1.)
+        test_mean = test_tensor.mean(dim=-2, keepdim=True)
+        test_2_tensor = torch.zeros(100, 5).normal_(mean=2.)
+        centered_2_tensor = test_2_tensor-test_mean
+        _, ret_tensor_1, ret_tensor_2 = self.algorithm._centre_tensors(
+            test_tensor, test_2_tensor, test_2_tensor
+        )
+        torch.testing.assert_allclose(ret_tensor_1, centered_2_tensor)
+        torch.testing.assert_allclose(ret_tensor_2, centered_2_tensor)
+
+    def test_uses_center_tensors(self):
+        ana_time = self.state.time[-1].values
+        obs_tuple = (self.obs, self.obs.copy())
+        prepared_states = self.algorithm._get_states(self.state, obs_tuple)
+        torch_states = self.algorithm._states_to_torch(*prepared_states)[:-1]
+        centered_tensors = self.algorithm._centre_tensors(*torch_states[:2])
+
+        trg = 'pytassim.assimilation.filter.etkf.ETKFCorr._centre_tensors'
+        with patch(trg, return_value=centered_tensors) as center_patch:
+            _ = self.algorithm.update_state(self.state, obs_tuple, self.state,
+                                            ana_time)
+        center_patch.assert_called_once()
+
+    def test_normalise_cinv_multiplies_cinv(self):
+        state = torch.zeros(10, 5).normal_()
+        perts = torch.zeros(100, 5).normal_()
+        cov = (perts.t() @ perts) / 99
+        chol_decomp = np.linalg.cholesky(cov.numpy())
+        cinv = torch.from_numpy(np.linalg.inv(chol_decomp)).float()
+        norm_state = torch.mm(state, cinv)
+        ret_state = self.algorithm._normalise_cinv(state, cinv)
+        torch.testing.assert_allclose(ret_state, norm_state)
+
     def test_algorithm_works(self):
-        self.algorithm.inf_factor = 1.2
         ana_time = self.state.time[-1].values
         obs_tuple = (self.obs, self.obs.copy())
         assimilated_state = self.algorithm.assimilate(self.state, obs_tuple,
@@ -391,8 +466,6 @@ class TestETKFUncorr(unittest.TestCase):
         self.algorithm = ETKFUncorr()
         state_path = os.path.join(DATA_PATH, 'test_state.nc')
         self.state = xr.open_dataarray(state_path).load()
-        self.back_prec = self.algorithm._get_back_prec(
-            len(self.state.ensemble))
         obs_path = os.path.join(DATA_PATH, 'test_single_obs.nc')
         self.obs = xr.open_dataset(obs_path).load()
         self.obs['covariance'] = xr.DataArray(
@@ -449,6 +522,15 @@ class TestETKFUncorr(unittest.TestCase):
             t_hx_perts, t_obs_cov
         ).numpy()
         self.assertTupleEqual(ret_c.shape, hx_perts.T.shape)
+
+    def test_normalise_cinv_works_with_inv_sqrt(self):
+        state = torch.zeros(10, 5).normal_()
+        sqrt_inv = torch.zeros(5).uniform_(1, 5)
+        norm_state = self.algorithm._normalise_cinv(
+            state, torch.eye(5) * sqrt_inv
+        )
+        ret_state = self.algorithm._normalise_cinv(state, sqrt_inv)
+        torch.testing.assert_allclose(ret_state, norm_state)
 
     def test_algorithm_works(self):
         self.algorithm.inf_factor = 1.2
