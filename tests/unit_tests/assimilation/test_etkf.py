@@ -254,7 +254,7 @@ class TestETKFCorr(unittest.TestCase):
             obs_id=('time', 'obs_grid_1')
         )
         obs_concat = xr.concat((obs_stacked, obs_stacked), dim='obs_id').values
-        returned_obs, _, _ = self.algorithm._prepare_obs(
+        returned_obs, _ = self.algorithm._prepare_obs(
             (self.obs, self.obs)
         )
         np.testing.assert_equal(obs_concat, returned_obs)
@@ -264,7 +264,7 @@ class TestETKFCorr(unittest.TestCase):
             obs_id=('time', 'obs_grid_1')
         )
         obs_grid = np.tile(obs_stacked.obs_grid_1.values, 2)
-        _, _, returned_grid = self.algorithm._prepare_obs(
+        _, returned_grid = self.algorithm._prepare_obs(
             (self.obs, self.obs)
         )
         np.testing.assert_equal(obs_grid.reshape(-1, 1), returned_grid)
@@ -274,7 +274,7 @@ class TestETKFCorr(unittest.TestCase):
         stacked_cov = [self.obs['covariance'].values] * len_time
         stacked_cov = scipy.linalg.block_diag(*stacked_cov)
         block_diag = scipy.linalg.block_diag(stacked_cov, stacked_cov)
-        _, returned_cov, _ = self.algorithm._prepare_obs(
+        returned_cov = self.algorithm._get_obs_cov(
             (self.obs, self.obs)
         )
         np.testing.assert_equal(returned_cov, block_diag)
@@ -286,13 +286,14 @@ class TestETKFCorr(unittest.TestCase):
         len_time = len(self.obs.time)
         stacked_cov = [self.obs['covariance'].values] * len_time
         stacked_cov = scipy.linalg.block_diag(*stacked_cov)
-        returned_obs, returned_cov, returned_grid = self.algorithm._prepare_obs(
+        returned_cov = self.algorithm._get_obs_cov((self.obs, ))
+        returned_obs, returned_grid = self.algorithm._prepare_obs(
             (self.obs, )
         )
         np.testing.assert_equal(returned_obs, obs_stacked.values)
-        np.testing.assert_equal(returned_cov, stacked_cov)
         np.testing.assert_equal(returned_grid,
                                 obs_stacked.obs_grid_1.values.reshape(-1, 1))
+        np.testing.assert_equal(returned_cov, stacked_cov)
 
     def test_prepare_state_returns_state_array(self):
         hx = self.obs.obs.operator(self.state)
@@ -340,13 +341,14 @@ class TestETKFCorr(unittest.TestCase):
         prepared_state, filtered_obs = self.algorithm._get_pseudo_obs(
             self.state, obs_tuple
         )
+        obs_cov = self.algorithm._get_obs_cov(filtered_obs)
         prepared_obs = self.algorithm._prepare_obs(filtered_obs)
 
         returned_state = self.algorithm._get_states(self.state, obs_tuple)
         np.testing.assert_equal(returned_state[0], prepared_state)
         np.testing.assert_equal(returned_state[1], prepared_obs[0])
-        np.testing.assert_equal(returned_state[2], prepared_obs[1])
-        np.testing.assert_equal(returned_state[3], prepared_obs[2])
+        np.testing.assert_equal(returned_state[2], obs_cov)
+        np.testing.assert_equal(returned_state[3], prepared_obs[1])
 
     def test_update_calls_prepare_with_pseudo_state(self):
         pseudo_state = self.state + 1

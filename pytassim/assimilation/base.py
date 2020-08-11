@@ -59,7 +59,6 @@ class BaseAssimilation(object):
         self.pre_transform = pre_transform
         self.post_transform = post_transform
         self.dtype = torch.double
-        self._correlated = True
 
     def _states_to_torch(self, *states):
         if self.gpu:
@@ -172,9 +171,12 @@ class BaseAssimilation(object):
         index_array = np.array(index, dtype=dtype).view(float).reshape(*shape)
         return index_array
 
+    @abc.abstractmethod
+    def _get_obs_cov(self, observations):
+        pass
+
     def _prepare_obs(self, observations):
         state_stacked_list = []
-        cov_stacked_list = []
         for obs in observations:
             if isinstance(obs.indexes['obs_grid_1'], pd.MultiIndex):
                 obs['obs_grid_1'] = pd.Index(
@@ -183,23 +185,11 @@ class BaseAssimilation(object):
             stacked_obs = obs['observations'].stack(
                 obs_id=('time', 'obs_grid_1')
             )
-            len_time = len(obs.time)
-            # Cannot use indexing or tiling due to possible rank deficiency
-            stacked_cov = [obs['covariance'].values] * len_time
-            if self._correlated:
-                stacked_cov = scipy.linalg.block_diag(*stacked_cov)
-            else:
-                stacked_cov = np.concatenate(stacked_cov)
             state_stacked_list.append(stacked_obs)
-            cov_stacked_list.append(stacked_cov)
         state_concat = xr.concat(state_stacked_list, dim='obs_id')
         state_values = state_concat.values
         state_grid = self._grid_index_to_array(state_concat['obs_grid_1'])
-        if self._correlated:
-            state_covariance = scipy.linalg.block_diag(*cov_stacked_list)
-        else:
-            state_covariance = np.concatenate(cov_stacked_list)
-        return state_values, state_covariance, state_grid
+        return state_values, state_grid
 
     @abc.abstractmethod
     def update_state(self, state, observations, pseudo_state, analysis_time):
