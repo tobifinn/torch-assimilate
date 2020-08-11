@@ -31,68 +31,13 @@ import abc
 import xarray as xr
 import numpy as np
 import pandas as pd
-import torch
-import torch.nn
-import scipy.linalg
 
 # Internal modules
-from .etkf_module import ETKFWeightsModule
+from .etkf_core import ETKFWeightsModule, _CorrMixin, _UnCorrMixin
 from .filter import FilterAssimilation
 
 
 _logger = logging.getLogger(__name__)
-
-
-class _CorrMixin(object):
-    _correlated = True
-
-    @staticmethod
-    def _get_obs_cov(observations):
-        cov_stacked_list = []
-        for obs in observations:
-            len_time = len(obs.time)
-            stacked_cov = [obs['covariance'].values] * len_time
-            stacked_cov = scipy.linalg.block_diag(*stacked_cov)
-            cov_stacked_list.append(stacked_cov)
-        obs_cov = scipy.linalg.block_diag(*cov_stacked_list)
-        return obs_cov
-
-    @staticmethod
-    def _get_chol_inverse(cov):
-        chol_decomp = torch.cholesky(cov)
-        chol_inv = chol_decomp.inverse()
-        return chol_inv
-
-    @staticmethod
-    def _normalise_cinv(state, cinv):
-        normed_state = state @ cinv
-        return normed_state
-
-
-class _UnCorrMixin(object):
-    _correlated = False
-
-    @staticmethod
-    def _get_obs_cov(observations):
-        cov_stacked_list = []
-        for obs in observations:
-            len_time = len(obs.time)
-            stacked_cov = [obs['covariance'].values] * len_time
-            stacked_cov = np.concatenate(stacked_cov)
-            cov_stacked_list.append(stacked_cov)
-        obs_cov = np.concatenate(cov_stacked_list)
-        return obs_cov
-
-    @staticmethod
-    def _normalise_cinv(state, cinv):
-        normed_state = state * cinv
-        return normed_state
-
-    @staticmethod
-    def _get_chol_inverse(cov):
-        sqrt_cov = cov.sqrt()
-        sqrt_inv = 1 / sqrt_cov
-        return sqrt_inv
 
 
 class _ETKFBase(FilterAssimilation):

@@ -42,9 +42,9 @@ import scipy.linalg.blas
 import pytassim.state
 import pytassim.observation
 from pytassim.assimilation.filter.etkf import ETKFCorr, ETKFUncorr
-from pytassim.assimilation.filter.etkf_module import ETKFWeightsModule
+from pytassim.assimilation.filter.etkf_core import ETKFWeightsModule
 from pytassim.testing import dummy_obs_operator, if_gpu_decorator
-from pytassim.assimilation.filter import etkf_module
+from pytassim.assimilation.filter import etkf_core
 
 
 logging.basicConfig(level=logging.INFO)
@@ -149,7 +149,7 @@ class TestETKFModule(unittest.TestCase):
     def test_right_cov(self):
         ret_kernel = self.module._dot_product(self.normed_perts,
                                               self.normed_perts)
-        ret_evd = etkf_module.evd(ret_kernel, 1)
+        ret_evd = etkf_core.evd(ret_kernel, 1)
         evals, evects, evals_inv, evects_inv = ret_evd
 
         cov_analysed = torch.matmul(evects, torch.diagflat(evals_inv))
@@ -165,13 +165,13 @@ class TestETKFModule(unittest.TestCase):
     def test_rev_evd(self):
         ret_kernel = self.module._dot_product(self.normed_perts,
                                               self.normed_perts)
-        evals, evects, evals_inv, evects_inv = etkf_module.evd(
+        evals, evects, evals_inv, evects_inv = etkf_core.evd(
             ret_kernel, 1
         )
         right_rev = torch.mm(evects, torch.diagflat(evals))
         right_rev = torch.mm(right_rev, evects_inv)
 
-        ret_rev = etkf_module.rev_evd(evals, evects, evects_inv)
+        ret_rev = etkf_core.rev_evd(evals, evects, evects_inv)
         torch.testing.assert_allclose(ret_rev, right_rev)
 
     def test_right_w_eigendecomposition(self):
