@@ -36,37 +36,11 @@ import torch.nn
 import xarray as xr
 
 # Internal modules
-from .etkf_core import gen_weights, estimate_cinv
+from .etkf_module import ETKFWeightsModule
 from .filter import FilterAssimilation
 from ..utils import evd, rev_evd
 
 logger = logging.getLogger(__name__)
-
-
-class ETKFWeightsModule(torch.nn.Module):
-    def __init__(self, inf_factor=1.0):
-        super().__init__()
-        self.inf_factor = inf_factor
-
-    @staticmethod
-    def _dot_product(x, y):
-        k_mat = torch.mm(x, y.t())
-        return k_mat
-
-    def forward(self, normed_perts, normed_obs):
-        ens_size = normed_perts.shape[0]
-        reg_value = (ens_size-1) / self.inf_factor
-        kernel_perts = torch.mm(normed_perts, normed_perts.t())
-        evals, evects, evals_inv, evects_inv = evd(kernel_perts, reg_value)
-        cov_analysed = rev_evd(evals_inv, evects, evects_inv)
-
-        kernel_obs = torch.mm(normed_perts, normed_obs.t())
-        w_mean = torch.mm(cov_analysed, kernel_obs).squeeze()
-
-        square_root_einv = ((ens_size - 1) * evals_inv).sqrt()
-        w_perts = rev_evd(square_root_einv, evects, evects_inv)
-        weights = w_mean + w_perts
-        return weights, w_mean, w_perts, cov_analysed
 
 
 class ETKFCorr(FilterAssimilation):
@@ -106,7 +80,7 @@ class ETKFCorr(FilterAssimilation):
                          post_transform=post_transform)
         self.inf_factor = inf_factor
         self._weights = None
-        self._func_cinv = estimate_cinv
+        self._module = ETKFWeightsModule(self.inf_factor)
 
     @property
     def weights(self):
@@ -149,20 +123,23 @@ class ETKFCorr(FilterAssimilation):
         """
         logger.info('####### Global ETKF #######')
         logger.info('Starting with specific preparation')
-        prepared_states = self._prepare(
+        pseudo_obs, obs_state, obs_cov, _ = self._get_states(
             pseudo_state, observations,
-        )[:-1]
+        )
+
         logger.info('Transfering the data to torch')
-        innov, hx_perts, obs_cov = self._states_to_torch(*prepared_states)
+        pseudo_obs, obs_state, obs_cov = self._states_to_torch(
+            pseudo_obs, obs_state, obs_cov
+        )
 
         logger.info('Normalise perturbations and observations')
-        obs_cinv = estimate_cinv(obs_cov)
-        normed_perts = hx_perts.t() @ obs_cinv
-        normed_obs = innov.view(1, -1) @ obs_cinv
+        obs_cinv = self._get_chol_inverse(obs_cov)
+        normed_perts, normed_obs = self._centre_tensors(pseudo_obs, obs_state)
+        normed_perts = self._normalise_cinv(normed_perts, obs_cinv)
+        normed_obs = self._normalise_cinv(normed_obs, obs_cinv)
 
         logger.info('Gathering the weights')
-        reg_term = (len(state.ensemble)-1) / self.inf_factor
-        weights = gen_weights(normed_perts, normed_obs, reg_term)[0]
+        weights = self._module(normed_perts, normed_obs)[0]
 
         logger.info('Applying weights to state')
         state_mean, state_perts = state.state.split_mean_perts()
@@ -171,7 +148,7 @@ class ETKFCorr(FilterAssimilation):
         logger.info('Finished with analysis creation')
         return analysis
 
-    def _prepare(self, pseudo_state, observations):
+    def _get_states(self, pseudo_state, observations):
         """
         This method prepares the different parts of the state. It calculates
         statistics in observation space and concatenates given observations into
@@ -217,20 +194,19 @@ class ETKFCorr(FilterAssimilation):
             a length of :math:`l`, the observation length.
         """
         logger.info('Apply observation operator')
-        hx_mean, hx_perts, filtered_obs = self._prepare_back_obs(pseudo_state,
-                                                                 observations)
+        pseudo_obs, filtered_obs = self._get_pseudo_obs(pseudo_state,
+                                                        observations)
         logger.info('Concatenate observations')
         obs_state, obs_cov, obs_grid = self._prepare_obs(filtered_obs)
-        innov = obs_state - hx_mean
-        return innov, hx_perts, obs_cov, obs_grid
+        return pseudo_obs, obs_state, obs_cov, obs_grid
 
-    def _prepare_back_obs(self, state, observations):
+    def _get_pseudo_obs(self, state, observations):
         pseudo_obs, filtered_obs = self._apply_obs_operator(state, observations)
-        hx_mean, hx_perts = self._prepare_pseudo_obs(pseudo_obs)
-        return hx_mean, hx_perts, filtered_obs
+        pseudo_obs = self._cat_pseudo_obs(pseudo_obs)
+        return pseudo_obs, filtered_obs
 
     @staticmethod
-    def _prepare_pseudo_obs(pseudo_obs):
+    def _cat_pseudo_obs(pseudo_obs):
         state_stacked_list = []
         for obs in pseudo_obs:
             if isinstance(obs.indexes['obs_grid_1'], pd.MultiIndex):
@@ -240,8 +216,25 @@ class ETKFCorr(FilterAssimilation):
             stacked_obs = obs.stack(obs_id=('time', 'obs_grid_1'))
             state_stacked_list.append(stacked_obs)
         pseudo_obs_concat = xr.concat(state_stacked_list, dim='obs_id')
-        hx_mean, hx_perts = pseudo_obs_concat.state.split_mean_perts()
-        return hx_mean.values, hx_perts.T.values
+        return pseudo_obs_concat
+
+    @staticmethod
+    def _centre_tensors(x, *args):
+        x_mean = x.mean(dim=-2, keepdim=True)
+        x_centred = x-x_mean
+        args_centred = [arg-x_mean for arg in args]
+        return (x_centred, *args_centred)
+
+    @staticmethod
+    def _get_chol_inverse(cov):
+        chol_decomp = torch.cholesky(cov)
+        chol_inv = chol_decomp.inverse()
+        return chol_inv
+
+    @staticmethod
+    def _normalise_cinv(state, cinv):
+        normed_state = state @ cinv
+        return normed_state
 
     @staticmethod
     def _weights_matmul(perts, weights):
@@ -320,3 +313,9 @@ class ETKFUncorr(ETKFCorr):
                          pre_transform=pre_transform,
                          post_transform=post_transform)
         self._correlated = False
+
+    @staticmethod
+    def _get_chol_inverse(cov):
+        sqrt_cov = cov.sqrt()
+        sqrt_inv = sqrt_cov.inverse()
+        return sqrt_inv
