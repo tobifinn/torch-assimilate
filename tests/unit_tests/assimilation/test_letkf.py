@@ -38,7 +38,7 @@ import pytassim.state
 import pytassim.observation
 from pytassim.assimilation.filter.etkf import ETKFCorr
 from pytassim.assimilation.filter.letkf import LETKFCorr, LETKFUncorr
-from pytassim.assimilation.filter.etkf_module import ETKFWeightsModule
+from pytassim.assimilation.filter.etkf_core import ETKFWeightsModule
 from pytassim.testing import dummy_obs_operator, DummyLocalization
 
 

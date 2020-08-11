@@ -32,8 +32,8 @@ from tqdm import tqdm
 import torch
 
 # Internal modules
-from .etkf import _UnCorrMixin, _CorrMixin, _ETKFBase
-from .etkf_module import ETKFWeightsModule
+from .etkf import _ETKFBase
+from .etkf_core import ETKFWeightsModule, _CorrMixin, _UnCorrMixin
 
 logger = logging.getLogger(__name__)
 
