@@ -107,6 +107,7 @@ class BaseAssimilation(object):
         if analysis_time is None:
             valid_time = state.time[-1]
         else:
+            analysis_time = pd.to_datetime(analysis_time)
             try:
                 valid_time = state.time.sel(time=analysis_time, method=None)
             except KeyError:
