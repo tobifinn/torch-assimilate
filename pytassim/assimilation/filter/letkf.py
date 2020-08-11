@@ -32,46 +32,137 @@ from tqdm import tqdm
 import torch
 
 # Internal modules
-from .etkf import ETKFCorr
-from . import etkf_core
+from .etkf import _UnCorrMixin, _CorrMixin, _ETKFBase
+from .etkf_module import ETKFWeightsModule
 
 logger = logging.getLogger(__name__)
 
 
-def localize_states(state_grid, obs_grid, innov, hx_perts, obs_cov,
-                    localization):
-    if localization is None:
-        obs_weights = 1
-    else:
-        use_obs, obs_weights = localization.localize_obs(
-            state_grid, obs_grid
+class _LETKFBase(_ETKFBase):
+    def __init__(self, localization=None, inf_factor=1.0, smoother=True,
+                 gpu=False, pre_transform=None, post_transform=None):
+        self._gen_weights = None
+        super().__init__(inf_factor=inf_factor, smoother=smoother, gpu=gpu,
+                         pre_transform=pre_transform,
+                         post_transform=post_transform)
+        self.localization = localization
+
+    @property
+    def gen_weights(self):
+        return self._gen_weights
+
+    @gen_weights.setter
+    def gen_weights(self, new_module):
+        if new_module is None:
+            self._gen_weights = None
+        elif isinstance(new_module, ETKFWeightsModule):
+            self._gen_weights = torch.jit.script(new_module)
+        else:
+            raise TypeError('Given weights module is not a valid '
+                            '`ETKFWeightsModule or None!')
+
+    def _localise_obs(self, grid_point, centred_perts, centred_obs, obs_cinv,
+                      obs_grid):
+        if self.localization is None:
+            return centred_perts, centred_obs, obs_cinv
+        else:
+            use_obs, obs_weights = self.localization.localize_obs(
+                grid_point, obs_grid
+            )
+            obs_weights = torch.as_tensor(obs_weights[use_obs],
+                                          dtype=centred_perts.dtype)
+            centred_perts = centred_perts[..., use_obs]
+            centred_obs = centred_obs[..., use_obs]
+            obs_cinv = obs_cinv[use_obs, ...]
+            if obs_cinv.dim() == 2:
+                obs_cinv = obs_cinv[..., use_obs]
+            obs_cinv = obs_cinv * obs_weights
+            return centred_perts, centred_obs, obs_cinv
+
+    def _localised_analysis(self, state_perts, centered_perts, centered_obs,
+                            obs_cinv, obs_grid):
+        grid_first = state_perts.transpose('grid', ...)
+        analysis_perts = []
+        for sub_perts in grid_first:
+            loc_perts, loc_obs, loc_cinv = self._localise_obs(
+                sub_perts.grid.values, centered_perts, centered_obs, obs_cinv,
+                obs_grid
+            )
+            loc_perts = self._normalise_cinv(loc_perts, loc_cinv)
+            loc_obs = self._normalise_cinv(loc_obs, loc_cinv)
+            weights = self.gen_weights(loc_perts, loc_obs)[0]
+            weights = weights.detach().cpu().numpy()
+            loc_ana_perts = self._weights_matmul(sub_perts, weights)
+            analysis_perts.append(loc_ana_perts)
+        analysis_perts = xr.concat(analysis_perts, dim='grid')
+        analysis_perts = analysis_perts.transpose(*state_perts.dims)
+        return analysis_perts
+
+    def update_state(self, state, observations, pseudo_state, analysis_time):
+        """
+        This method updates the state based on given observations and ansub_array.gridalysis
+        time. This method prepares different states, localize these states,
+        iterates over state grid points, calculates the ensemble  weights and
+        applies these weight to localized state. The calculation of the
+        weights is based on PyTorch, while everything else is calculated with
+        Numpy / Xarray.
+
+        Parameters
+        ----------
+        state : :py:class:`xarray.DataArray`
+            This state is updated by this assimilation algorithm and given
+            ``observation``. This :py:class:`~xarray.DataArray` should have
+            four coordinates, which are specified in
+            :py:class:`pytassim.state.ModelState`.
+        observations : :py:class:`xarray.Dataset` or \
+        iterable(:py:class:`xarray.Dataset`)
+            These observations are used to update given state. An iterable of
+            many :py:class:`xarray.Dataset` can be used to assimilate different
+            variables. For the observation state, these observations are
+            stacked such that the observation state contains all observations.
+        pseudo_state : :py:class:`xarray.DataArray`
+            This state is used to generate an observation-equivalent. This
+             :py:class:`~xarray.DataArray` should have four coordinates, which
+             are specified in :py:class:`pytassim.state.ModelState`.
+        analysis_time : :py:class:`datetime.datetime`
+            This analysis time determines at which point the state is updated.
+
+        Returns
+        -------
+        analysis : :py:class:`xarray.DataArray`
+            The analysed state based on given state and observations. The
+            analysis has same coordinates as given ``state``. If filtering mode
+            is on, then the time axis has only one element.
+        """
+        logger.info('####### Serial LETKF #######')
+        logger.info('Starting with applying observation operator')
+        pseudo_obs, obs_state, obs_cov, obs_grid = self._get_states(
+            pseudo_state, observations,
         )
-        obs_weights = torch.as_tensor(obs_weights[use_obs], dtype=innov.dtype)
-        use_obs = torch.ByteTensor(use_obs.astype(int))
-        if innov.is_cuda:
-            obs_weights = obs_weights.cuda()
-        innov = innov[use_obs]
-        hx_perts = hx_perts[use_obs]
-        obs_cov = obs_cov[use_obs, ...]
-        if obs_cov.dim() == 2:
-            obs_cov = obs_cov[..., use_obs]
-    return innov, hx_perts, obs_cov, obs_weights
+
+        logger.info('Scatter the data to torch')
+        pseudo_obs, obs_state, obs_cov = self._states_to_torch(
+            pseudo_obs, obs_state, obs_cov
+        )
+
+        logger.info('Normalise perturbations and observations')
+        centred_perts, centred_obs = self._centre_tensors(pseudo_obs, obs_state)
+        obs_cinv = self._get_chol_inverse(obs_cov)
+
+        logger.info('Split background into mean and perturbations')
+        state_mean, state_perts = state.state.split_mean_perts()
+
+        logger.info('Create analysis perturbations')
+        analysis_perts = self._localised_analysis(
+            state_perts, centred_perts, centred_obs, obs_cinv, obs_grid
+        )
+        logger.info('Add background mean to analysis perturbations')
+        analysis = (state_mean + analysis_perts).transpose(*state.dims)
+        logger.info('Finished with analysis creation')
+        return analysis
 
 
-def local_etkf(gen_weights_func, ind, innov, hx_perts, obs_cov, back_prec,
-               obs_grid, state_grid, state_perts, localization=None):
-    innov_l, hx_perts_l, obs_cov_l, obs_weights_l = localize_states(
-        state_grid[ind], obs_grid, innov, hx_perts, obs_cov, localization
-    )
-    w_mean_l, w_perts_l = gen_weights_func(
-        back_prec, innov_l, hx_perts_l, obs_cov_l, obs_weights_l
-    )
-    weights_l = (w_mean_l+w_perts_l).t()
-    ana_state_l = torch.matmul(state_perts[ind], weights_l)
-    return ana_state_l, weights_l, w_mean_l
-
-
-class LETKFCorr(ETKFCorr):
+class LETKFCorr(_CorrMixin, _LETKFBase):
     """
     This is an implementation of the `localized ensemble transform Kalman
     filter` :cite:`hunt_efficient_2007` for correlated observations.
@@ -109,102 +200,10 @@ class LETKFCorr(ETKFCorr):
         or CPU (False): Default is None. For small models, estimation of the
         weights on CPU is faster than on GPU!.
     """
-
-    def __init__(self, localization=None, inf_factor=1.0, smoother=True,
-                 gpu=False, pre_transform=None, post_transform=None):
-        super().__init__(inf_factor=inf_factor, smoother=smoother, gpu=gpu,
-                         pre_transform=pre_transform,
-                         post_transform=post_transform)
-        self.localization = localization
-
-    def update_state(self, state, observations, pseudo_state, analysis_time):
-        """
-        This method updates the state based on given observations and analysis
-        time. This method prepares different states, localize these states,
-        iterates over state grid points, calculates the ensemble  weights and
-        applies these weight to localized state. The calculation of the
-        weights is based on PyTorch, while everything else is calculated with
-        Numpy / Xarray.
-
-        Parameters
-        ----------
-        state : :py:class:`xarray.DataArray`
-            This state is updated by this assimilation algorithm and given
-            ``observation``. This :py:class:`~xarray.DataArray` should have
-            four coordinates, which are specified in
-            :py:class:`pytassim.state.ModelState`.
-        observations : :py:class:`xarray.Dataset` or \
-        iterable(:py:class:`xarray.Dataset`)
-            These observations are used to update given state. An iterable of
-            many :py:class:`xarray.Dataset` can be used to assimilate different
-            variables. For the observation state, these observations are
-            stacked such that the observation state contains all observations.
-        pseudo_state : :py:class:`xarray.DataArray`
-            This state is used to generate an observation-equivalent. This
-             :py:class:`~xarray.DataArray` should have four coordinates, which
-             are specified in :py:class:`pytassim.state.ModelState`.
-        analysis_time : :py:class:`datetime.datetime`
-            This analysis time determines at which point the state is updated.
-
-        Returns
-        -------
-        analysis : :py:class:`xarray.DataArray`
-            The analysed state based on given state and observations. The
-            analysis has same coordinates as given ``state``. If filtering mode
-            is on, then the time axis has only one element.
-        """
-        logger.info('####### Serial LETKF #######')
-        logger.info('Starting with specific preparation')
-        innov, hx_perts, obs_cov, obs_grid = self._prepare(
-            pseudo_state, observations
-        )
-        back_state = state.transpose('grid', 'var_name', 'time', 'ensemble')
-        state_mean, state_perts = back_state.state.split_mean_perts()
-
-        logger.info('Transfering the data to torch')
-        back_prec = self._get_back_prec(len(back_state.ensemble))
-        innov, hx_perts, obs_cov, back_state = self._states_to_torch(
-            innov, hx_perts, obs_cov, state_perts.values,
-        )
-        state_grid = state_perts.grid.values
-        len_state_grid = len(state_grid)
-        grid_inds = range(len_state_grid)
-
-        delta_ana = []
-        weights = []
-        logger.info('Iterating through state grid')
-        for grid_ind in tqdm(grid_inds, total=len_state_grid):
-            ana_l, weights_l, _ = local_etkf(
-                self._gen_weights_func, grid_ind, innov, hx_perts, obs_cov,
-                back_prec, obs_grid, state_grid, back_state, self.localization
-            )
-            delta_ana.append(ana_l)
-            weights.append(weights_l)
-        delta_ana = torch.stack(delta_ana, dim=0)
-        state_perts.values = delta_ana.numpy()
-        weights = torch.stack(weights, dim=0).numpy()
-        self._weights = self._get_weight_array(
-            weights, grid=state_grid, ensemble=state.ensemble.values
-        )
-        analysis = (state_mean + state_perts).transpose(*state.dims)
-        logger.info('Finished with analysis creation')
-        return analysis
-
-    @staticmethod
-    def _get_weight_array(weights, grid, ensemble):
-        weights_da = xr.DataArray(
-            weights,
-            coords={
-                'grid': grid,
-                'ensemble_1': ensemble,
-                'ensemble_2': ensemble
-            },
-            dims=['grid', 'ensemble_1', 'ensemble_2']
-        )
-        return weights_da
+    pass
 
 
-class LETKFUncorr(LETKFCorr):
+class LETKFUncorr(_UnCorrMixin, _LETKFBase):
     """
     This is an implementation of the `localized ensemble transform Kalman
     filter` :cite:`hunt_efficient_2007` for uncorrelated observations.
@@ -242,12 +241,4 @@ class LETKFUncorr(LETKFCorr):
         or CPU (False): Default is None. For small models, estimation of the
         weights on CPU is faster than on GPU!.
     """
-
-    def __init__(self, localization=None, inf_factor=1.0, smoother=True,
-                 gpu=False, pre_transform=None, post_transform=None):
-        super().__init__(localization=localization, inf_factor=inf_factor,
-                         smoother=smoother, gpu=gpu,
-                         pre_transform=pre_transform,
-                         post_transform=post_transform)
-        self._gen_weights_func = etkf_core.gen_weights_uncorr
-        self._correlated = False
+    pass
