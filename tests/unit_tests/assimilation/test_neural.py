@@ -74,9 +74,9 @@ class TestNeuralAssimilation(unittest.TestCase):
     def test_update_state_transfers_tensors_to_torch(self):
         ana_time = self.state.time[-1].values
         obs_tuple = (self.obs, self.obs)
-        obs_state, obs_cov, _ = self.algorithm._prepare_obs(obs_tuple)
+        obs_state, _ = self.algorithm._prepare_obs(obs_tuple)
         torch_states = self.algorithm._states_to_torch(
-            self.state.values, obs_state, self.state.values, obs_cov
+            self.state.values, obs_state, self.state.values
         )
         trg = 'pytassim.assimilation.neural.neural.NeuralAssimilation.' \
               '_states_to_torch'
@@ -89,14 +89,13 @@ class TestNeuralAssimilation(unittest.TestCase):
         np.testing.assert_equal(transfer_patch.call_args[0][1], obs_state)
         np.testing.assert_equal(transfer_patch.call_args[0][2],
                                 self.state.values)
-        np.testing.assert_equal(transfer_patch.call_args[0][3], obs_cov)
 
     def test_update_state_calls_assimilate_from_module(self):
         ana_time = self.state.time[-1].values
         obs_tuple = (self.obs, self.obs)
-        obs_state, obs_cov, _ = self.algorithm._prepare_obs(obs_tuple)
+        obs_state, _ = self.algorithm._prepare_obs(obs_tuple)
         torch_states = self.algorithm._states_to_torch(
-            self.state.values, obs_state, self.state.values, obs_cov
+            self.state.values, obs_state, self.state.values
         )
         trg = 'pytassim.testing.dummy.DummyNeuralModule.assimilate'
         with patch(trg, return_value=torch_states[0]) as module_patch:
@@ -109,15 +108,13 @@ class TestNeuralAssimilation(unittest.TestCase):
                                       torch_states[1])
         torch.testing.assert_allclose(module_patch.call_args[0][2],
                                       torch_states[2])
-        torch.testing.assert_allclose(module_patch.call_args[0][3],
-                                      torch_states[3])
 
     def test_update_state_returns_state_with_new_data(self):
         ana_time = self.state.time[-1].values
         obs_tuple = (self.obs, self.obs)
-        obs_state, obs_cov, _ = self.algorithm._prepare_obs(obs_tuple)
+        obs_state, _ = self.algorithm._prepare_obs(obs_tuple)
         torch_states = self.algorithm._states_to_torch(
-            self.state.values, obs_state, obs_cov
+            self.state.values, obs_state
         )
         torch_states[0][0] = 9999
         analysis = self.state.copy(deep=True, data=torch_states[0].numpy())
