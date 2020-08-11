@@ -29,6 +29,7 @@ import logging
 # External modules
 import numpy as np
 import torch
+import scipy.linalg
 
 # Internal modules
 from ..utils import evd, rev_evd
