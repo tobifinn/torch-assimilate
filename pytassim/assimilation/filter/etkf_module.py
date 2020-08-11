@@ -39,7 +39,19 @@ logger = logging.getLogger(__name__)
 class ETKFWeightsModule(torch.nn.Module):
     def __init__(self, inf_factor=1.0):
         super().__init__()
+        self._inf_factor = inf_factor
         self.inf_factor = inf_factor
+
+    @property
+    def inf_factor(self):
+        return self._inf_factor
+
+    @inf_factor.setter
+    def inf_factor(self, new_factor):
+        if isinstance(new_factor, torch.Tensor):
+            self._inf_factor = new_factor
+        else:
+            self._inf_factor = torch.tensor(new_factor)
 
     @staticmethod
     def _dot_product(x, y):
@@ -48,7 +60,7 @@ class ETKFWeightsModule(torch.nn.Module):
 
     def forward(self, normed_perts, normed_obs):
         ens_size = normed_perts.shape[0]
-        reg_value = (ens_size-1) / self.inf_factor
+        reg_value = torch.tensor((ens_size-1) / self._inf_factor)
         kernel_perts = torch.mm(normed_perts, normed_perts.t())
         evals, evects, evals_inv, evects_inv = evd(kernel_perts, reg_value)
         cov_analysed = rev_evd(evals_inv, evects, evects_inv)

@@ -35,7 +35,7 @@ import torch
 logger = logging.getLogger(__name__)
 
 
-def evd(tensor, reg_value=0):
+def evd(tensor, reg_value=torch.tensor(0)):
     evals, evects = torch.symeig(tensor, eigenvectors=True, upper=False)
     evals = evals.clamp(min=0)
     evals = evals + reg_value
