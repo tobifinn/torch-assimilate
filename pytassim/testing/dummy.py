@@ -101,7 +101,6 @@ def dummy_update_state(self, state, observations, pseudo_state, analysis_time):
         which should contain only one time step.
 
     """
-    print(type(analysis_time))
     analysis = state.sel(time=analysis_time, method='nearest')
     analysis = analysis.expand_dims('time', axis=1)
     return analysis
