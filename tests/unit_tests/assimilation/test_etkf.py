@@ -138,6 +138,14 @@ class TestETKFModule(unittest.TestCase):
         out_dot = self.module._dot_product(self.normed_perts, self.normed_perts)
         torch.testing.assert_allclose(out_dot, right_dot_product)
 
+    def test_differentiable(self):
+        normed_perts = torch.nn.Parameter(self.normed_perts.clone())
+        self.assertIsNone(normed_perts.grad)
+        ret_val = self.module(normed_perts, self.normed_obs)[0]
+        ret_val.mean().backward()
+        self.assertIsNotNone(normed_perts.grad)
+        self.assertIsInstance(normed_perts.grad, torch.Tensor)
+
     def test_right_cov(self):
         ret_kernel = self.module._dot_product(self.normed_perts,
                                               self.normed_perts)
