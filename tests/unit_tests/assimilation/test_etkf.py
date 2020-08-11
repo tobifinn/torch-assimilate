@@ -244,10 +244,10 @@ class TestETKFCorr(unittest.TestCase):
         self.assertEqual(self.algorithm._inf_factor, 3.2)
 
     def test_inf_factor_sets_new_weight_gen(self):
-        old_id = id(self.algorithm._weight_gen)
+        old_id = id(self.algorithm.gen_weights)
         self.algorithm.inf_factor = 3.2
-        self.assertNotEqual(id(self.algorithm._weight_gen), old_id)
-        self.assertEqual(self.algorithm._weight_gen.inf_factor, 3.2)
+        self.assertNotEqual(id(self.algorithm.gen_weights), old_id)
+        self.assertEqual(self.algorithm.gen_weights.inf_factor, 3.2)
 
     def test_prepare_obs_stackes_and_concats_obs(self):
         obs_stacked = self.obs['observations'].stack(

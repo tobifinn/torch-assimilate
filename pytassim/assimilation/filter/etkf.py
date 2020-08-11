@@ -25,23 +25,22 @@
 
 # System modules
 import logging
-
-import numpy as np
-import pandas as pd
-import torch
-
-import torch.nn
+import abc
 
 # External modules
 import xarray as xr
-
+import numpy as np
+import pandas as pd
+import torch
+import torch.nn
 import scipy.linalg
 
 # Internal modules
 from .etkf_module import ETKFWeightsModule
 from .filter import FilterAssimilation
 
-logger = logging.getLogger(__name__)
+
+_logger = logging.getLogger(__name__)
 
 
 class _CorrMixin(object):
@@ -103,7 +102,7 @@ class _ETKFBase(FilterAssimilation):
                          pre_transform=pre_transform,
                          post_transform=post_transform)
         self._inf_factor = None
-        self._weight_gen = None
+        self.gen_weights = None
         self.inf_factor = inf_factor
         self._weights = None
 
@@ -114,11 +113,19 @@ class _ETKFBase(FilterAssimilation):
     @inf_factor.setter
     def inf_factor(self, new_factor):
         self._inf_factor = new_factor
-        self._weight_gen = ETKFWeightsModule(new_factor)
+        self.gen_weights = ETKFWeightsModule(new_factor)
 
     @property
     def weights(self):
         return self._weights
+
+    @abc.abstractmethod
+    def _get_chol_inverse(self, cov):
+        pass
+
+    @abc.abstractmethod
+    def _normalise_cinv(self, state, cinv):
+        pass
 
     def update_state(self, state, observations, pseudo_state, analysis_time):
         """
@@ -155,31 +162,31 @@ class _ETKFBase(FilterAssimilation):
             analysis has same coordinates as given ``state``. If filtering mode
             is on, then the time axis has only one element.
         """
-        logger.info('####### Global ETKF #######')
-        logger.info('Starting with specific preparation')
+        _logger.info('####### Global ETKF #######')
+        _logger.info('Starting with specific preparation')
         pseudo_obs, obs_state, obs_cov, _ = self._get_states(
             pseudo_state, observations,
         )
 
-        logger.info('Transfering the data to torch')
+        _logger.info('Transfering the data to torch')
         pseudo_obs, obs_state, obs_cov = self._states_to_torch(
             pseudo_obs, obs_state, obs_cov
         )
 
-        logger.info('Normalise perturbations and observations')
+        _logger.info('Normalise perturbations and observations')
         normed_perts, normed_obs = self._centre_tensors(pseudo_obs, obs_state)
         obs_cinv = self._get_chol_inverse(obs_cov)
         normed_perts = self._normalise_cinv(normed_perts, obs_cinv)
         normed_obs = self._normalise_cinv(normed_obs, obs_cinv)
 
-        logger.info('Gathering the weights')
-        weights = self._weight_gen(normed_perts, normed_obs)[0]
+        _logger.info('Gathering the weights')
+        weights = self.gen_weights(normed_perts, normed_obs)[0]
 
-        logger.info('Applying weights to state')
+        _logger.info('Applying weights to state')
         state_mean, state_perts = state.state.split_mean_perts()
         analysis = self._apply_weights(weights, state_mean, state_perts)
         analysis = analysis.transpose('var_name', 'time', 'ensemble', 'grid')
-        logger.info('Finished with analysis creation')
+        _logger.info('Finished with analysis creation')
         return analysis
 
     def _get_states(self, pseudo_state, observations):
@@ -227,10 +234,10 @@ class _ETKFBase(FilterAssimilation):
             localization or weighting purpose. This last axis of this array has
             a length of :math:`l`, the observation length.
         """
-        logger.info('Apply observation operator')
+        _logger.info('Apply observation operator')
         pseudo_obs, filtered_obs = self._get_pseudo_obs(pseudo_state,
                                                         observations)
-        logger.info('Concatenate observations')
+        _logger.info('Concatenate observations')
         obs_state, obs_grid = self._prepare_obs(filtered_obs)
         obs_cov = self._get_obs_cov(filtered_obs)
         return pseudo_obs, obs_state, obs_cov, obs_grid
