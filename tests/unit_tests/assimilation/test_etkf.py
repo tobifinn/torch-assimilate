@@ -135,13 +135,13 @@ class TestETKFModule(unittest.TestCase):
 
     def test_dot_product(self):
         right_dot_product = self.normed_perts @ self.normed_perts.t()
-        out_dot = etkf_module._dot_product(self.normed_perts, self.normed_perts)
+        out_dot = self.module._dot_product(self.normed_perts, self.normed_perts)
         torch.testing.assert_allclose(out_dot, right_dot_product)
 
     def test_right_cov(self):
-        ret_kernel = etkf_module._dot_product(self.normed_perts,
+        ret_kernel = self.module._dot_product(self.normed_perts,
                                               self.normed_perts)
-        ret_evd = etkf_module._evd(ret_kernel, 1)
+        ret_evd = etkf_module.evd(ret_kernel, 1)
         evals, evects, evals_inv, evects_inv = ret_evd
 
         cov_analysed = torch.matmul(evects, torch.diagflat(evals_inv))
@@ -155,15 +155,15 @@ class TestETKFModule(unittest.TestCase):
         np.testing.assert_array_almost_equal(cov_analysed, right_cov)
 
     def test_rev_evd(self):
-        ret_kernel = etkf_module._dot_product(self.normed_perts,
+        ret_kernel = self.module._dot_product(self.normed_perts,
                                               self.normed_perts)
-        evals, evects, evals_inv, evects_inv = etkf_module._evd(
+        evals, evects, evals_inv, evects_inv = etkf_module.evd(
             ret_kernel, 1
         )
         right_rev = torch.mm(evects, torch.diagflat(evals))
         right_rev = torch.mm(right_rev, evects_inv)
 
-        ret_rev = etkf_module._rev_evd(evals, evects, evects_inv)
+        ret_rev = etkf_module.rev_evd(evals, evects, evects_inv)
         torch.testing.assert_allclose(ret_rev, right_rev)
 
     def test_right_w_eigendecomposition(self):
@@ -174,14 +174,13 @@ class TestETKFModule(unittest.TestCase):
         w_pert = np.dot(evals_inv_sqrt, evects.T)
         w_pert = np.dot(evects, w_pert)
 
-        ret_perts = etkf_module.gen_weights(self.normed_perts, self.normed_obs,
-                                            1)[2]
+        ret_perts = self.module(self.normed_perts, self.normed_obs)[2]
         np.testing.assert_array_almost_equal(ret_perts.numpy(), w_pert)
 
     def test_returns_w_mean(self):
         correct_gain = np.array([0.5, -0.5])
-        correct_wa = (correct_gain * 0.2).reshape(2, 1)
-        ret_wa = etkf_module.gen_weights(self.normed_perts, self.normed_obs, 1)[1]
+        correct_wa = correct_gain * 0.2
+        ret_wa = self.module(self.normed_perts, self.normed_obs)[1]
         np.testing.assert_array_almost_equal(ret_wa.numpy(), correct_wa)
 
     def test_returns_w_perts(self):
@@ -189,8 +188,7 @@ class TestETKFModule(unittest.TestCase):
             [0.75, 0.25],
             [0.25, 0.75]
         ])
-        return_perts = etkf_module.gen_weights(self.normed_perts, self.normed_obs,
-                                               1)[2]
+        return_perts = self.module(self.normed_perts, self.normed_obs)[2]
         return_perts = return_perts.numpy()
         ret_cov = np.matmul(return_perts, return_perts.T)
         np.testing.assert_array_almost_equal(ret_cov, right_cov)
@@ -200,41 +198,19 @@ class TestETKFModule(unittest.TestCase):
             [0.75, 0.25],
             [0.25, 0.75]
         ])
-        return_cov = etkf_module.gen_weights(self.normed_perts, self.normed_obs,
-                                             1)[3]
+        return_cov = self.module(self.normed_perts, self.normed_obs)[3]
         return_cov = return_cov.numpy()
         np.testing.assert_array_almost_equal(return_cov, right_cov)
 
     def test_returns_weights(self):
-        weights, w_mean, w_perts, _ = etkf_module.gen_weights(
-            self.normed_perts, self.normed_obs, 1
-        )
+        weights, w_mean, w_perts, _ = self.module(self.normed_perts,
+                                                  self.normed_obs)
         torch.testing.assert_allclose(weights, w_mean+w_perts)
 
-    def test_apply_weights_ens_mean(self):
-        weights, w_mean, _, _ = etkf_module.gen_weights(
-            self.normed_perts, self.normed_obs, 1
-        )
-        state_mean, state_perts = self.state.state.split_mean_perts()
-        perts_t = state_perts.transpose('var_name', 'time', 'grid', 'ensemble')
-        del_ana_mean = np.matmul(perts_t.values, w_mean.numpy().squeeze())
-        ana_mean = state_mean + del_ana_mean
-        ret_state = self.algorithm._apply_weights(weights, state_mean,
-                                                  state_perts)
-        np.testing.assert_almost_equal(ret_state.mean('ensemble').values,
-                                       ana_mean.values)
-
-    def test_apply_weights_perts(self):
-        weights, _, w_perts, _ = etkf_module.gen_weights(
-            self.normed_perts, self.normed_obs, 1
-        )
-        state_mean, state_perts = self.state.state.split_mean_perts()
-        perts_t = state_perts.transpose('var_name', 'time', 'grid', 'ensemble')
-        del_ana_perts = np.matmul(perts_t.values, w_perts.numpy())
-        ret_state = self.algorithm._apply_weights(weights, state_mean,
-                                                  state_perts)
-        ret_ana_perts = ret_state - ret_state.mean('ensemble')
-        np.testing.assert_equal(ret_ana_perts, del_ana_perts)
+    def test_weights_ens_mean(self):
+        weights, w_mean, _, _ = self.module(self.normed_perts, self.normed_obs)
+        eval_mean = (weights-torch.eye(self.normed_perts.shape[0])).mean(dim=0)
+        torch.testing.assert_allclose(eval_mean, w_mean)
 
 
 class TestETKFCorr(unittest.TestCase):

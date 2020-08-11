@@ -60,7 +60,7 @@ class ETKFWeightsModule(torch.nn.Module):
 
     def forward(self, normed_perts, normed_obs):
         ens_size = normed_perts.shape[0]
-        reg_value = torch.tensor((ens_size-1) / self._inf_factor)
+        reg_value = (ens_size-1) / self._inf_factor
         kernel_perts = torch.mm(normed_perts, normed_perts.t())
         evals, evects, evals_inv, evects_inv = evd(kernel_perts, reg_value)
         cov_analysed = rev_evd(evals_inv, evects, evects_inv)
