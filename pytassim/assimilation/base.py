@@ -119,7 +119,9 @@ class BaseAssimilation(object):
                     ),
                     category=UserWarning
                 )
-        return valid_time.values
+        valid_time = valid_time.values
+        valid_time = pd.to_datetime(valid_time)
+        return valid_time
 
     @staticmethod
     def _apply_obs_operator(pseudo_state, observations):

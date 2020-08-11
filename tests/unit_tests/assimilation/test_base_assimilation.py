@@ -32,6 +32,7 @@ import warnings
 # External modules
 import xarray as xr
 import numpy as np
+import pandas as pd
 
 # Internal modules
 from pytassim.assimilation.base import BaseAssimilation
@@ -46,9 +47,13 @@ BASE_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
 
 
+class NewAssimilation(BaseAssimilation):
+    _correlated = True
+
+
 class TestBaseAssimilation(unittest.TestCase):
     def setUp(self):
-        self.algorithm = BaseAssimilation()
+        self.algorithm = NewAssimilation()
         state_path = os.path.join(DATA_PATH, 'test_state.nc')
         self.state = xr.open_dataarray(state_path)
         obs_path = os.path.join(DATA_PATH, 'test_single_obs.nc')
@@ -103,32 +108,32 @@ class TestBaseAssimilation(unittest.TestCase):
         single_obs_patch.assert_called_once_with(self.obs)
 
     def test_get_analysis_time_uses_analysis_time_if_valid(self):
-        valid_time = self.state.time[-1]
+        valid_time = pd.to_datetime(self.state.time[-1].to_pandas())
         returned_time = self.algorithm._get_analysis_time(
             self.state, analysis_time=valid_time
         )
-        np.testing.assert_equal(valid_time.values, returned_time)
+        np.testing.assert_equal(valid_time, returned_time)
 
     def test_get_analysis_time_return_latest_time_if_none(self):
-        valid_time = self.state.time[-1]
+        valid_time = pd.to_datetime(self.state.time[-1].to_pandas())
         returned_time = self.algorithm._get_analysis_time(
             self.state, analysis_time=None
         )
-        np.testing.assert_equal(valid_time.values, returned_time)
+        np.testing.assert_equal(valid_time, returned_time)
 
     def test_get_analysis_returns_nearest_time_if_not_valid(self):
-        valid_time = self.state.time[0]
+        valid_time = pd.to_datetime(self.state.time[0].to_pandas())
         with self.assertWarns(UserWarning) as w:
             returned_time = self.algorithm._get_analysis_time(
                 self.state, analysis_time='1991'
             )
-        np.testing.assert_equal(valid_time.values, returned_time)
+        np.testing.assert_equal(valid_time, returned_time)
 
     @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
            side_effect=dummy_update_state, autospec=True)
     def test_assimilate_uses_latest_state_time(self, _):
         self.algorithm.smoother = True
-        latest_time = self.state.time[-1]
+        latest_time = pd.to_datetime(self.state.time[-1].to_pandas())
         with patch('pytassim.assimilation.base.BaseAssimilation.'
                    '_get_analysis_time', return_value=latest_time) as time_mock:
             _ = self.algorithm.assimilate(self.state, self.obs, None)
@@ -169,24 +174,24 @@ class TestBaseAssimilation(unittest.TestCase):
         self.algorithm.smoother = True
         pstate = self.state + 1
         _ = self.algorithm.assimilate(self.state, self.obs, pstate, None)
-        latest_time = self.state.time[-1]
+        latest_time = pd.to_datetime(self.state.time[-1].to_pandas())
         update_mock.assert_called_once()
         xr.testing.assert_equal(update_mock.call_args[0][1], self.state)
         xr.testing.assert_equal(update_mock.call_args[0][2][0], self.obs,)
         xr.testing.assert_equal(update_mock.call_args[0][3], pstate)
-        np.testing.assert_equal(update_mock.call_args[0][4], latest_time.values)
+        np.testing.assert_equal(update_mock.call_args[0][4], latest_time)
 
     @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
            side_effect=dummy_update_state, autospec=True)
     def test_assimilate_uses_state_wo_pseudo(self, update_mock):
         self.algorithm.smoother = True
         _ = self.algorithm.assimilate(self.state, self.obs, None, None)
-        latest_time = self.state.time[-1]
+        latest_time = pd.to_datetime(self.state.time[-1].to_pandas())
         update_mock.assert_called_once()
         xr.testing.assert_equal(update_mock.call_args[0][1], self.state)
         xr.testing.assert_equal(update_mock.call_args[0][2][0], self.obs,)
         xr.testing.assert_equal(update_mock.call_args[0][3], self.state)
-        np.testing.assert_equal(update_mock.call_args[0][4], latest_time.values)
+        np.testing.assert_equal(update_mock.call_args[0][4], latest_time)
 
     @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
            side_effect=dummy_update_state, autospec=True)
@@ -198,8 +203,10 @@ class TestBaseAssimilation(unittest.TestCase):
     @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
            side_effect=dummy_update_state, autospec=True)
     def test_assimilate_validates_analysis(self, _):
-        analysis = dummy_update_state(self.algorithm, self.state, self.obs,
-                                      None, self.state.time[-1])
+        analysis = dummy_update_state(
+            self.algorithm, self.state, self.obs, None,
+            pd.to_datetime(self.state.time[-1].to_pandas())
+        )
         with patch('pytassim.assimilation.base.BaseAssimilation.'
                    '_validate_state') as valid_mock:
             _ = self.algorithm.assimilate(self.state, self.obs, None, None)
@@ -209,8 +216,10 @@ class TestBaseAssimilation(unittest.TestCase):
     @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
            side_effect=dummy_update_state, autospec=True)
     def test_assimilate_returns_analysis(self, _):
-        analysis = dummy_update_state(self.algorithm, self.state, self.obs,
-                                      None, self.state.time[-1])
+        analysis = dummy_update_state(
+            self.algorithm, self.state, self.obs, None,
+            pd.to_datetime(self.state.time[-1].to_pandas())
+        )
         returned_analysis = self.algorithm.assimilate(self.state, self.obs,
                                                       None, None)
         xr.testing.assert_equal(analysis, returned_analysis)
