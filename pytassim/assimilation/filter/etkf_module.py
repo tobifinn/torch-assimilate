@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 class ETKFWeightsModule(torch.nn.Module):
     def __init__(self, inf_factor=1.0):
         super().__init__()
-        self._inf_factor = inf_factor
+        self._inf_factor = None
         self.inf_factor = inf_factor
 
     @property
@@ -48,7 +48,7 @@ class ETKFWeightsModule(torch.nn.Module):
 
     @inf_factor.setter
     def inf_factor(self, new_factor):
-        if isinstance(new_factor, torch.Tensor):
+        if isinstance(new_factor, (torch.Tensor, torch.nn.Parameter)):
             self._inf_factor = new_factor
         else:
             self._inf_factor = torch.tensor(new_factor)
