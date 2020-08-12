@@ -75,7 +75,7 @@ via conda (recommended):
     cd torch-assimilate
     conda env create -f environment.yml
     source activate pytassim
-    conda install pytorch-cpu torchvision-cpu -c pytorch
+    conda install pytorch torchvision cpuonly -c pytorch
     pip install .
 
 via pip (latest pypi-test):
@@ -83,8 +83,7 @@ via pip (latest pypi-test):
 .. code:: sh
 
     pip install --index-url https://test.pypi.org/simple/ torch-assimilate
-    pip3 install http://download.pytorch.org/whl/cpu/torch-0.4.1-cp36-cp36m-linux_x86_64.whl
-    pip3 install torchvision
+    pip install torch==1.6.0+cpu torchvision==0.7.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
 
 Authors
 -------
