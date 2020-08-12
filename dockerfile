@@ -9,4 +9,6 @@ SHELL ["/bin/bash", "-c"]
 RUN conda update -n base conda
 RUN git clone https://gitlab.com/tobifinn/torch-assimilate.git
 RUN conda env create -f /torch-assimilate/dev_environment.yml
-RUN source activate pytassim-dev && echo "Curr env: $CONDA_DEFAULT_ENV" && conda install -y pytorch-cpu torchvision-cpu -c pytorch
+RUN source activate pytassim-dev && echo "Curr env: $CONDA_DEFAULT_ENV" && conda install pytorch torchvision cpuonly -c pytorch
+
+
