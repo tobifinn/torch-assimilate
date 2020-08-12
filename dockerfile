@@ -3,7 +3,7 @@ FROM continuumio/miniconda3
 MAINTAINER Tobias Sebastian Finn <tobias.sebastian.finn@uni-hamburg.de
 
 RUN apt-get update -q -y && \
-    apt-get install -y build-essential git graphviz plantuml
+    apt-get install -y build-essential git graphviz
 
 SHELL ["/bin/bash", "-c"]
 RUN conda update -n base conda
