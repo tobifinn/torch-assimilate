@@ -71,14 +71,14 @@ class TestBaseOperator(unittest.TestCase):
 
     def test_get_obs_method_sets_new_time(self):
         self.operator.obs_op = MagicMock(return_value=self.state)
-        self.obs['time'] += 1
+        self.obs['time'] = self.obs['time'] + 1
         obs_inst = Observation(self.obs)
         pseudo_obs = self.operator.get_obs_method(obs_inst, self.state)
         np.testing.assert_equal(pseudo_obs.time.values, self.obs.time.values)
 
     def test_get_obs_method_sets_new_grid(self):
         self.operator.obs_op = MagicMock(return_value=self.state)
-        self.obs['obs_grid_1'] += 1
+        self.obs['obs_grid_1'] = self.obs['obs_grid_1'] + 1
         obs_inst = Observation(self.obs)
         pseudo_obs = self.operator.get_obs_method(obs_inst, self.state)
         np.testing.assert_equal(pseudo_obs.obs_grid_1.values,
