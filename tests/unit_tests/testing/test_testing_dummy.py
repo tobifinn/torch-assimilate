@@ -30,6 +30,7 @@ import os
 # External modules
 import xarray as xr
 import numpy as np
+import pandas as pd
 
 # Internal modules
 from pytassim.observation import Observation
@@ -53,7 +54,7 @@ class TestTestingUtilities(unittest.TestCase):
 
     def test_dummy_update_returns_sliced_date(self):
         assimilation = BaseAssimilation()
-        ana_time = self.state.time[-1]
+        ana_time = pd.to_datetime(self.state.time[-1].values)
         sliced_state = self.state.isel(time=slice(-1, None))
         returned_state = utils.dummy_update_state(
             assimilation, self.state, self.obs, self.state, ana_time

@@ -1,13 +1,13 @@
 #!/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Created on 2/8/19
+# Created on 10.08.20
 #
 # Created for torch-assimilate
 #
 # @author: Tobias Sebastian Finn, tobias.sebastian.finn@uni-hamburg.de
 #
-#    Copyright (C) {2019}  {Tobias Sebastian Finn}
+#    Copyright (C) {2020}  {Tobias Sebastian Finn}
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@
 import logging
 
 # External modules
-from torch import autograd
+import torch
 
 # Internal modules
 
@@ -35,12 +35,17 @@ from torch import autograd
 logger = logging.getLogger(__name__)
 
 
-def zero_grad_penalty(disc_out, disc_input):
-    batch_size = disc_input.size(0)
-    grad_out = autograd.grad(
-        outputs=disc_out.sum(), inputs=disc_input,
-        create_graph=True, retain_graph=True, only_inputs=True
-    )[0]
-    grad_out_squared = grad_out.pow(2)
-    penalty = grad_out_squared.view(batch_size, -1).sum(1)
-    return penalty
+def evd(tensor, reg_value=torch.tensor(0)):
+    evals, evects = torch.symeig(tensor, eigenvectors=True, upper=False)
+    evals = evals.clamp(min=0)
+    evals = evals + reg_value
+    evals_inv = 1 / evals
+    evects_inv = evects.t()
+    return evals, evects, evals_inv, evects_inv
+
+
+def rev_evd(evals, evects, evects_inv):
+    diag_flat_evals = torch.diagflat(evals)
+    rev_evd = torch.mm(evects, diag_flat_evals)
+    rev_evd = torch.mm(rev_evd, evects_inv)
+    return rev_evd

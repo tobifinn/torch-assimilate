@@ -25,63 +25,52 @@
 
 # System modules
 import logging
+import abc
 
-import numpy as np
-import pandas as pd
-import torch
 # External modules
 import xarray as xr
+import numpy as np
+import pandas as pd
 
-from .etkf_core import gen_weights_corr, gen_weights_uncorr
 # Internal modules
+from .etkf_core import ETKFWeightsModule, _CorrMixin, _UnCorrMixin
 from .filter import FilterAssimilation
 
-logger = logging.getLogger(__name__)
+
+_logger = logging.getLogger(__name__)
 
 
-class ETKFCorr(FilterAssimilation):
-    """
-    This is an implementation of the `ensemble transform Kalman filter`
-    :cite:`bishop_adaptive_2001` for correlated observation covariances.
-    This ensemble Kalman filter is a deterministic filter, where the state is
-    update globally. This ensemble Kalman filter estimates ensemble weights in
-    weight space, which are then applied to the given state. This implementation
-    follows :cite:`hunt_efficient_2007` with global weight estimation and is
-    implemented in PyTorch.
-    This implementation allows filtering in time based on linear propagation
-    assumption :cite:`hunt_four-dimensional_2004` and ensemble smoothing.
-
-    Parameters
-    ----------
-    smoothing : bool, optional
-        Indicates if this filter should be run in smoothing or in filtering
-        mode. In smoothing mode, no analysis time is selected from given state
-        and the ensemble weights are applied to the whole state. In filtering
-        mode, the weights are applied only on selected analysis time. Default
-        is False, indicating filtering mode.
-    inf_factor : float, optional
-        Multiplicative inflation factor :math:`\\rho``, which is applied to the
-        background precision. An inflation factor greater one increases the
-        ensemble spread, while a factor less one decreases the spread. Default
-        is 1.0, which is the same as no inflation at all.
-    gpu : bool, optional
-        Indicator if the weight estimation should be done on either GPU (True)
-        or CPU (False): Default is None. For small models, estimation of the
-        weights on CPU is faster than on GPU!.
-    """
+class _ETKFBase(FilterAssimilation):
     def __init__(self, inf_factor=1.0, smoother=True, gpu=False,
                  pre_transform=None, post_transform=None):
         super().__init__(smoother=smoother, gpu=gpu,
                          pre_transform=pre_transform,
                          post_transform=post_transform)
+        self._inf_factor = None
+        self.gen_weights = None
         self.inf_factor = inf_factor
-        self._back_prec = None
         self._weights = None
-        self._gen_weights_func = gen_weights_corr
+
+    @property
+    def inf_factor(self):
+        return self._inf_factor
+
+    @inf_factor.setter
+    def inf_factor(self, new_factor):
+        self._inf_factor = new_factor
+        self.gen_weights = ETKFWeightsModule(new_factor)
 
     @property
     def weights(self):
         return self._weights
+
+    @abc.abstractmethod
+    def _get_chol_inverse(self, cov):
+        pass
+
+    @abc.abstractmethod
+    def _normalise_cinv(self, state, cinv):
+        pass
 
     def update_state(self, state, observations, pseudo_state, analysis_time):
         """
@@ -118,26 +107,34 @@ class ETKFCorr(FilterAssimilation):
             analysis has same coordinates as given ``state``. If filtering mode
             is on, then the time axis has only one element.
         """
-        logger.info('####### Global ETKF #######')
-        logger.info('Starting with specific preparation')
-        prepared_states = self._prepare(
+        _logger.info('####### Global ETKF #######')
+        _logger.info('Starting with specific preparation')
+        pseudo_obs, obs_state, obs_cov, _ = self._get_states(
             pseudo_state, observations,
-        )[:-1]
-        logger.info('Transfering the data to torch')
-        innov, hx_perts, obs_cov = self._states_to_torch(*prepared_states)
-        back_prec = self._get_back_prec(len(state.ensemble))
-        logger.info('Gathering the weights')
-        w_mean, w_perts = self._gen_weights_func(
-            back_prec, innov, hx_perts, obs_cov
         )
-        logger.info('Applying weights to state')
+
+        _logger.info('Transfering the data to torch')
+        pseudo_obs, obs_state, obs_cov = self._states_to_torch(
+            pseudo_obs, obs_state, obs_cov
+        )
+
+        _logger.info('Normalise perturbations and observations')
+        normed_perts, normed_obs = self._centre_tensors(pseudo_obs, obs_state)
+        obs_cinv = self._get_chol_inverse(obs_cov)
+        normed_perts = self._normalise_cinv(normed_perts, obs_cinv)
+        normed_obs = self._normalise_cinv(normed_obs, obs_cinv)
+
+        _logger.info('Gathering the weights')
+        weights = self.gen_weights(normed_perts, normed_obs)[0]
+
+        _logger.info('Applying weights to state')
         state_mean, state_perts = state.state.split_mean_perts()
-        analysis = self._apply_weights(w_mean, w_perts, state_mean, state_perts)
+        analysis = self._apply_weights(weights, state_mean, state_perts)
         analysis = analysis.transpose('var_name', 'time', 'ensemble', 'grid')
-        logger.info('Finished with analysis creation')
+        _logger.info('Finished with analysis creation')
         return analysis
 
-    def _prepare(self, pseudo_state, observations):
+    def _get_states(self, pseudo_state, observations):
         """
         This method prepares the different parts of the state. It calculates
         statistics in observation space and concatenates given observations into
@@ -182,29 +179,21 @@ class ETKFCorr(FilterAssimilation):
             localization or weighting purpose. This last axis of this array has
             a length of :math:`l`, the observation length.
         """
-        logger.info('Apply observation operator')
-        hx_mean, hx_perts, filtered_obs = self._prepare_back_obs(pseudo_state,
-                                                                 observations)
-        logger.info('Concatenate observations')
-        obs_state, obs_cov, obs_grid = self._prepare_obs(filtered_obs)
-        innov = obs_state - hx_mean
-        return innov, hx_perts, obs_cov, obs_grid
+        _logger.info('Apply observation operator')
+        pseudo_obs, filtered_obs = self._get_pseudo_obs(pseudo_state,
+                                                        observations)
+        _logger.info('Concatenate observations')
+        obs_state, obs_grid = self._prepare_obs(filtered_obs)
+        obs_cov = self._get_obs_cov(filtered_obs)
+        return pseudo_obs, obs_state, obs_cov, obs_grid
 
-    def _get_back_prec(self, ens_mems):
-        back_prec = torch.eye(ens_mems, dtype=self.dtype)
-        if self.gpu:
-            back_prec = back_prec.cuda()
-        back_prec *= (ens_mems - 1)
-        back_prec /= self.inf_factor
-        return back_prec
-
-    def _prepare_back_obs(self, state, observations):
+    def _get_pseudo_obs(self, state, observations):
         pseudo_obs, filtered_obs = self._apply_obs_operator(state, observations)
-        hx_mean, hx_perts = self._prepare_pseudo_obs(pseudo_obs)
-        return hx_mean, hx_perts, filtered_obs
+        pseudo_obs = self._cat_pseudo_obs(pseudo_obs)
+        return pseudo_obs, filtered_obs
 
     @staticmethod
-    def _prepare_pseudo_obs(pseudo_obs):
+    def _cat_pseudo_obs(pseudo_obs):
         state_stacked_list = []
         for obs in pseudo_obs:
             if isinstance(obs.indexes['obs_grid_1'], pd.MultiIndex):
@@ -214,8 +203,15 @@ class ETKFCorr(FilterAssimilation):
             stacked_obs = obs.stack(obs_id=('time', 'obs_grid_1'))
             state_stacked_list.append(stacked_obs)
         pseudo_obs_concat = xr.concat(state_stacked_list, dim='obs_id')
-        hx_mean, hx_perts = pseudo_obs_concat.state.split_mean_perts()
-        return hx_mean.values, hx_perts.T.values
+        pseudo_obs_concat = pseudo_obs_concat.data
+        return pseudo_obs_concat
+
+    @staticmethod
+    def _centre_tensors(x, *args):
+        x_mean = x.mean(dim=-2, keepdim=True)
+        x_centred = x - x_mean
+        args_centred = [arg - x_mean for arg in args]
+        return (x_centred, *args_centred)
 
     @staticmethod
     def _weights_matmul(perts, weights):
@@ -226,24 +222,19 @@ class ETKFCorr(FilterAssimilation):
         )
         return ana_perts
 
-    def _apply_weights(self, w_mean, w_perts, state_mean, state_pert):
+    def _apply_weights(self, weights, state_mean, state_pert):
         """
-        This method applies given weights to given state. The weights are
-        combined column-wise for efficient computing and applied to given
-        state perturbations. These non-centered analysed perturbations are then
-        added to given state mean to get the analysis.
+        This method applies given weights to given state.
+        These non-centered analysed perturbations are then added to given
+        state mean to get the analysis.
 
         Parameters
         ----------
-        w_mean : :py:class:`torch.tensor`
-            The estimated ensemble mean weights. These weights are column-wise
-            added to the weight perturbations. The shape of this tensor is
-            :math:`k`, the ensemble size.
-        w_perts : :py:class:`torch.tensor`
-            The estimated ensemble perturbations in weight space. These weights
-            are used to estimate new centered ensemble perturbations. The
-            shape of this tensor is :math:`k~x~k`, with :math:`k` as ensemble
-            size.
+        weights : :py:class:`torch.tensor`
+            The estimated ensemble weights with column-wise added mean
+            weights to the weight perturbations.
+            The shape of this tensor is :math:`k~x~k`, with :math:`k` as
+            ensemble size.
         state_mean : :py:class:`xarray.DataArray`
             This is the state mean, which is updated by non-centered analysed
             perturbations.
@@ -256,20 +247,17 @@ class ETKFCorr(FilterAssimilation):
         analysis : :py:class:`xarray.DataArray`
             The estimated analysis based on given state and weights.
         """
-        combined_weights = (w_mean + w_perts).t()
-        if self.gpu:
-            combined_weights = combined_weights.cpu()
         ana_perts = self._weights_matmul(
-            state_pert, combined_weights.numpy()
+            state_pert, weights.cpu().detach().numpy()
         )
         analysis = state_mean + ana_perts
         return analysis
 
 
-class ETKFUncorr(ETKFCorr):
+class ETKFCorr(_CorrMixin, _ETKFBase):
     """
     This is an implementation of the `ensemble transform Kalman filter`
-    :cite:`bishop_adaptive_2001` for uncorrelated observation covariances.
+    :cite:`bishop_adaptive_2001` for correlated observation covariances.
     This ensemble Kalman filter is a deterministic filter, where the state is
     update globally. This ensemble Kalman filter estimates ensemble weights in
     weight space, which are then applied to the given state. This implementation
@@ -280,7 +268,7 @@ class ETKFUncorr(ETKFCorr):
 
     Parameters
     ----------
-    smoothing : bool, optional
+    smoother : bool, optional
         Indicates if this filter should be run in smoothing or in filtering
         mode. In smoothing mode, no analysis time is selected from given state
         and the ensemble weights are applied to the whole state. In filtering
@@ -296,10 +284,37 @@ class ETKFUncorr(ETKFCorr):
         or CPU (False): Default is None. For small models, estimation of the
         weights on CPU is faster than on GPU!.
     """
-    def __init__(self, inf_factor=1.0, smoother=True, gpu=False,
-                 pre_transform=None, post_transform=None):
-        super().__init__(inf_factor=inf_factor, smoother=smoother, gpu=gpu,
-                         pre_transform=pre_transform,
-                         post_transform=post_transform)
-        self._gen_weights_func = gen_weights_uncorr
-        self._correlated = False
+    pass
+
+
+class ETKFUncorr(_UnCorrMixin, _ETKFBase):
+    """
+    This is an implementation of the `ensemble transform Kalman filter`
+    :cite:`bishop_adaptive_2001` for uncorrelated observation covariances.
+    This ensemble Kalman filter is a deterministic filter, where the state is
+    update globally. This ensemble Kalman filter estimates ensemble weights in
+    weight space, which are then applied to the given state. This implementation
+    follows :cite:`hunt_efficient_2007` with global weight estimation and is
+    implemented in PyTorch.
+    This implementation allows filtering in time based on linear propagation
+    assumption :cite:`hunt_four-dimensional_2004` and ensemble smoothing.
+
+    Parameters
+    ----------
+    smoother : bool, optional
+        Indicates if this filter should be run in smoothing or in filtering
+        mode. In smoothing mode, no analysis time is selected from given state
+        and the ensemble weights are applied to the whole state. In filtering
+        mode, the weights are applied only on selected analysis time. Default
+        is False, indicating filtering mode.
+    inf_factor : float, optional
+        Multiplicative inflation factor :math:`\\rho``, which is applied to the
+        background precision. An inflation factor greater one increases the
+        ensemble spread, while a factor less one decreases the spread. Default
+        is 1.0, which is the same as no inflation at all.
+    gpu : bool, optional
+        Indicator if the weight estimation should be done on either GPU (True)
+        or CPU (False): Default is None. For small models, estimation of the
+        weights on CPU is faster than on GPU!.
+    """
+    pass

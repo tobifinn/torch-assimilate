@@ -27,204 +27,102 @@
 import logging
 
 # External modules
+import numpy as np
 import torch
+import scipy.linalg
 
 # Internal modules
+from ..utils import evd, rev_evd
 
 
 logger = logging.getLogger(__name__)
 
 
-def gen_weights_corr(back_prec, innov, hx_perts, obs_cov, obs_weights=1):
-    """
-    This function is the main function to calculates the ensemble weights,
-    based on cite:`hunt_efficient_2007`. To generate the weights, the given
-    arguments have to be prepared and in a special format. The weights are
-    estimated with PyTorch. This function is used to estimate the weights for
-    correlated observation covariances, where the covariance is a
-    two-dimensional matrix and represents the full observational covariance.
-    The inverse of the analysis precision is calculated with a stabilized
-    cholesky decomposition as described in :cite:`han-chen_moden_2018`.
+class ETKFWeightsModule(torch.nn.Module):
+    def __init__(self, inf_factor=1.0):
+        super().__init__()
+        self._inf_factor = None
+        self.inf_factor = inf_factor
 
-    Parameters
-    ----------
-    innov : :py:class:`torch.tensor`
-        These innovations are multiplied by the ensemble gain to estimate
-        the mean ensemble weights. These innovation should have a shape of
-        :math:`l`, the observation length.
-    hx_perts : :py:class:`torch.tensor`
-        These are the ensemble perturbations in ensemble space. These
-        perturbations are used to calculated the analysed ensemble
-        covariance in weight space. These perturbations have a shape of
-        :math:`l~x~k`, with :math:`k` as ensemble size and :math:`l` as
-        observation length.
-    obs_cov : :py:class:`torch.tensor`
-        This tensor represents the observation covariance. This covariance
-        is used for the estimation of the analysed covariance in weight
-        space. The shape of this covariance should be :math:`l~x~l`, with
-        :math:`l` as observation length.
-    back_prec : :py:class:`torch.tensor`
-        This normalized background precision is an identity matrix scaled by
-        :math:`(k-1)`, with :math:`k` as ensemble size.
-    obs_weights : :py:class:`torch.tensor` or float, optional
-        These are the observation weights. These observation weights can be
-        used for localization or weighting purpose. If these observation
-        weights are a float, then the same weight for every observation is
-        used. If these weights are a :py:class:`~torch.tensor`, then the
-        shape of this tensor should be :math:`l`, the observation length.
-        The default values is 1, indicating that every observation is
-        uniformly weighted.
+    @property
+    def inf_factor(self):
+        return self._inf_factor
 
-    Returns
-    -------
-    w_mean : :py:class:`torch.tensor`
-        The estimated ensemble mean weights. These weights can be used to
-        update the ensemble mean. The shape of this tensor is :math:`k`, the
-        ensemble size.
-    w_perts : :py:class:`torch.tensor`
-        The estimated ensemble perturbations in weight space. These weights
-        can be used to estimate new centered ensemble perturbations. The
-        shape of this tensor is :math:`k~x~k`, with :math:`k` as ensemble
-        size.
-    """
-    if len(innov.size()) == 0:
-        ens_size = back_prec.shape[0]
-        w_mean = torch.zeros(ens_size, dtype=innov.dtype)
-        w_perts = back_prec / (ens_size - 1)
-        return w_mean, w_perts
-    estimated_c = _compute_c_chol(hx_perts, obs_cov, obs_weights)
-    prec_ana = _calc_precision(estimated_c, hx_perts, back_prec)
-    evd = _eigendecomp(prec_ana)
-    evals, evects, evals_inv, evects_inv = evd
+    @inf_factor.setter
+    def inf_factor(self, new_factor):
+        if isinstance(new_factor, (torch.Tensor, torch.nn.Parameter)):
+            self._inf_factor = new_factor
+        else:
+            self._inf_factor = torch.tensor(new_factor)
 
-    cov_analysed = torch.matmul(evects, torch.diagflat(evals_inv))
-    cov_analysed = torch.matmul(cov_analysed, evects_inv)
+    @staticmethod
+    def _dot_product(x, y):
+        k_mat = torch.mm(x, y.t())
+        return k_mat
 
-    gain = torch.matmul(cov_analysed, estimated_c)
-    w_mean = torch.matmul(gain, innov)
+    def forward(self, normed_perts, normed_obs):
+        ens_size = normed_perts.shape[0]
+        reg_value = (ens_size-1) / self._inf_factor
+        kernel_perts = torch.mm(normed_perts, normed_perts.t())
+        evals, evects, evals_inv, evects_inv = evd(kernel_perts, reg_value)
+        cov_analysed = rev_evd(evals_inv, evects, evects_inv)
 
-    w_perts = _det_square_root_eigen(evals_inv, evects, evects_inv)
-    return w_mean, w_perts
+        kernel_obs = torch.mm(normed_perts, normed_obs.t())
+        w_mean = torch.mm(cov_analysed, kernel_obs).squeeze()
+
+        square_root_einv = ((ens_size - 1) * evals_inv).sqrt()
+        w_perts = rev_evd(square_root_einv, evects, evects_inv)
+        weights = w_mean + w_perts
+        return weights, w_mean, w_perts, cov_analysed
 
 
-def gen_weights_uncorr(back_prec, innov, hx_perts, obs_cov, obs_weights=1):
-    """
-    This function is the main function to calculates the ensemble weights,
-    based on cite:`hunt_efficient_2007`. To generate the weights, the given
-    arguments have to be prepared and in a special format. The weights are
-    estimated with PyTorch. This function is used to estimate the weights for
-    uncorrelated observation covariances, where the covariance is an
-    one-dimensional vector and represents only the diagonal elements. For this
-    uncorrelated case the inverse of the precision can be easily estimated.
+class _CorrMixin(object):
+    _correlated = True
 
-    Parameters
-    ----------
-    innov : :py:class:`torch.tensor`
-        These innovations are multiplied by the ensemble gain to estimate
-        the mean ensemble weights. These innovation should have a shape of
-        :math:`l`, the observation length.
-    hx_perts : :py:class:`torch.tensor`
-        These are the ensemble perturbations in ensemble space. These
-        perturbations are used to calculated the analysed ensemble
-        covariance in weight space. These perturbations have a shape of
-        :math:`l~x~k`, with :math:`k` as ensemble size and :math:`l` as
-        observation length.
-    obs_cov : :py:class:`torch.tensor`
-        This tensor represents the observation covariance. This covariance
-        is used for the estimation of the analysed covariance in weight
-        space. This covariance vector are only the variance diagonal elements,
-        representing uncorrelated variables. The shape of this covariance should
-        be :math:`l`, with :math:`l` as observation length.
-    back_prec : :py:class:`torch.tensor`
-        This normalized background precision is an identity matrix scaled by
-        :math:`(k-1)`, with :math:`k` as ensemble size.
-    obs_weights : :py:class:`torch.tensor` or float, optional
-        These are the observation weights. These observation weights can be
-        used for localization or weighting purpose. If these observation
-        weights are a float, then the same weight for every observation is
-        used. If these weights are a :py:class:`~torch.tensor`, then the
-        shape of this tensor should be :math:`l`, the observation length.
-        The default values is 1, indicating that every observation is
-        uniformly weighted.
+    @staticmethod
+    def _get_obs_cov(observations):
+        cov_stacked_list = []
+        for obs in observations:
+            len_time = len(obs.time)
+            stacked_cov = [obs['covariance'].values] * len_time
+            stacked_cov = scipy.linalg.block_diag(*stacked_cov)
+            cov_stacked_list.append(stacked_cov)
+        obs_cov = scipy.linalg.block_diag(*cov_stacked_list)
+        return obs_cov
 
-    Returns
-    -------
-    w_mean : :py:class:`torch.tensor`
-        The estimated ensemble mean weights. These weights can be used to
-        update the ensemble mean. The shape of this tensor is :math:`k`, the
-        ensemble size.
-    w_perts : :py:class:`torch.tensor`
-        The estimated ensemble perturbations in weight space. These weights
-        can be used to estimate new centered ensemble perturbations. The
-        shape of this tensor is :math:`k~x~k`, with :math:`k` as ensemble
-        size.
-    """
-    if len(innov.size()) == 0:
-        ens_size = back_prec.shape[0]
-        w_mean = torch.zeros(ens_size, dtype=innov.dtype)
-        w_perts = back_prec / (ens_size - 1)
-        return w_mean, w_perts
-    estimated_c = _compute_c_diag(hx_perts, obs_cov, obs_weights)
-    prec_ana = _calc_precision(estimated_c, hx_perts, back_prec)
-    evd = _eigendecomp(prec_ana)
-    evals, evects, evals_inv, evects_inv = evd
+    @staticmethod
+    def _get_chol_inverse(cov):
+        chol_decomp = torch.cholesky(cov)
+        chol_inv = chol_decomp.inverse()
+        return chol_inv
 
-    cov_analysed = torch.matmul(evects, torch.diagflat(evals_inv))
-    cov_analysed = torch.matmul(cov_analysed, evects_inv)
-
-    gain = torch.matmul(cov_analysed, estimated_c)
-    w_mean = torch.matmul(gain, innov)
-
-    w_perts = _det_square_root_eigen(evals_inv, evects, evects_inv)
-    return w_mean, w_perts
+    @staticmethod
+    def _normalise_cinv(state, cinv):
+        normed_state = state @ cinv
+        return normed_state
 
 
-def _eigendecomp(precision):
-    evals, evects = torch.symeig(precision, eigenvectors=True, upper=False)
-    evals[evals < 0] = 0
-    evals_inv = 1 / evals
-    evects_inv = evects.t()
-    return evals, evects, evals_inv, evects_inv
+class _UnCorrMixin(object):
+    _correlated = False
 
+    @staticmethod
+    def _get_obs_cov(observations):
+        cov_stacked_list = []
+        for obs in observations:
+            len_time = len(obs.time)
+            stacked_cov = [obs['covariance'].values] * len_time
+            stacked_cov = np.concatenate(stacked_cov)
+            cov_stacked_list.append(stacked_cov)
+        obs_cov = np.concatenate(cov_stacked_list)
+        return obs_cov
 
-def _det_square_root_eigen(evals_inv, evects, evects_inv):
-    ens_size = evals_inv.size()[0]
-    w_perts = ((ens_size - 1) * evals_inv) ** 0.5
-    w_perts = torch.matmul(evects, torch.diagflat(w_perts))
-    w_perts = torch.matmul(w_perts, evects_inv)
-    return w_perts
+    @staticmethod
+    def _normalise_cinv(state, cinv):
+        normed_state = state * cinv
+        return normed_state
 
-
-def _calc_precision(c, hx_perts, back_prec):
-    prec_obs = torch.matmul(c, hx_perts)
-    prec_ana = back_prec + prec_obs
-    return prec_ana
-
-
-def _compute_c_diag(hx_perts, obs_cov, obs_weights=1):
-    calculated_c = hx_perts.t() / obs_cov
-    calculated_c = calculated_c * obs_weights
-    return calculated_c
-
-
-def _compute_c_chol(hx_perts, obs_cov, obs_weights=1, alpha=0):
-    obs_cov_prod = torch.matmul(obs_cov.t(), obs_cov)
-    obs_hx = torch.matmul(obs_cov.t(), hx_perts)
-    mat_size = obs_cov_prod.size()[1]
-    step = mat_size + 1
-    end = mat_size * mat_size
-    calculated_c = None
-    while calculated_c is None:
-        try:
-            mat_upper = torch.cholesky(obs_cov_prod, upper=True)
-            calculated_c = torch.potrs(obs_hx, mat_upper, upper=True).t()
-        except RuntimeError:
-            obs_cov_prod.view(-1)[:end:step] -= alpha
-            if alpha == 0:
-                alpha = 0.00001
-            else:
-                alpha *= 10
-            obs_cov_prod.view(-1)[:end:step] += alpha
-    logger.debug('Cholesky decomposition alpha: {0:.2E}'.format(alpha))
-    calculated_c = calculated_c * obs_weights
-    return calculated_c
+    @staticmethod
+    def _get_chol_inverse(cov):
+        sqrt_cov = cov.sqrt()
+        sqrt_inv = 1 / sqrt_cov
+        return sqrt_inv

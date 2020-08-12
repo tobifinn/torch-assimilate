@@ -124,10 +124,10 @@ class NeuralAssimilation(BaseAssimilation):
         """
         logger.info('####### Neural network assimilation #######')
         logger.info('Preparing observations')
-        obs_state, obs_cov, _ = self._prepare_obs(observations)
+        obs_state, _ = self._prepare_obs(observations)
         logger.info('Transferring data to torch')
         prepared_torch = self._states_to_torch(state.values, obs_state,
-                                               pseudo_state.values, obs_cov)
+                                               pseudo_state.values)
         logger.info('Assimilating observations with model')
         torch_analysis = self.model.assimilate(*prepared_torch)
         logger.info('Gathering analysis')

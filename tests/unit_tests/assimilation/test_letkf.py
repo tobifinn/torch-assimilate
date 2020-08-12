@@ -36,9 +36,9 @@ import numpy as np
 # Internal modules
 import pytassim.state
 import pytassim.observation
-from pytassim.assimilation.filter.letkf import ETKFCorr
+from pytassim.assimilation.filter.etkf import ETKFCorr
 from pytassim.assimilation.filter.letkf import LETKFCorr, LETKFUncorr
-from pytassim.assimilation.filter import etkf_core
+from pytassim.assimilation.filter.etkf_core import ETKFWeightsModule
 from pytassim.testing import dummy_obs_operator, DummyLocalization
 
 
@@ -53,7 +53,6 @@ class TestLETKFCorr(unittest.TestCase):
         self.algorithm = LETKFCorr()
         state_path = os.path.join(DATA_PATH, 'test_state.nc')
         self.state = xr.open_dataarray(state_path).load()
-        self.back_prec = self.algorithm._get_back_prec(len(self.state.ensemble))
         obs_path = os.path.join(DATA_PATH, 'test_single_obs.nc')
         self.obs = xr.open_dataset(obs_path).load()
         self.obs.obs.operator = dummy_obs_operator
@@ -62,23 +61,32 @@ class TestLETKFCorr(unittest.TestCase):
         self.state.close()
         self.obs.close()
 
+    def test_gen_weights_return_private(self):
+        self.algorithm._gen_weights = 1234
+        self.assertEqual(self.algorithm.gen_weights, 1234)
+
+    def test_gen_weights_none_sets_none(self):
+        self.algorithm._gen_weights = 1234
+        self.algorithm.gen_weights = None
+        self.assertIsNone(self.algorithm._gen_weights)
+
+    def test_gen_weights_jit_script(self):
+        self.algorithm._gen_weights = None
+        module = ETKFWeightsModule(1.2)
+        self.algorithm.gen_weights = module
+        self.assertIsInstance(self.algorithm._gen_weights,
+                              torch.jit.RecursiveScriptModule)
+
+    def test_gen_weights_raises_typeerror(self):
+        with self.assertRaises(TypeError):
+            self.algorithm.gen_weights = 1234
+
     def test_wo_localization_letkf_equals_etkf(self):
         etkf = ETKFCorr()
         obs_tuple = (self.obs, self.obs)
         etkf_analysis = etkf.assimilate(self.state, obs_tuple)
         letkf_analysis = self.algorithm.assimilate(self.state, obs_tuple)
         xr.testing.assert_allclose(letkf_analysis, etkf_analysis)
-
-    def test_update_state_calls_prepare(self):
-        obs_tuple = (self.obs, self.obs)
-        prepared_states = self.algorithm._prepare(self.state, obs_tuple)
-        pseudo_state = self.state + 1
-        with patch('pytassim.assimilation.filter.letkf.LETKFCorr._prepare',
-                   return_value=prepared_states) as prepare_patch:
-            _ = self.algorithm.update_state(
-                self.state, obs_tuple, pseudo_state, self.state.time[-1].values
-            )
-        prepare_patch.assert_called_once_with(pseudo_state, obs_tuple)
 
     def test_update_state_returns_valid_state(self):
         obs_tuple = (self.obs, self.obs)
@@ -89,7 +97,7 @@ class TestLETKFCorr(unittest.TestCase):
 
     def test_dummy_localization_returns_equal_grids(self):
         obs_tuple = (self.obs, self.obs)
-        prepared_states = self.algorithm._prepare(self.state, obs_tuple)
+        prepared_states = self.algorithm._get_states(self.state, obs_tuple)
         obs_weights = (np.abs(prepared_states[-1]-10) < 10).astype(float)[:, 0]
         use_obs = obs_weights > 0
 
@@ -106,7 +114,7 @@ class TestLETKFCorr(unittest.TestCase):
         ana_time = self.state.time[-1].values
         nr_grid_points = len(self.state.grid)
         obs_tuple = (self.obs, self.obs)
-        prepared_states = self.algorithm._prepare(self.state, obs_tuple)
+        prepared_states = self.algorithm._get_states(self.state, obs_tuple)
         obs_weights = (np.abs(prepared_states[-1]-10) < 10).astype(float)[:, 0]
         use_obs = obs_weights > 0
         with patch('pytassim.testing.dummy.DummyLocalization.localize_obs',
@@ -130,10 +138,6 @@ class TestLETKFCorr(unittest.TestCase):
         assimilated_state = self.algorithm.assimilate(self.state, obs_tuple,
                                                       self.state, ana_time)
         self.assertFalse(np.any(np.isnan(assimilated_state.values)))
-
-    def test_letkfuncorr_sets_gen_weights_func(self):
-        self.assertEqual(LETKFUncorr()._gen_weights_func,
-                         etkf_core.gen_weights_uncorr)
 
     def test_letkfuncorr_sets_correlated_to_false(self):
         self.assertFalse(LETKFUncorr()._correlated)
