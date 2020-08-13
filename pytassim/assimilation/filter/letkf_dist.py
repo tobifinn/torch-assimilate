@@ -157,9 +157,9 @@ class DistributedLETKFBase(LETKFBase):
         obs_cinv = self._get_chol_inverse(obs_cov)
         normed_perts, normed_obs = self._normalise_obs(pseudo_obs, obs_state,
                                                        obs_cinv)
-        # normed_perts, normed_obs, obs_grid = self.client.scatter(
-        #     [normed_perts, normed_obs, obs_grid], broadcast=True
-        # )
+        normed_perts, normed_obs, obs_grid = self.client.scatter(
+            [normed_perts, normed_obs, obs_grid], broadcast=True
+        )
 
         logger.info('Chunking background state')
         state = state.chunk(
