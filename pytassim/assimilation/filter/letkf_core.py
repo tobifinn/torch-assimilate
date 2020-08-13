@@ -52,7 +52,7 @@ class LETKFAnalyser(ETKFAnalyser):
         if new_module is None:
             self._gen_weights = None
         elif isinstance(new_module, ETKFWeightsModule):
-            self._gen_weights = torch.jit.script(new_module)
+            self._gen_weights = new_module
         else:
             raise TypeError('Given weights module is not a valid '
                             '`ETKFWeightsModule or None!')

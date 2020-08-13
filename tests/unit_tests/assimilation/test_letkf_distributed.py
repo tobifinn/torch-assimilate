@@ -27,13 +27,11 @@ import unittest
 from unittest.mock import MagicMock
 import logging
 import os
-import time
 
 # External modules
 import xarray as xr
-import torch
 import numpy as np
-import scipy.spatial.distance
+import distributed.protocol.serialize
 
 from dask.distributed import LocalCluster, Client
 
@@ -56,7 +54,7 @@ class TestLETKFDistributed(unittest.TestCase):
     def setUpClass(cls):
         cls.cluster = LocalCluster(
             n_workers=1, threads_per_worker=1,
-            local_directory="/tmp/dask_work", processes=False
+            local_directory="/tmp/dask_work"
         )
         cls.client = Client(cls.cluster)
 
@@ -152,6 +150,27 @@ class TestLETKFDistributed(unittest.TestCase):
         assimilated_state = assimilated_state.compute()
         letkf_state = letkf_filter.assimilate(self.state, obs_tuple, self.state,
                                               ana_time)
+        xr.testing.assert_allclose(assimilated_state, letkf_state)
+
+    def test_multi_process_cluster(self):
+        localization = DummyLocalization()
+        letkf = LETKFCorr(localization=localization)
+        cluster = LocalCluster(
+            n_workers=2, threads_per_worker=1,
+            local_directory="/tmp/dask_work", processes=True
+        )
+        client = Client(cluster)
+        dist_letkf = DistributedLETKFCorr(client=client,
+                                          localization=localization)
+        ana_time = self.state.time[-1].values
+        obs_tuple = (self.obs, self.obs)
+        assimilated_state = dist_letkf.assimilate(self.state, obs_tuple,
+                                                  self.state, ana_time)
+        cluster.close()
+        client.close()
+        letkf_state = letkf.assimilate(self.state, obs_tuple, self.state,
+                                       ana_time)
+
         xr.testing.assert_allclose(assimilated_state, letkf_state)
 
     def test_letkfuncorr_sets_correlated_to_false(self):

@@ -92,8 +92,7 @@ class TestLETKFCorr(unittest.TestCase):
         new_module = ETKFWeightsModule(1.0)
         self.analyser.gen_weights = new_module
         self.assertIsNotNone(self.analyser._gen_weights)
-        self.assertIsInstance(self.analyser._gen_weights,
-                              torch.jit.RecursiveScriptModule)
+        self.assertIsInstance(self.analyser._gen_weights, torch.nn.Module)
 
     def test_dummy_localization_returns_equal_grids(self):
         obs_weights = (np.abs(self.obs_grid-10) < 10).astype(float)[:, 0]

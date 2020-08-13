@@ -40,8 +40,8 @@ from .letkf import LETKFBase
 logger = logging.getLogger(__name__)
 
 
-def localised_analysis(state_perts):
-    return state_perts
+def localised_analysis(state, *args):
+    return state
 
 
 class DistributedLETKFBase(LETKFBase):
@@ -50,6 +50,7 @@ class DistributedLETKFBase(LETKFBase):
                  gpu=False, pre_transform=None, post_transform=None):
         super().__init__(localization, inf_factor, smoother, gpu, pre_transform,
                          post_transform)
+        self._name = 'Distributed LETKF'
         self._cluster = None
         self._client = None
         self._chunksize = 1
@@ -141,22 +142,23 @@ class DistributedLETKFBase(LETKFBase):
             analysis has same coordinates as given ``state``. If filtering mode
             is on, then the time axis has only one element.
         """
-        logger.info('####### DISTRIBUTED LETKF #######')
-        logger.info('Starting with applying observation operator')
+        logger.info('####### {0:s} #######'.format(self._name))
+        logger.info('Starting with specific preparation')
         pseudo_obs, obs_state, obs_cov, obs_grid = self._get_states(
             pseudo_state, observations,
         )
 
-        logger.info('Scatter the data to processes')
+        logger.info('Transfering the data to torch')
         pseudo_obs, obs_state, obs_cov = self._states_to_torch(
             pseudo_obs, obs_state, obs_cov
         )
 
         logger.info('Normalise perturbations and observations')
-        normed_perts, normed_obs = self._centre_tensors(pseudo_obs, obs_state)
         obs_cinv = self._get_chol_inverse(obs_cov)
-        # normed_perts, normed_obs, obs_cinv, obs_grid = self.client.scatter(
-        #     [normed_perts, normed_obs, obs_cinv, obs_grid], broadcast=True
+        normed_perts, normed_obs = self._normalise_obs(pseudo_obs, obs_state,
+                                                       obs_cinv)
+        # normed_perts, normed_obs, obs_grid = self.client.scatter(
+        #     [normed_perts, normed_obs, obs_grid], broadcast=True
         # )
 
         logger.info('Chunking background state')
@@ -164,12 +166,10 @@ class DistributedLETKFBase(LETKFBase):
             {'grid': self.chunksize, 'var_name': -1, 'time': -1, 'ensemble': -1}
         )
         state_mean, state_perts = state.state.split_mean_perts()
-        print(state_perts)
         logger.info('Create analysis perturbations')
-        ana_perts = xr.map_blocks(
-            localised_analysis,
-            obj=state_perts,
-            #args=(normed_perts, normed_obs, obs_cinv, obs_grid),
+        ana_perts = state_perts.map_blocks(
+            self.analyser,
+            args=(normed_perts, normed_obs, obs_grid),
             template=state_perts
         )
         logger.info('Add background mean to analysis perturbations')
