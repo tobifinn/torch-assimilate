@@ -30,6 +30,7 @@ import logging
 import numpy as np
 import torch
 import scipy.linalg
+import xarray as xr
 
 # Internal modules
 from ..utils import evd, rev_evd
@@ -39,6 +40,11 @@ logger = logging.getLogger(__name__)
 
 
 class ETKFWeightsModule(torch.nn.Module):
+    """
+    Module to create ETKF weights based on PyTorch.
+    This module estimates weight statistics with given perturbations and
+    observations.
+    """
     def __init__(self, inf_factor=1.0):
         super().__init__()
         self._inf_factor = None
@@ -76,7 +82,50 @@ class ETKFWeightsModule(torch.nn.Module):
         return weights, w_mean, w_perts, cov_analysed
 
 
-class _CorrMixin(object):
+class ETKFAnalyser(object):
+    def __init__(self, inf_factor):
+        self._inf_factor = None
+        self.gen_weights = None
+        self.inf_factor = inf_factor
+
+    @property
+    def inf_factor(self):
+        return self._inf_factor
+
+    @inf_factor.setter
+    def inf_factor(self, new_factor):
+        self._inf_factor = new_factor
+        self.gen_weights = ETKFWeightsModule(new_factor)
+
+    @staticmethod
+    def _normalise_cinv(state, cinv):
+        normed_state = state @ cinv
+        return normed_state
+
+    @staticmethod
+    def _weights_matmul(perts, weights):
+        ana_perts = xr.apply_ufunc(
+            np.matmul, perts, weights,
+            input_core_dims=[['ensemble'], []], output_core_dims=[['ensemble']],
+            dask='parallelized'
+        )
+        return ana_perts
+
+    def get_analysis_perts(self, state_perts, normed_perts, normed_obs,
+                           obs_cinv):
+        normed_perts = self._normalise_cinv(normed_perts, obs_cinv)
+        normed_obs = self._normalise_cinv(normed_obs, obs_cinv)
+        weights = self.gen_weights(normed_perts, normed_obs)[0]
+        weights = weights.detach().cpu().numpy()
+        ana_perts = self._weights_matmul(state_perts, weights)
+        return ana_perts
+
+    def __call__(self, state_perts, normed_perts, normed_obs, obs_cinv):
+        return self.get_analysis_perts(state_perts, normed_perts, normed_obs,
+                                       obs_cinv)
+
+
+class CorrMixin(object):
     _correlated = True
 
     @staticmethod
@@ -96,13 +145,8 @@ class _CorrMixin(object):
         chol_inv = chol_decomp.inverse()
         return chol_inv
 
-    @staticmethod
-    def _normalise_cinv(state, cinv):
-        normed_state = state @ cinv
-        return normed_state
 
-
-class _UnCorrMixin(object):
+class UnCorrMixin(object):
     _correlated = False
 
     @staticmethod
@@ -120,9 +164,3 @@ class _UnCorrMixin(object):
     def _normalise_cinv(state, cinv):
         normed_state = state * cinv
         return normed_state
-
-    @staticmethod
-    def _get_chol_inverse(cov):
-        sqrt_cov = cov.sqrt()
-        sqrt_inv = 1 / sqrt_cov
-        return sqrt_inv
