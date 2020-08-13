@@ -253,33 +253,89 @@ class TestETKFCorr(unittest.TestCase):
                                             ana_time)
         cinv_patch.assert_called_once()
 
-    def test_center_tensor_centers_original_tensor(self):
-        test_tensor = torch.zeros(10, 5).normal_(mean=1.)
-        test_mean = test_tensor.mean(dim=-2, keepdim=True)
-        centered_tensor = test_tensor-test_mean
-        ret_tensor, = self.algorithm._centre_tensors(test_tensor)
+    def test_normalise_centers_pseudo_obs(self):
+        test_pseudo = torch.zeros(10, 5).normal_(mean=1.)
+        test_obs = torch.zeros(1, 5).normal_()
+        test_mean = test_pseudo.mean(dim=-2, keepdim=True)
+        perts = torch.zeros(100, 5).normal_()
+        cov = (perts.t() @ perts) / 99
+        chol_decomp = np.linalg.cholesky(cov.numpy())
+        test_cinv = np.linalg.inv(chol_decomp)
+        test_cinv = torch.from_numpy(test_cinv).float()
+
+        norm_perts, _ = self.algorithm._normalise_obs(test_pseudo, test_obs,
+                                                      test_cinv)
+
+        centered_tensor = test_pseudo-test_mean
+        ret_tensor = norm_perts.numpy() @ chol_decomp
         torch.testing.assert_allclose(ret_tensor, centered_tensor)
 
-    def test_center_tensor_centers_arguments(self):
-        test_tensor = torch.zeros(10, 5).normal_(mean=1.)
-        test_mean = test_tensor.mean(dim=-2, keepdim=True)
-        test_2_tensor = torch.zeros(100, 5).normal_(mean=2.)
-        centered_2_tensor = test_2_tensor-test_mean
-        _, ret_tensor_1, ret_tensor_2 = self.algorithm._centre_tensors(
-            test_tensor, test_2_tensor, test_2_tensor
+    def test_normalise_centers_obs(self):
+        test_pseudo = torch.zeros(10, 5).normal_(mean=1.)
+        test_obs = torch.zeros(1, 5).normal_()
+        test_mean = test_pseudo.mean(dim=-2, keepdim=True)
+        perts = torch.zeros(100, 5).normal_()
+        cov = (perts.t() @ perts) / 99
+        chol_decomp = np.linalg.cholesky(cov.numpy())
+        test_cinv = np.linalg.inv(chol_decomp)
+        test_cinv = torch.from_numpy(test_cinv).float()
+
+        _, normed_obs = self.algorithm._normalise_obs(test_pseudo, test_obs,
+                                                      test_cinv)
+
+        centered_tensor = test_obs-test_mean
+        ret_tensor = normed_obs.numpy() @ chol_decomp
+        torch.testing.assert_allclose(ret_tensor, centered_tensor)
+
+    def test_normalise_returns_normed_perts_obs(self):
+        test_pseudo = torch.zeros(10, 5).normal_(mean=1.)
+        test_obs = torch.zeros(1, 5).normal_()
+        test_mean = test_pseudo.mean(dim=-2, keepdim=True)
+        perts = torch.zeros(100, 5).normal_()
+        cov = (perts.t() @ perts) / 99
+        chol_decomp = np.linalg.cholesky(cov.numpy())
+        test_cinv = np.linalg.inv(chol_decomp)
+        test_cinv = torch.from_numpy(test_cinv).float()
+
+        normed_perts = (test_pseudo-test_mean) @ test_cinv
+        normed_obs = (test_obs-test_mean)  @ test_cinv
+
+        ret_perts, ret_obs = self.algorithm._normalise_obs(
+            test_pseudo, test_obs, test_cinv
         )
-        torch.testing.assert_allclose(ret_tensor_1, centered_2_tensor)
-        torch.testing.assert_allclose(ret_tensor_2, centered_2_tensor)
+
+        torch.testing.assert_allclose(ret_perts, normed_perts)
+        torch.testing.assert_allclose(ret_obs, normed_obs)
+
+    def test_normalise_uses_multiply_cinv(self):
+        test_pseudo = torch.zeros(10, 5).normal_(mean=1.)
+        test_obs = torch.zeros(1, 5).normal_()
+        test_mean = test_pseudo.mean(dim=-2, keepdim=True)
+        perts = torch.zeros(100, 5).normal_()
+        cov = (perts.t() @ perts) / 99
+        chol_decomp = np.linalg.cholesky(cov.numpy())
+        test_cinv = np.linalg.inv(chol_decomp)
+        test_cinv = torch.from_numpy(test_cinv).float()
+
+        trg = 'pytassim.assimilation.filter.etkf.ETKFCorr._mul_cinv'
+        with patch(trg, return_value=test_pseudo) as cinv_patch:
+            _ = self.algorithm._normalise_obs(
+                test_pseudo, test_obs, test_cinv
+            )
+        cinv_patch.assert_called()
+        self.assertEqual(cinv_patch.call_count, 2)
 
     def test_uses_center_tensors(self):
         ana_time = self.state.time[-1].values
         obs_tuple = (self.obs, self.obs.copy())
         prepared_states = self.algorithm._get_states(self.state, obs_tuple)
         torch_states = self.algorithm._states_to_torch(*prepared_states)[:-1]
-        centered_tensors = self.algorithm._centre_tensors(*torch_states[:2])
+        obs_cinv = self.algorithm._get_chol_inverse(torch_states[-1])
+        normed_tensors = self.algorithm._normalise_obs(*torch_states[:2],
+                                                       obs_cinv)
 
-        trg = 'pytassim.assimilation.filter.etkf.ETKFCorr._centre_tensors'
-        with patch(trg, return_value=centered_tensors) as center_patch:
+        trg = 'pytassim.assimilation.filter.etkf.ETKFCorr._normalise_obs'
+        with patch(trg, return_value=normed_tensors) as center_patch:
             _ = self.algorithm.update_state(self.state, obs_tuple, self.state,
                                             ana_time)
         center_patch.assert_called_once()
@@ -319,16 +375,14 @@ class TestETKFUncorr(unittest.TestCase):
         state = torch.zeros(10, 5).normal_()
         sqrt_inv = torch.zeros(5).uniform_(1, 5)
         norm_state = torch.mm(state, torch.eye(5) * sqrt_inv)
-        ret_state = self.algorithm._normalise_cinv(state, sqrt_inv)
+        ret_state = self.algorithm._mul_cinv(state, sqrt_inv)
         torch.testing.assert_allclose(ret_state, norm_state)
 
     def test_get_chol_inverse_ret_sqrt_inv(self):
         cov = torch.zeros(5).uniform_(1, 5)
         sqrt_inv = 1 / np.sqrt(cov.numpy())
-        sqrt_inv = np.eye(5) * sqrt_inv
         ret_sqrt_inv = self.algorithm._get_chol_inverse(cov)
-        self.assertIsInstance(ret_sqrt_inv, torch.sparse.FloatTensor)
-        np.testing.assert_equal(ret_sqrt_inv.to_dense().numpy(), sqrt_inv)
+        np.testing.assert_equal(ret_sqrt_inv.numpy(), sqrt_inv)
 
     def test_algorithm_works(self):
         self.algorithm.inf_factor = 1.2

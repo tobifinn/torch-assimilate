@@ -99,11 +99,6 @@ class ETKFAnalyser(object):
         self.gen_weights = ETKFWeightsModule(new_factor)
 
     @staticmethod
-    def _normalise_cinv(state, cinv):
-        normed_state = state @ cinv
-        return normed_state
-
-    @staticmethod
     def _weights_matmul(perts, weights):
         ana_perts = xr.apply_ufunc(
             np.matmul, perts, weights,
@@ -114,8 +109,6 @@ class ETKFAnalyser(object):
 
     def get_analysis_perts(self, state_perts, normed_perts, normed_obs,
                            obs_cinv):
-        normed_perts = self._normalise_cinv(normed_perts, obs_cinv)
-        normed_obs = self._normalise_cinv(normed_obs, obs_cinv)
         weights = self.gen_weights(normed_perts, normed_obs)[0]
         weights = weights.detach().cpu().numpy()
         ana_perts = self._weights_matmul(state_perts, weights)
@@ -146,6 +139,11 @@ class CorrMixin(object):
         chol_inv = chol_decomp.inverse()
         return chol_inv
 
+    @staticmethod
+    def _mul_cinv(state, cinv):
+        normed_state = torch.mm(state, cinv)
+        return normed_state
+
 
 class UnCorrMixin(object):
     _correlated = False
@@ -166,7 +164,9 @@ class UnCorrMixin(object):
         n_ele = cov.shape[0]
         chol_decomp = cov.sqrt()
         chol_inv = 1 / chol_decomp
-        index = torch.arange(n_ele, dtype=int)
-        index = index.view(1, n_ele).repeat(2, 1)
-        sparse_conv = torch.sparse.FloatTensor(index, chol_inv)
-        return sparse_conv
+        return chol_inv
+
+    @staticmethod
+    def _mul_cinv(state, cinv):
+        normed_state = state * cinv
+        return normed_state
