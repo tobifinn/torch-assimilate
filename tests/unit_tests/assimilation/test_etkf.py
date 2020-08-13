@@ -35,6 +35,7 @@ import numpy as np
 import torch
 import torch.jit
 import torch.nn
+import torch.sparse
 import scipy.linalg
 import scipy.linalg.blas
 
@@ -42,17 +43,13 @@ import scipy.linalg.blas
 import pytassim.state
 import pytassim.observation
 from pytassim.assimilation.filter.etkf import ETKFCorr, ETKFUncorr
-
 from pytassim.testing import dummy_obs_operator, if_gpu_decorator
-from pytassim.assimilation.filter import etkf_core
 
 
 logging.basicConfig(level=logging.INFO)
 
 BASE_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
-
-
 
 
 class TestETKFCorr(unittest.TestCase):
@@ -328,8 +325,10 @@ class TestETKFUncorr(unittest.TestCase):
     def test_get_chol_inverse_ret_sqrt_inv(self):
         cov = torch.zeros(5).uniform_(1, 5)
         sqrt_inv = 1 / np.sqrt(cov.numpy())
+        sqrt_inv = np.eye(5) * sqrt_inv
         ret_sqrt_inv = self.algorithm._get_chol_inverse(cov)
-        np.testing.assert_equal(ret_sqrt_inv.numpy(), sqrt_inv)
+        self.assertIsInstance(ret_sqrt_inv, torch.sparse.FloatTensor)
+        np.testing.assert_equal(ret_sqrt_inv.to_dense().numpy(), sqrt_inv)
 
     def test_algorithm_works(self):
         self.algorithm.inf_factor = 1.2

@@ -29,6 +29,7 @@ import logging
 # External modules
 import numpy as np
 import torch
+import torch.sparse
 import scipy.linalg
 import xarray as xr
 
@@ -161,6 +162,11 @@ class UnCorrMixin(object):
         return obs_cov
 
     @staticmethod
-    def _normalise_cinv(state, cinv):
-        normed_state = state * cinv
-        return normed_state
+    def _get_chol_inverse(cov):
+        n_ele = cov.shape[0]
+        chol_decomp = cov.sqrt()
+        chol_inv = 1 / chol_decomp
+        index = torch.arange(n_ele, dtype=int)
+        index = index.view(1, n_ele).repeat(2, 1)
+        sparse_conv = torch.sparse.FloatTensor(index, chol_inv)
+        return sparse_conv
