@@ -211,32 +211,6 @@ class TestETKFModule(unittest.TestCase):
         torch.testing.assert_allclose(eval_mean, w_mean)
 
 
-class TestETKFAnalyser(unittest.TestCase):
-    def setUp(self) -> None:
-        state, obs = _create_matrices()
-        innov = (obs['observations']-state.mean('ensemble'))
-        innov = innov.values.reshape(-1)
-        hx_perts = state.values.reshape(2, 1)
-        obs_cov = obs['covariance'].values
-        prepared_states = [innov, hx_perts, obs_cov]
-        torch_states = [torch.from_numpy(s).float() for s in prepared_states]
-        innov, hx_perts, obs_cov = torch_states
-        self.obs_cinv = torch.cholesky(obs_cov).inverse()
-        self.normed_perts = hx_perts
-        self.normed_obs = innov
-        self.analyser = ETKFAnalyser(1.0)
-
-    def test_normalise_cinv_multiplies_cinv(self):
-        state = torch.zeros(10, 5).normal_()
-        perts = torch.zeros(100, 5).normal_()
-        cov = (perts.t() @ perts) / 99
-        chol_decomp = np.linalg.cholesky(cov.numpy())
-        cinv = torch.from_numpy(np.linalg.inv(chol_decomp)).float()
-        norm_state = torch.mm(state, cinv)
-        ret_state = self.analyser._normalise_cinv(state, cinv)
-        torch.testing.assert_allclose(ret_state, norm_state)
-
-
 
 if __name__ == '__main__':
     unittest.main()

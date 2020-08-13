@@ -54,6 +54,7 @@ class ETKFBase(FilterAssimilation):
                          post_transform=post_transform)
         self._analyser = None
         self._weights = None
+        self.inf_factor = inf_factor
 
     @property
     def inf_factor(self):
@@ -122,7 +123,7 @@ class ETKFBase(FilterAssimilation):
         """
         logger.info('####### Global ETKF #######')
         logger.info('Starting with specific preparation')
-        pseudo_obs, obs_state, obs_cov, _ = self._get_states(
+        pseudo_obs, obs_state, obs_cov, obs_grid = self._get_states(
             pseudo_state, observations,
         )
 
@@ -139,7 +140,7 @@ class ETKFBase(FilterAssimilation):
 
         logger.info('Create analysis')
         analysis_perts = self.analyser(state_perts, normed_perts, normed_obs,
-                                       obs_cinv)
+                                       obs_grid)
         analysis = analysis_perts + state_mean
         analysis = analysis.transpose('var_name', 'time', 'ensemble', 'grid')
         return analysis

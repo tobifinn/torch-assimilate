@@ -107,14 +107,16 @@ class ETKFAnalyser(object):
         )
         return ana_perts
 
-    def get_analysis_perts(self, state_perts, normed_perts, normed_obs):
+    def get_analysis_perts(self, state_perts, normed_perts, normed_obs,
+                           obs_grid):
         weights = self.gen_weights(normed_perts, normed_obs)[0]
         weights = weights.detach().cpu().numpy()
         ana_perts = self._weights_matmul(state_perts, weights)
         return ana_perts
 
-    def __call__(self, *args):
-        return self.get_analysis_perts(*args)
+    def __call__(self, state_perts, normed_perts, normed_obs, obs_grid):
+        return self.get_analysis_perts(state_perts, normed_perts, normed_obs,
+                                       obs_grid)
 
 
 class CorrMixin(object):
@@ -159,7 +161,6 @@ class UnCorrMixin(object):
 
     @staticmethod
     def _get_chol_inverse(cov):
-        n_ele = cov.shape[0]
         chol_decomp = cov.sqrt()
         chol_inv = 1 / chol_decomp
         return chol_inv

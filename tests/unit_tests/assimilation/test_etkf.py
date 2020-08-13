@@ -65,15 +65,6 @@ class TestETKFCorr(unittest.TestCase):
         self.state.close()
         self.obs.close()
 
-    def test_inf_factor_returns_private(self):
-        self.algorithm._inf_factor = 3.2
-        self.assertEqual(self.algorithm.inf_factor, 3.2)
-
-    def test_inf_factor_sets_private_inf_factor(self):
-        self.algorithm._inf_factor = None
-        self.algorithm.inf_factor = 3.2
-        self.assertEqual(self.algorithm._inf_factor, 3.2)
-
     def test_inf_factor_sets_analyser(self):
         old_id = id(self.algorithm._analyser)
         self.algorithm.inf_factor = 3.2
