@@ -83,7 +83,7 @@ class ETKFWeightsModule(torch.nn.Module):
 
 
 class ETKFAnalyser(object):
-    def __init__(self, inf_factor):
+    def __init__(self, inf_factor=1.0):
         self._inf_factor = None
         self.gen_weights = None
         self.inf_factor = inf_factor
