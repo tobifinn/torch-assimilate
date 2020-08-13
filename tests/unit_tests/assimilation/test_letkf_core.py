@@ -134,7 +134,7 @@ class TestLETKFCorr(unittest.TestCase):
                 gp, self.normed_perts, self.normed_obs, self.obs_grid
             )
             loc_perts = etkf_analyser.get_analysis_perts(
-                self.state_perts.sel(grid=gp), loc_perts, loc_obs
+                self.state_perts.sel(grid=gp), loc_perts, loc_obs, None
             )
             right_perts.append(loc_perts)
         right_perts = xr.concat(right_perts, dim='grid')

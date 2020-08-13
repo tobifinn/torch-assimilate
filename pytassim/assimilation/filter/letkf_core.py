@@ -80,7 +80,7 @@ class LETKFAnalyser(ETKFAnalyser):
                 sub_perts.grid.values, normed_perts, normed_obs, obs_grid
             )
             loc_analysis_perts = super().get_analysis_perts(
-                sub_perts, loc_perts, loc_obs
+                sub_perts, loc_perts, loc_obs, None
             )
             analysis_perts.append(loc_analysis_perts)
         analysis_perts = xr.concat(analysis_perts, dim='grid')
