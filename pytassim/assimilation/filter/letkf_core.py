@@ -41,8 +41,8 @@ logger = logging.getLogger(__name__)
 class LETKFAnalyser(ETKFAnalyser):
     def __init__(self, localization=None, inf_factor=1.0):
         self._gen_weights = None
-        super().__init__(inf_factor)
         self.localization = localization
+        super().__init__(inf_factor)
 
     @property
     def gen_weights(self):
