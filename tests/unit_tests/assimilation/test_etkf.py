@@ -42,7 +42,7 @@ import scipy.linalg.blas
 import pytassim.state
 import pytassim.observation
 from pytassim.assimilation.filter.etkf import ETKFCorr, ETKFUncorr
-from pytassim.assimilation.filter.etkf_core import ETKFWeightsModule
+from pytassim.assimilation.filter.etkf_core import ETKFWeightsModule, ETKFAnalyser
 from pytassim.testing import dummy_obs_operator, if_gpu_decorator
 from pytassim.assimilation.filter import etkf_core
 
@@ -243,11 +243,11 @@ class TestETKFCorr(unittest.TestCase):
         self.algorithm.inf_factor = 3.2
         self.assertEqual(self.algorithm._inf_factor, 3.2)
 
-    def test_inf_factor_sets_new_weight_gen(self):
-        old_id = id(self.algorithm.gen_weights)
+    def test_inf_factor_sets_analyser(self):
+        old_id = id(self.algorithm._analyser)
         self.algorithm.inf_factor = 3.2
-        self.assertNotEqual(id(self.algorithm.gen_weights), old_id)
-        self.assertEqual(self.algorithm.gen_weights.inf_factor, 3.2)
+        self.assertNotEqual(id(self.algorithm._analyser), old_id)
+        self.assertEqual(self.algorithm._analyser.inf_factor, 3.2)
 
     def test_prepare_obs_stackes_and_concats_obs(self):
         obs_stacked = self.obs['observations'].stack(

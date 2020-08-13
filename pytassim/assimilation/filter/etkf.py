@@ -33,23 +33,23 @@ import numpy as np
 import pandas as pd
 
 # Internal modules
-from .etkf_core import ETKFWeightsModule, _CorrMixin, _UnCorrMixin
+from .etkf_core import ETKFAnalyser, CorrMixin, UnCorrMixin
 from .filter import FilterAssimilation
 
 
 _logger = logging.getLogger(__name__)
 
 
-class _ETKFBase(FilterAssimilation):
+class ETKFBase(FilterAssimilation):
     def __init__(self, inf_factor=1.0, smoother=True, gpu=False,
                  pre_transform=None, post_transform=None):
         super().__init__(smoother=smoother, gpu=gpu,
                          pre_transform=pre_transform,
                          post_transform=post_transform)
         self._inf_factor = None
-        self.gen_weights = None
-        self.inf_factor = inf_factor
+        self._analyser = None
         self._weights = None
+        self.inf_factor = inf_factor
 
     @property
     def inf_factor(self):
@@ -58,7 +58,11 @@ class _ETKFBase(FilterAssimilation):
     @inf_factor.setter
     def inf_factor(self, new_factor):
         self._inf_factor = new_factor
-        self.gen_weights = ETKFWeightsModule(new_factor)
+        self._analyser = ETKFAnalyser(new_factor)
+
+    @property
+    def analyser(self):
+        return self._analyser
 
     @property
     def weights(self):
@@ -66,10 +70,6 @@ class _ETKFBase(FilterAssimilation):
 
     @abc.abstractmethod
     def _get_chol_inverse(self, cov):
-        pass
-
-    @abc.abstractmethod
-    def _normalise_cinv(self, state, cinv):
         pass
 
     def update_state(self, state, observations, pseudo_state, analysis_time):
@@ -121,17 +121,12 @@ class _ETKFBase(FilterAssimilation):
         _logger.info('Normalise perturbations and observations')
         normed_perts, normed_obs = self._centre_tensors(pseudo_obs, obs_state)
         obs_cinv = self._get_chol_inverse(obs_cov)
-        normed_perts = self._normalise_cinv(normed_perts, obs_cinv)
-        normed_obs = self._normalise_cinv(normed_obs, obs_cinv)
 
-        _logger.info('Gathering the weights')
-        weights = self.gen_weights(normed_perts, normed_obs)[0]
-
-        _logger.info('Applying weights to state')
         state_mean, state_perts = state.state.split_mean_perts()
-        analysis = self._apply_weights(weights, state_mean, state_perts)
+        analysis_perts = self.analyser(state_perts, normed_perts, normed_obs,
+                                       obs_cinv)
+        analysis = analysis_perts + state_mean
         analysis = analysis.transpose('var_name', 'time', 'ensemble', 'grid')
-        _logger.info('Finished with analysis creation')
         return analysis
 
     def _get_states(self, pseudo_state, observations):
@@ -213,14 +208,6 @@ class _ETKFBase(FilterAssimilation):
         args_centred = [arg - x_mean for arg in args]
         return (x_centred, *args_centred)
 
-    @staticmethod
-    def _weights_matmul(perts, weights):
-        ana_perts = xr.apply_ufunc(
-            np.matmul, perts, weights,
-            input_core_dims=[['ensemble'], []], output_core_dims=[['ensemble']],
-            dask='parallelized'
-        )
-        return ana_perts
 
     def _apply_weights(self, weights, state_mean, state_pert):
         """
@@ -254,7 +241,7 @@ class _ETKFBase(FilterAssimilation):
         return analysis
 
 
-class ETKFCorr(_CorrMixin, _ETKFBase):
+class ETKFCorr(CorrMixin, ETKFBase):
     """
     This is an implementation of the `ensemble transform Kalman filter`
     :cite:`bishop_adaptive_2001` for correlated observation covariances.
@@ -287,7 +274,7 @@ class ETKFCorr(_CorrMixin, _ETKFBase):
     pass
 
 
-class ETKFUncorr(_UnCorrMixin, _ETKFBase):
+class ETKFUncorr(UnCorrMixin, ETKFBase):
     """
     This is an implementation of the `ensemble transform Kalman filter`
     :cite:`bishop_adaptive_2001` for uncorrelated observation covariances.

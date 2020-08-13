@@ -32,13 +32,39 @@ from tqdm import tqdm
 import torch
 
 # Internal modules
-from .etkf import _ETKFBase
-from .etkf_core import ETKFWeightsModule, _CorrMixin, _UnCorrMixin
+from .etkf import ETKFBase
+from .etkf_core import ETKFWeightsModule, CorrMixin, UnCorrMixin,\
+    ETKFAnalyser
 
 logger = logging.getLogger(__name__)
 
 
-class _LETKFBase(_ETKFBase):
+class _LETKFAnalyser(ETKFAnalyser):
+    def __init__(self, localization=None, inf_factor=1.0):
+        super().__init__(inf_factor)
+        self.localization = localization
+        self._gen_weights = ETKFWeightsModule(inf_factor)
+
+    def _localise_obs(self, grid_point, centred_perts, centred_obs, obs_cinv,
+                      obs_grid):
+        if self.localization is None:
+            return centred_perts, centred_obs, obs_cinv
+        else:
+            use_obs, obs_weights = self.localization.localize_obs(
+                grid_point, obs_grid
+            )
+            obs_weights = torch.as_tensor(obs_weights[use_obs],
+                                          dtype=centred_perts.dtype)
+            centred_perts = centred_perts[..., use_obs]
+            centred_obs = centred_obs[..., use_obs]
+            obs_cinv = obs_cinv[use_obs, ...]
+            if obs_cinv.dim() == 2:
+                obs_cinv = obs_cinv[..., use_obs]
+            obs_cinv = obs_cinv * obs_weights
+            return centred_perts, centred_obs, obs_cinv
+
+
+class LETKFBase(ETKFBase):
     def __init__(self, localization=None, inf_factor=1.0, smoother=True,
                  gpu=False, pre_transform=None, post_transform=None):
         self._gen_weights = None
@@ -88,14 +114,10 @@ class _LETKFBase(_ETKFBase):
                 sub_perts.grid.values, centered_perts, centered_obs, obs_cinv,
                 obs_grid
             )
-            loc_perts = self._normalise_cinv(loc_perts, loc_cinv)
-            loc_obs = self._normalise_cinv(loc_obs, loc_cinv)
-            weights = self.gen_weights(loc_perts, loc_obs)[0]
-            weights = weights.detach().cpu().numpy()
-            loc_ana_perts = self._weights_matmul(sub_perts, weights)
             analysis_perts.append(loc_ana_perts)
         analysis_perts = xr.concat(analysis_perts, dim='grid')
         analysis_perts = analysis_perts.transpose(*state_perts.dims)
+        print(analysis_perts)
         return analysis_perts
 
     def update_state(self, state, observations, pseudo_state, analysis_time):
@@ -162,7 +184,7 @@ class _LETKFBase(_ETKFBase):
         return analysis
 
 
-class LETKFCorr(_CorrMixin, _LETKFBase):
+class LETKFCorr(CorrMixin, LETKFBase):
     """
     This is an implementation of the `localized ensemble transform Kalman
     filter` :cite:`hunt_efficient_2007` for correlated observations.
@@ -203,7 +225,7 @@ class LETKFCorr(_CorrMixin, _LETKFBase):
     pass
 
 
-class LETKFUncorr(_UnCorrMixin, _LETKFBase):
+class LETKFUncorr(UnCorrMixin, LETKFBase):
     """
     This is an implementation of the `localized ensemble transform Kalman
     filter` :cite:`hunt_efficient_2007` for uncorrelated observations.

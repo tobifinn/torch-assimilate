@@ -33,14 +33,18 @@ import xarray as xr
 import torch
 
 # Internal modules
-from .etkf_core import _CorrMixin, _UnCorrMixin
-from .letkf import _LETKFBase
+from .etkf_core import CorrMixin, UnCorrMixin
+from .letkf import LETKFBase
 
 
 logger = logging.getLogger(__name__)
 
 
-class _DistributedLETKFBase(_LETKFBase):
+def localised_analysis(state_perts):
+    return state_perts
+
+
+class DistributedLETKFBase(LETKFBase):
     def __init__(self, client=None, cluster=None, chunksize=10,
                  localization=None, inf_factor=1.0, smoother=True,
                  gpu=False, pre_transform=None, post_transform=None):
@@ -151,20 +155,21 @@ class _DistributedLETKFBase(_LETKFBase):
         logger.info('Normalise perturbations and observations')
         normed_perts, normed_obs = self._centre_tensors(pseudo_obs, obs_state)
         obs_cinv = self._get_chol_inverse(obs_cov)
-        normed_perts, normed_obs, obs_cinv, obs_grid = self.client.scatter(
-            [normed_perts, normed_obs, obs_cinv, obs_grid], broadcast=True
-        )
+        # normed_perts, normed_obs, obs_cinv, obs_grid = self.client.scatter(
+        #     [normed_perts, normed_obs, obs_cinv, obs_grid], broadcast=True
+        # )
 
         logger.info('Chunking background state')
         state = state.chunk(
             {'grid': self.chunksize, 'var_name': -1, 'time': -1, 'ensemble': -1}
         )
         state_mean, state_perts = state.state.split_mean_perts()
+        print(state_perts)
         logger.info('Create analysis perturbations')
         ana_perts = xr.map_blocks(
-            self._localised_analysis,
+            localised_analysis,
             obj=state_perts,
-            args=(normed_perts, normed_obs, obs_cinv, obs_grid),
+            #args=(normed_perts, normed_obs, obs_cinv, obs_grid),
             template=state_perts
         )
         logger.info('Add background mean to analysis perturbations')
@@ -174,7 +179,7 @@ class _DistributedLETKFBase(_LETKFBase):
         return analysis
 
 
-class DistributedLETKFCorr(_CorrMixin, _DistributedLETKFBase):
+class DistributedLETKFCorr(CorrMixin, DistributedLETKFBase):
     """
     This is a dask-based implementation of the `localized ensemble transform
     Kalman filter` :cite:`hunt_efficient_2007` for correlated observations.
@@ -220,7 +225,7 @@ class DistributedLETKFCorr(_CorrMixin, _DistributedLETKFBase):
     pass
 
 
-class DistributedLETKFUncorr(_UnCorrMixin, _DistributedLETKFBase):
+class DistributedLETKFUncorr(UnCorrMixin, DistributedLETKFBase):
     """
     This is a dask-based implementation of the `localized ensemble transform
     Kalman filter` :cite:`hunt_efficient_2007` for uncorrelated observations.
