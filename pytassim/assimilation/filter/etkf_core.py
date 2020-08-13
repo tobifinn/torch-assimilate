@@ -107,8 +107,7 @@ class ETKFAnalyser(object):
         )
         return ana_perts
 
-    def get_analysis_perts(self, state_perts, normed_perts, normed_obs,
-                           obs_cinv):
+    def get_analysis_perts(self, state_perts, normed_perts, normed_obs):
         weights = self.gen_weights(normed_perts, normed_obs)[0]
         weights = weights.detach().cpu().numpy()
         ana_perts = self._weights_matmul(state_perts, weights)
