@@ -37,6 +37,7 @@ import numpy as np
 # Internal modules
 import pytassim.state
 import pytassim.observation
+from pytassim.assimilation.utils import evd, rev_evd
 from pytassim.assimilation.filter.letkf_core import LETKFAnalyser
 from pytassim.assimilation.filter.etkf_core import ETKFWeightsModule, \
     ETKFAnalyser
@@ -143,6 +144,39 @@ class TestLETKFCorr(unittest.TestCase):
             self.state_perts, self.normed_perts, self.normed_obs, self.obs_grid
         )
         np.testing.assert_almost_equal(ret_perts.values, right_perts.values)
+
+    def test_letkf_analyser_gets_same_solution_as_hunt_07(self):
+        use_obs, obs_weights = self.localisation.localize_obs(
+            [10, ], self.obs_grid
+        )
+        use_obs = obs_weights > 0
+        obs_weights = torch.from_numpy(obs_weights[use_obs]).float()
+        obs_cov = torch.eye(19) * 0.5
+        loc_perts = self.normed_perts[..., use_obs]
+        loc_obs = self.normed_obs[..., use_obs]
+
+        c_hunt, _ = torch.solve(
+            loc_perts.view(1, 10, 19).transpose(-1, -2), obs_cov.view(1, 19, 19)
+        )
+        c_hunt = c_hunt.squeeze(0).t() * obs_weights
+        obs_prec = c_hunt @ loc_perts.t()
+        evals, evects, evals_inv, evects_inv = evd(obs_prec, 9)
+        cov_analysed = rev_evd(evals_inv, evects, evects_inv)
+
+        evals_perts = (9 * evals_inv).sqrt()
+        w_perts = rev_evd(evals_perts, evects, evects_inv)
+
+        w_mean = cov_analysed @ c_hunt @ loc_obs.t()
+        weights = w_mean.squeeze() + w_perts
+        right_ana_pert = self.state_perts[..., 10].values @ weights.numpy()
+
+        ret_ana_perts = self.analyser.get_analysis_perts(
+            self.state_perts[..., [10]], self.normed_perts*np.sqrt(2),
+            self.normed_obs*np.sqrt(2),
+            self.obs_grid
+        ).values.squeeze()
+        np.testing.assert_almost_equal(ret_ana_perts, right_ana_pert,
+                                       decimal=6)
 
 
 
