@@ -113,9 +113,8 @@ class ETKFAnalyser(object):
         ana_perts = self._weights_matmul(state_perts, weights)
         return ana_perts
 
-    def __call__(self, state_perts, normed_perts, normed_obs, obs_cinv):
-        return self.get_analysis_perts(state_perts, normed_perts, normed_obs,
-                                       obs_cinv)
+    def __call__(self, *args):
+        return self.get_analysis_perts(*args)
 
 
 class CorrMixin(object):
