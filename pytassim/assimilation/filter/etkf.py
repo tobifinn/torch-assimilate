@@ -52,19 +52,16 @@ class ETKFBase(FilterAssimilation):
         super().__init__(smoother=smoother, gpu=gpu,
                          pre_transform=pre_transform,
                          post_transform=post_transform)
-        self._inf_factor = None
         self._analyser = None
         self._weights = None
-        self.inf_factor = inf_factor
 
     @property
     def inf_factor(self):
-        return self._inf_factor
+        return self._analyser.inf_factor
 
     @inf_factor.setter
     def inf_factor(self, new_factor):
-        self._inf_factor = new_factor
-        self._analyser = ETKFAnalyser(new_factor)
+        self._analyser = ETKFAnalyser(inf_factor=new_factor)
 
     @property
     def analyser(self):
