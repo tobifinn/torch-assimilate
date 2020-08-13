@@ -42,29 +42,35 @@ logger = logging.getLogger(__name__)
 class LETKFBase(ETKFBase):
     def __init__(self, localization=None, inf_factor=1.0, smoother=True,
                  gpu=False, pre_transform=None, post_transform=None):
-        self._analyser = None
-        self.localization = localization
         super().__init__(inf_factor=inf_factor, smoother=smoother, gpu=gpu,
                          pre_transform=pre_transform,
                          post_transform=post_transform)
+        self._analyser = LETKFAnalyser(localization=localization,
+                                       inf_factor=inf_factor)
 
     @property
-    def analyser(self):
-        return self._analyser
+    def localization(self):
+        return self._analyser.localization
 
-    @analyser.setter
-    def analyser(self, new_analyser):
-        new_analyser.localization = self.localization
-        self._analyser = new_analyser
+    @localization.setter
+    def localization(self, new_locs):
+        self._analyser = LETKFAnalyser(
+            localization=new_locs, inf_factor=self.analyser.inf_factor
+        )
 
     @property
     def inf_factor(self):
-        return self._inf_factor
+        return self._analyser.inf_factor
 
     @inf_factor.setter
     def inf_factor(self, new_factor):
-        self._inf_factor = new_factor
-        self.analyser = LETKFAnalyser(new_factor)
+        if self.analyser is None:
+            localization = None
+        else:
+            localization = self.analyser.localization
+        self._analyser = LETKFAnalyser(
+            localization=localization, inf_factor=new_factor
+        )
 
 
 class LETKFCorr(CorrMixin, LETKFBase):
