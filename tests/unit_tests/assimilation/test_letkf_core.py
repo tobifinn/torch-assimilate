@@ -38,7 +38,8 @@ import numpy as np
 import pytassim.state
 import pytassim.observation
 from pytassim.assimilation.filter.letkf_core import LETKFAnalyser
-from pytassim.assimilation.filter.etkf_core import ETKFWeightsModule
+from pytassim.assimilation.filter.etkf_core import ETKFWeightsModule, \
+    ETKFAnalyser
 from pytassim.testing import dummy_obs_operator, DummyLocalization
 
 
@@ -52,19 +53,20 @@ class TestLETKFCorr(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         state_path = os.path.join(DATA_PATH, 'test_state.nc')
-        state = xr.open_dataarray(state_path).load()
+        state = xr.open_dataarray(state_path).load().isel(time=0)
         obs_path = os.path.join(DATA_PATH, 'test_single_obs.nc')
-        obs = xr.open_dataset(obs_path).load()
+        obs = xr.open_dataset(obs_path).load().isel(time=0)
         obs.obs.operator = dummy_obs_operator
         pseudo_state = obs.obs.operator(state)
+        cls.state_perts = state-state.mean('ensemble')
         cls.normed_perts = torch.from_numpy(
             (pseudo_state - pseudo_state.mean('ensemble')).values
-        ).float()
+        ).float().view(-1, 40)
         cls.normed_obs = torch.from_numpy(
             (obs['observations'] - pseudo_state.mean('ensemble')).values
-        ).float()
-        cls.obs_grid = obs['obs_grid_1'].values
-        cls.state_grid = state.grid.values
+        ).float().view(1, 40)
+        cls.obs_grid = obs['obs_grid_1'].values.reshape(-1, 1)
+        cls.state_grid = state.grid.values.reshape(-1, 1)
 
     def setUp(self):
         self.localisation = DummyLocalization()
@@ -91,6 +93,57 @@ class TestLETKFCorr(unittest.TestCase):
         self.assertIsNotNone(self.analyser._gen_weights)
         self.assertIsInstance(self.analyser._gen_weights,
                               torch.jit.RecursiveScriptModule)
+
+    def test_dummy_localization_returns_equal_grids(self):
+        obs_weights = (np.abs(self.obs_grid-10) < 10).astype(float)[:, 0]
+        use_obs = obs_weights > 0
+        ret_use_obs, ret_weights = self.localisation.localize_obs(
+            10, self.obs_grid
+        )
+        np.testing.assert_equal(ret_use_obs, use_obs)
+        np.testing.assert_equal(ret_weights, obs_weights)
+
+    def test_localise_states_localises_states(self):
+        obs_weights = np.sqrt(
+            (np.abs(self.obs_grid-10) < 10).astype(float)[:, 0]
+        )
+        use_obs = obs_weights > 0
+        obs_weights = obs_weights[use_obs]
+        loc_perts = (self.normed_perts[..., use_obs] * obs_weights).float()
+        loc_obs = (self.normed_obs[..., use_obs] * obs_weights).float()
+        ret_perts, ret_obs = self.analyser._localise_obs(
+            10, self.normed_perts, self.normed_obs, self.obs_grid
+        )
+        torch.testing.assert_allclose(ret_perts, loc_perts)
+        torch.testing.assert_allclose(ret_obs, loc_obs)
+
+    def test_localise_states_returns_global_states_if_no_localisation(self):
+        self.analyser.localization = None
+        ret_perts, ret_obs = self.analyser._localise_obs(
+            10, self.normed_perts, self.normed_obs, self.obs_grid
+        )
+        torch.testing.assert_allclose(ret_perts, self.normed_perts)
+        torch.testing.assert_allclose(ret_obs, self.normed_obs)
+
+    def test_get_analysis_perts_returns_loc_analysis_perts(self):
+        etkf_analyser = ETKFAnalyser(self.analyser.inf_factor)
+        right_perts = []
+        for gp in self.state_grid:
+            loc_perts, loc_obs = self.analyser._localise_obs(
+                gp, self.normed_perts, self.normed_obs, self.obs_grid
+            )
+            loc_perts = etkf_analyser.get_analysis_perts(
+                self.state_perts.sel(grid=gp), loc_perts, loc_obs
+            )
+            right_perts.append(loc_perts)
+        right_perts = xr.concat(right_perts, dim='grid')
+        right_perts = right_perts.transpose(*self.state_perts.dims)
+
+        ret_perts = self.analyser.get_analysis_perts(
+            self.state_perts, self.normed_perts, self.normed_obs, self.obs_grid
+        )
+        np.testing.assert_almost_equal(ret_perts.values, right_perts.values)
+
 
 
 if __name__ == '__main__':

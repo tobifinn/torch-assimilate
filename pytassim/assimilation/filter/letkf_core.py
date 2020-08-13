@@ -28,7 +28,6 @@ import logging
 
 # External modules
 import torch.jit
-
 import xarray as xr
 
 # Internal modules
