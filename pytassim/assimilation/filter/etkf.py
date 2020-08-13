@@ -52,6 +52,7 @@ class ETKFBase(FilterAssimilation):
         super().__init__(smoother=smoother, gpu=gpu,
                          pre_transform=pre_transform,
                          post_transform=post_transform)
+        self._name = 'Global ETKF'
         self._analyser = None
         self._weights = None
         self.inf_factor = inf_factor
@@ -121,7 +122,7 @@ class ETKFBase(FilterAssimilation):
             analysis has same coordinates as given ``state``. If filtering mode
             is on, then the time axis has only one element.
         """
-        logger.info('####### Global ETKF #######')
+        logger.info('####### {0:s} #######'.format(self._name))
         logger.info('Starting with specific preparation')
         pseudo_obs, obs_state, obs_cov, obs_grid = self._get_states(
             pseudo_state, observations,

@@ -47,6 +47,7 @@ class LETKFBase(ETKFBase):
                          post_transform=post_transform)
         self._analyser = LETKFAnalyser(localization=localization,
                                        inf_factor=inf_factor)
+        self._name = 'Sequential LETKF'
 
     @property
     def localization(self):
