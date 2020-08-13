@@ -44,10 +44,53 @@ BASE_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
 
 
+def _create_matrices():
+    ens_obs = np.array([0.5, -0.5])
+    obs = np.array([0.2, ])
+    obs_var = np.array([0.5, ])
+    grid = np.array([0, ])
+    time = np.array([0, ])
+    var_name = np.array([0, ])
+    ensemble = np.arange(2)
+    state = xr.DataArray(
+        ens_obs.reshape(1, 1, 2, 1),
+        coords=dict(
+            time=time,
+            var_name=var_name,
+            ensemble=ensemble,
+            grid=grid
+        ),
+        dims=('var_name', 'time', 'ensemble', 'grid')
+    )
+    obs_da = xr.DataArray(
+        obs.reshape(1, 1),
+        coords=dict(
+            time=time,
+            obs_grid_1=grid
+        ),
+        dims=('time', 'obs_grid_1')
+    )
+    obs_cov_da = xr.DataArray(
+        obs_var.reshape(1, 1),
+        coords=dict(
+            obs_grid_1=grid,
+            obs_grid_2=grid
+        ),
+        dims=('obs_grid_1', 'obs_grid_2')
+    )
+    obs_ds = xr.Dataset(
+        {
+            'observations': obs_da,
+            'covariance': obs_cov_da
+        }
+    )
+    return state, obs_ds
+
+
 class TestETKFModule(unittest.TestCase):
     def setUp(self):
         self.module = ETKFWeightsModule()
-        self.state, self.obs = self._create_matrices()
+        self.state, self.obs = _create_matrices()
         innov = (self.obs['observations']-self.state.mean('ensemble'))
         innov = innov.values.reshape(-1)
         hx_perts = self.state.values.reshape(2, 1)
@@ -58,48 +101,6 @@ class TestETKFModule(unittest.TestCase):
         obs_cinv = torch.cholesky(obs_cov).inverse()
         self.normed_perts = hx_perts @ obs_cinv
         self.normed_obs = (innov @ obs_cinv).view(1, 1)
-
-    def _create_matrices(self):
-        ens_obs = np.array([0.5, -0.5])
-        obs = np.array([0.2, ])
-        obs_var = np.array([0.5, ])
-        grid = np.array([0, ])
-        time = np.array([0, ])
-        var_name = np.array([0, ])
-        ensemble = np.arange(2)
-        state = xr.DataArray(
-            ens_obs.reshape(1, 1, 2, 1),
-            coords=dict(
-                time=time,
-                var_name=var_name,
-                ensemble=ensemble,
-                grid=grid
-            ),
-            dims=('var_name', 'time', 'ensemble', 'grid')
-        )
-        obs_da = xr.DataArray(
-            obs.reshape(1, 1),
-            coords=dict(
-                time=time,
-                obs_grid_1=grid
-            ),
-            dims=('time', 'obs_grid_1')
-        )
-        obs_cov_da = xr.DataArray(
-            obs_var.reshape(1, 1),
-            coords=dict(
-                obs_grid_1=grid,
-                obs_grid_2=grid
-            ),
-            dims=('obs_grid_1', 'obs_grid_2')
-        )
-        obs_ds = xr.Dataset(
-            {
-                'observations': obs_da,
-                'covariance': obs_cov_da
-            }
-        )
-        return state, obs_ds
 
     def test_is_module(self):
         self.assertIsInstance(self.module, torch.nn.Module)
@@ -210,8 +211,21 @@ class TestETKFModule(unittest.TestCase):
         torch.testing.assert_allclose(eval_mean, w_mean)
 
 
-
 class TestETKFAnalyser(unittest.TestCase):
+    def setUp(self) -> None:
+        state, obs = _create_matrices()
+        innov = (obs['observations']-state.mean('ensemble'))
+        innov = innov.values.reshape(-1)
+        hx_perts = state.values.reshape(2, 1)
+        obs_cov = obs['covariance'].values
+        prepared_states = [innov, hx_perts, obs_cov]
+        torch_states = [torch.from_numpy(s).float() for s in prepared_states]
+        innov, hx_perts, obs_cov = torch_states
+        self.obs_cinv = torch.cholesky(obs_cov).inverse()
+        self.normed_perts = hx_perts
+        self.normed_obs = innov
+        self.analyser = ETKFAnalyser(1.0)
+
     def test_normalise_cinv_multiplies_cinv(self):
         state = torch.zeros(10, 5).normal_()
         perts = torch.zeros(100, 5).normal_()
@@ -219,7 +233,7 @@ class TestETKFAnalyser(unittest.TestCase):
         chol_decomp = np.linalg.cholesky(cov.numpy())
         cinv = torch.from_numpy(np.linalg.inv(chol_decomp)).float()
         norm_state = torch.mm(state, cinv)
-        ret_state = self.algorithm._normalise_cinv(state, cinv)
+        ret_state = self.analyser._normalise_cinv(state, cinv)
         torch.testing.assert_allclose(ret_state, norm_state)
 
 
