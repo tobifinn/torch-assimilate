@@ -53,7 +53,7 @@ def rev_evd(evals, evects, evects_inv):
     return rev_evd
 
 
-def grid_index_to_array(index):
+def grid_to_array(index):
     raw_index_array = np.atleast_1d(index.values)
     if isinstance(raw_index_array[0], tuple):
         shape = (-1, len(raw_index_array[0]))

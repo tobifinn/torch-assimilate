@@ -31,6 +31,7 @@ import torch.jit
 import xarray as xr
 
 # Internal modules
+from ..utils import grid_to_array
 from .etkf_core import ETKFAnalyser, ETKFWeightsModule
 
 
@@ -74,10 +75,11 @@ class LETKFAnalyser(ETKFAnalyser):
     def get_analysis_perts(self, state_perts, normed_perts, normed_obs,
                            obs_grid):
         grid_first = state_perts.transpose('grid', ...)
+        grid_index = grid_to_array(grid_first['grid'])
         analysis_perts = []
-        for sub_perts in grid_first:
+        for ind, sub_perts in enumerate(grid_first):
             loc_perts, loc_obs = self._localise_obs(
-                sub_perts.grid.values, normed_perts, normed_obs, obs_grid
+                grid_index[ind], normed_perts, normed_obs, obs_grid
             )
             loc_analysis_perts = super().get_analysis_perts(
                 sub_perts, loc_perts, loc_obs, None
