@@ -29,8 +29,8 @@ import logging
 # External modules
 from distributed import Client
 import xarray as xr
-
-import torch
+import numpy as np
+import dask
 
 # Internal modules
 from .etkf_core import CorrMixin, UnCorrMixin
@@ -166,15 +166,21 @@ class DistributedLETKFBase(LETKFBase):
             {'grid': self.chunksize, 'var_name': -1, 'time': -1, 'ensemble': -1}
         )
         state_mean, state_perts = state.state.split_mean_perts()
+        chunk_pos = np.concatenate([[0], np.cumsum(state_perts.chunks[-1])])
+
         logger.info('Create analysis perturbations')
-        ana_perts = state_perts.map_blocks(
-            self.analyser,
-            args=(normed_perts, normed_obs, obs_grid),
-            template=state_perts
-        )
-        ana_perts = ana_perts.compute()
+        ana_perts = []
+        for k, pos in enumerate(chunk_pos[1:]):
+            tmp_perts = state_perts[..., chunk_pos[k]:pos]
+            loc_perts = dask.delayed(self.analyser)(tmp_perts, normed_perts,
+                                                    normed_obs, obs_grid)
+            loc_perts.persist()
+            ana_perts.append(loc_perts)
+        ana_perts = self._client.compute(ana_perts, sync=True)
+        ana_perts = xr.concat(ana_perts, dim='grid')
+
         logger.info('Add background mean to analysis perturbations')
-        analysis = ana_perts + state_mean
+        analysis = ana_perts.transpose(*state_perts.dims) + state_mean
         return analysis
 
 
