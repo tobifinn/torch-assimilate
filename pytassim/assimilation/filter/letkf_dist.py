@@ -172,10 +172,9 @@ class DistributedLETKFBase(LETKFBase):
             args=(normed_perts, normed_obs, obs_grid),
             template=state_perts
         )
+        ana_perts = ana_perts.compute()
         logger.info('Add background mean to analysis perturbations')
         analysis = ana_perts + state_mean
-        logger.info('Compute analysis')
-        analysis = analysis.compute()
         return analysis
 
 
