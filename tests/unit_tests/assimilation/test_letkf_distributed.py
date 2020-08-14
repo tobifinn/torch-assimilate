@@ -54,7 +54,8 @@ class TestLETKFDistributed(unittest.TestCase):
     def setUpClass(cls):
         cls.cluster = LocalCluster(
             n_workers=1, threads_per_worker=1,
-            local_directory="/tmp/dask_work"
+            local_directory="/tmp/dask_work",
+            processes=False
         )
         cls.client = Client(cls.cluster)
 
