@@ -178,6 +178,7 @@ class DistributedLETKFBase(LETKFBase):
             ana_perts.append(loc_perts)
         ana_perts = self._client.compute(ana_perts, sync=True)
         ana_perts = xr.concat(ana_perts, dim='grid')
+        ana_perts['grid'] = state_perts['grid']
 
         logger.info('Add background mean to analysis perturbations')
         analysis = ana_perts.transpose(*state_perts.dims) + state_mean
