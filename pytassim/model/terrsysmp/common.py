@@ -138,8 +138,11 @@ def generic_postprocess(analysis_data, origin_ds, vcoords):
         variables from given analysis array.
     """
     pre_analysis_ds = array_to_ds(analysis_data)
+    logger.info('Created analysis dataset')
     analysis_ds = origin_ds.copy(deep=True)
+    logger.info('Copied original dataset')
     for var in pre_analysis_ds.data_vars:
+        logger.info('Starting to post-process {0:s}'.format(var))
         try:
             data_prepared = pre_analysis_ds[var].dropna('vgrid', how='all')
             data_prepared = dim_transpose(data_prepared, vcoords)
