@@ -32,10 +32,13 @@ import re
 # External modules
 import xarray as xr
 import numpy as np
+import pandas as pd
+
 import torch
 import torch.jit
 import torch.nn
 import torch.sparse
+
 import scipy.linalg
 import scipy.linalg.blas
 
@@ -90,6 +93,17 @@ class TestETKFCorr(unittest.TestCase):
             (self.obs, self.obs)
         )
         np.testing.assert_equal(obs_grid.reshape(-1, 1), returned_grid)
+
+    def test_prepare_obs_returns_obs_grid_multiindex(self):
+        multiindex_grid = pd.MultiIndex.from_product(
+            [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10], [0.1, 0.2, 0.3, 0.4]]
+        )
+        self.obs['obs_grid_1'] = self.obs['obs_grid_2'] = multiindex_grid
+        obs_grid = np.tile(multiindex_grid.to_frame().values, (6, 1))
+        _, returned_grid = self.algorithm._prepare_obs(
+            (self.obs, self.obs)
+        )
+        np.testing.assert_equal(obs_grid, returned_grid)
 
     def test_prepare_obs_returns_obs_cov_matrix(self):
         len_time = len(self.obs.time)

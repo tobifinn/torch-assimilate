@@ -29,6 +29,8 @@ import logging
 # External modules
 import torch
 
+import numpy as np
+
 # Internal modules
 
 
@@ -49,3 +51,16 @@ def rev_evd(evals, evects, evects_inv):
     rev_evd = torch.mm(evects, diag_flat_evals)
     rev_evd = torch.mm(rev_evd, evects_inv)
     return rev_evd
+
+
+def grid_index_to_array(index):
+    raw_index_array = np.atleast_1d(index.values)
+    if isinstance(raw_index_array[0], tuple):
+        shape = (-1, len(raw_index_array[0]))
+    elif raw_index_array.ndim > 1:
+        shape = raw_index_array.shape
+    else:
+        shape = (-1, 1)
+    dtype = ','.join(['float']*shape[-1])
+    index_array = np.array(index, dtype=dtype).view(float).reshape(*shape)
+    return index_array

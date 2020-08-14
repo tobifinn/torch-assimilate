@@ -38,6 +38,8 @@ import pandas as pd
 import torch
 
 # Internal modules
+from .utils import grid_index_to_array
+
 from pytassim.state import StateError
 from pytassim.observation import ObservationError
 
@@ -162,17 +164,7 @@ class BaseAssimilation(object):
                 pass
         return obs_equivalent, filtered_observations
 
-    def _grid_index_to_array(self, index):
-        raw_index_array = np.atleast_1d(index.values)
-        if isinstance(raw_index_array[0], tuple):
-            shape = (-1, len(raw_index_array[0]))
-        elif raw_index_array.ndim > 1:
-            shape = raw_index_array.shape
-        else:
-            shape = (-1, 1)
-        dtype = ','.join(['float']*shape[-1])
-        index_array = np.array(index, dtype=dtype).view(float).reshape(*shape)
-        return index_array
+
 
     @abc.abstractmethod
     def _get_obs_cov(self, observations):
@@ -191,7 +183,7 @@ class BaseAssimilation(object):
             state_stacked_list.append(stacked_obs)
         state_concat = xr.concat(state_stacked_list, dim='obs_id')
         state_values = state_concat.values
-        state_grid = self._grid_index_to_array(state_concat['obs_grid_1'])
+        state_grid = grid_index_to_array(state_concat['obs_grid_1'])
         return state_values, state_grid
 
     @abc.abstractmethod
