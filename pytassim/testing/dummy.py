@@ -134,7 +134,7 @@ class DummyLocalization(object):
     @staticmethod
     def localize_obs(grid_ind, obs_grid):
         distance = np.abs(obs_grid-grid_ind)
-        obs_weights = np.clip(1 - distance / 10, a_min=0)[:, 0]
+        obs_weights = np.clip(1 - distance / 10, a_min=0, a_max=None)[:, 0]
         use_obs = obs_weights > 0
         return use_obs, obs_weights
 

@@ -95,7 +95,8 @@ class TestLETKFCorr(unittest.TestCase):
         self.assertIsInstance(self.analyser._gen_weights, torch.nn.Module)
 
     def test_dummy_localization_returns_equal_grids(self):
-        obs_weights = (np.abs(self.obs_grid-10) < 10).astype(float)[:, 0]
+        distance = np.abs(self.obs_grid-10)
+        obs_weights = np.clip(1-distance/10, a_min=0, a_max=None)[:, 0]
         use_obs = obs_weights > 0
         ret_use_obs, ret_weights = self.localisation.localize_obs(
             10, self.obs_grid
@@ -104,8 +105,9 @@ class TestLETKFCorr(unittest.TestCase):
         np.testing.assert_equal(ret_weights, obs_weights)
 
     def test_localise_states_localises_states(self):
+        distance = np.abs(self.obs_grid-10)
         obs_weights = np.sqrt(
-            (np.abs(self.obs_grid-10) < 10).astype(float)[:, 0]
+            np.clip(1-distance/10, a_min=0, a_max=None)[:, 0]
         )
         use_obs = obs_weights > 0
         obs_weights = obs_weights[use_obs]
