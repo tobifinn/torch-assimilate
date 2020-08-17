@@ -147,38 +147,49 @@ class TestLETKFCorr(unittest.TestCase):
         np.testing.assert_almost_equal(ret_perts.values, right_perts.values)
 
     def test_letkf_analyser_gets_same_solution_as_hunt_07(self):
-        use_obs, obs_weights = self.localisation.localize_obs(
-            [10, ], self.obs_grid
-        )
-        use_obs = obs_weights > 0
-        obs_weights = torch.from_numpy(obs_weights[use_obs]).float()
-        obs_cov = torch.eye(19) * 0.5
-        loc_perts = self.normed_perts[..., use_obs]
-        loc_obs = self.normed_obs[..., use_obs]
+        hunt_ana_perts = []
+        for gp in range(40):
+            use_obs, obs_weights = self.localisation.localize_obs(
+                [gp, ], self.obs_grid
+            )
+            use_obs = obs_weights > 0
+            obs_weights = torch.from_numpy(obs_weights[use_obs]).float()
+            num_obs = len(obs_weights)
+            obs_cov = torch.eye(num_obs) * 0.5
+            loc_perts = self.normed_perts[..., use_obs]
+            loc_obs = self.normed_obs[..., use_obs]
 
-        c_hunt, _ = torch.solve(
-            loc_perts.view(1, 10, 19).transpose(-1, -2), obs_cov.view(1, 19, 19)
-        )
-        c_hunt = c_hunt.squeeze(0).t() * obs_weights
-        obs_prec = c_hunt @ loc_perts.t()
-        evals, evects, evals_inv, evects_inv = evd(obs_prec, 9)
-        cov_analysed = rev_evd(evals_inv, evects, evects_inv)
+            c_hunt, _ = torch.solve(
+                loc_perts.view(1, 10, num_obs).transpose(-1, -2),
+                obs_cov.view(1, num_obs, num_obs)
+            )
+            c_hunt = c_hunt.squeeze(0).t() * obs_weights
+            prec_analysed = c_hunt @ loc_perts.t() + torch.eye(10) * 9.
+            evals, evects = torch.symeig(prec_analysed, eigenvectors=True,
+                                         upper=False)
+            evals_inv = 1/evals
+            evects_inv = evects.t()
+            cov_analysed = torch.mm(evects, torch.diagflat(evals_inv))
+            cov_analysed = torch.mm(cov_analysed, evects_inv)
 
-        evals_perts = (9 * evals_inv).sqrt()
-        w_perts = rev_evd(evals_perts, evects, evects_inv)
+            evals_perts = (9 * evals_inv).sqrt()
+            w_perts = torch.mm(evects, torch.diagflat(evals_perts))
+            w_perts = torch.mm(w_perts, evects_inv)
 
-        w_mean = cov_analysed @ c_hunt @ loc_obs.t()
-        weights = w_mean.squeeze() + w_perts
-        right_ana_pert = self.state_perts[..., 10].values @ weights.numpy()
+            w_mean = cov_analysed @ c_hunt @ loc_obs.t()
+            weights = w_mean.squeeze() + w_perts
+            tmp_ana_pert = self.state_perts[..., gp].values @ weights.numpy()
+            hunt_ana_perts.append(tmp_ana_pert)
 
         ret_ana_perts = self.analyser.get_analysis_perts(
-            self.state_perts[..., [10]], self.normed_perts*np.sqrt(2),
+            self.state_perts, self.normed_perts*np.sqrt(2),
             self.normed_obs*np.sqrt(2),
             self.obs_grid
         ).values.squeeze()
-        np.testing.assert_almost_equal(ret_ana_perts, right_ana_pert,
-                                       decimal=6)
 
+        hunt_ana_perts = np.stack(hunt_ana_perts, axis=-1)
+        np.testing.assert_almost_equal(ret_ana_perts, hunt_ana_perts,
+                                       decimal=5)
 
 
 if __name__ == '__main__':
