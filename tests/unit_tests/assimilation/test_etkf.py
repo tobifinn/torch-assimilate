@@ -226,17 +226,6 @@ class TestETKFCorr(unittest.TestCase):
             np.testing.assert_array_equal(state.cpu().numpy(),
                                           prepared_states[k])
 
-    def test_update_states_uses_states_to_torch(self):
-        ana_time = self.state.time[-1].values
-        obs_tuple = (self.obs, self.obs.copy())
-        prepared_states = self.algorithm._get_states(self.state, obs_tuple)
-        torch_states = self.algorithm._states_to_torch(*prepared_states)[:-1]
-        trg = 'pytassim.assimilation.filter.etkf.ETKFCorr._states_to_torch'
-        with patch(trg, return_value=torch_states) as torch_patch:
-            _ = self.algorithm.update_state(self.state, obs_tuple, self.state,
-                                            ana_time)
-        torch_patch.assert_called_once()
-
     def test_get_obs_cinv(self):
         perts = torch.zeros(100, 5).normal_()
         cov = (perts.t() @ perts) / 99
