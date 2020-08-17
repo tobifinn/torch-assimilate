@@ -174,16 +174,24 @@ class DistributedLETKFBase(LETKFBase):
         def to_torch(state_arr):
             return torch.from_numpy(state_arr).to(obs_state)
 
+        @dask.delayed
+        def add_mean(perts, mean):
+            torch_mean = torch.from_numpy(mean).to(perts).unsqueeze(dim=-2)
+            added_mean = torch_mean + perts
+            return added_mean
+
         logger.info('Create analysis perturbations')
-        ana_perts = []
+        analysis_list = []
         for k, pos in enumerate(chunk_pos[1:]):
-            tmp_perts = state_perts.data[..., chunk_pos[k]:pos]
-            tmp_perts = dask.delayed(to_torch)(tmp_perts)
-            tmp_grid = state_grid[..., chunk_pos[k]:pos]
+            loc_perts = state_perts.data[..., chunk_pos[k]:pos]
+            loc_perts = dask.delayed(to_torch)(loc_perts)
+            loc_grid = state_grid[..., chunk_pos[k]:pos]
             loc_perts = dask.delayed(self.analyser)(
-                tmp_perts, normed_perts, normed_obs, tmp_grid, obs_grid
+                loc_perts, normed_perts, normed_obs, loc_grid, obs_grid
             )
-            ana_perts.append(loc_perts)
+            loc_mean = state_mean.data[..., chunk_pos[k]:pos]
+            loc_ana = dask.delayed(add_mean)(loc_perts, loc_mean)
+            analysis_list.append(loc_ana)
 
         @dask.delayed
         def cat_numpy(perts_list):
@@ -191,12 +199,9 @@ class DistributedLETKFBase(LETKFBase):
             cat_np = cat_list.numpy()
             return cat_np
 
-        ana_perts = dask.delayed(cat_numpy)(ana_perts)
-        ana_perts = ana_perts.compute()
-        ana_perts = state_perts.copy(data=ana_perts)
-
-        logger.info('Add background mean to analysis perturbations')
-        analysis = ana_perts + state_mean
+        analysis = dask.delayed(cat_numpy)(analysis_list)
+        analysis = analysis.compute()
+        analysis = state.copy(data=analysis)
         return analysis
 
 
