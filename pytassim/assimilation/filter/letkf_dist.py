@@ -161,6 +161,9 @@ class DistributedLETKFBase(LETKFBase):
         normed_perts, normed_obs, obs_grid = self.client.scatter(
             [normed_perts, normed_obs, obs_grid], broadcast=True
         )
+        normed_perts = dask.delayed(normed_perts)
+        normed_obs = dask.delayed(normed_obs)
+        obs_grid = dask.delayed(obs_grid)
 
         logger.info('Chunking background state')
         state = state.chunk(
@@ -172,10 +175,8 @@ class DistributedLETKFBase(LETKFBase):
 
         logger.info('Create analysis perturbations')
         ana_perts = []
-        self._client.scatter(state_perts.data)
-        self._client.scatter(state_mean.data)
         for k, pos in enumerate(chunk_pos[1:]):
-            tmp_perts = state_perts.data.blocks[..., k]
+            tmp_perts = state_perts.data[..., chunk_pos[k]:pos]
             tmp_grid = state_grid[..., chunk_pos[k]:pos]
             loc_perts = dask.delayed(self.analyser)(
                 tmp_perts, normed_perts, normed_obs, tmp_grid, obs_grid
@@ -184,7 +185,7 @@ class DistributedLETKFBase(LETKFBase):
 
         logger.info('Add background mean to analysis perturbations')
         ana_perts = dask.delayed(da.concatenate)(ana_perts, axis=-1)
-        analysis = ana_perts.compute() + state_mean.data[..., None, :]
+        analysis = ana_perts.compute(sync=True) + state_mean.data[..., None, :]
         analysis = state.copy(data=analysis)
         return analysis
 
