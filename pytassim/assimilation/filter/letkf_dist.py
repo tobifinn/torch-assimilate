@@ -168,6 +168,7 @@ class DistributedLETKFBase(LETKFBase):
         state_mean, state_perts = state.state.split_mean_perts()
         chunk_pos = np.concatenate([[0], np.cumsum(state_perts.chunks[-1])])
         state_perts.persist()
+        state_mean.persist()
 
         logger.info('Create analysis perturbations')
         ana_perts = []
@@ -176,9 +177,10 @@ class DistributedLETKFBase(LETKFBase):
             loc_perts = dask.delayed(self.analyser)(tmp_perts, normed_perts,
                                                     normed_obs, obs_grid)
             ana_perts.append(loc_perts)
-        ana_perts = self._client.compute(ana_perts, sync=True)
-        ana_perts = xr.concat(ana_perts, dim='grid')
-        ana_perts['grid'] = state_perts['grid']
+        ana_perts = dask.delayed(xr.concat)(ana_perts, dim='grid')
+        ana_perts = ana_perts.compute()
+        print(ana_perts)
+        print(ana_perts.shape)
 
         logger.info('Add background mean to analysis perturbations')
         analysis = ana_perts.transpose(*state_perts.dims) + state_mean
