@@ -161,9 +161,6 @@ class DistributedLETKFBase(LETKFBase):
         normed_perts, normed_obs, obs_grid = self.client.scatter(
             [normed_perts, normed_obs, obs_grid], broadcast=True
         )
-        normed_perts = dask.delayed(normed_perts)
-        normed_obs = dask.delayed(normed_obs)
-        obs_grid = dask.delayed(obs_grid)
 
         logger.info('Chunking background state')
         state = state.chunk(
