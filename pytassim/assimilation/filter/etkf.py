@@ -138,10 +138,11 @@ class ETKFBase(FilterAssimilation):
         normed_perts, normed_obs = self._normalise_obs(pseudo_obs, obs_state,
                                                        obs_cinv)
         state_mean, state_perts = state.state.split_mean_perts()
+        state_grid = state_perts['grid']
 
         logger.info('Create analysis')
         analysis_perts = self.analyser(state_perts, normed_perts, normed_obs,
-                                       obs_grid)
+                                       state_grid, obs_grid)
         analysis_perts = state_perts.copy(data=analysis_perts)
         analysis = analysis_perts + state_mean
         analysis = analysis.transpose('var_name', 'time', 'ensemble', 'grid')
