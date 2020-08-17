@@ -132,19 +132,20 @@ class TestLETKFCorr(unittest.TestCase):
             loc_perts, loc_obs = self.analyser._localise_obs(
                 gp, self.normed_perts, self.normed_obs, self.obs_grid
             )
-            loc_state_perts = self.state_perts[..., [ind]]
+            loc_state_perts = torch.from_numpy(
+                self.state_perts[..., [ind]].values
+            ).float()
             loc_perts = etkf_analyser.get_analysis_perts(
                 loc_state_perts, loc_perts, loc_obs, None, None
             )
             right_perts.append(loc_perts)
-        right_perts = da.concatenate(right_perts, axis=-1)
+        right_perts = torch.cat(right_perts, axis=-1)
 
         ret_perts = self.analyser.get_analysis_perts(
-            self.state_perts, self.normed_perts, self.normed_obs,
-            self.state_grid, self.obs_grid
+            torch.from_numpy(self.state_perts.values).float(),
+            self.normed_perts, self.normed_obs, self.state_grid, self.obs_grid
         )
-        np.testing.assert_almost_equal(ret_perts.compute(),
-                                       right_perts.compute())
+        torch.testing.assert_allclose(ret_perts, right_perts)
 
     def test_letkf_analyser_gets_same_solution_as_hunt_07(self):
         hunt_ana_perts = []
@@ -177,17 +178,18 @@ class TestLETKFCorr(unittest.TestCase):
             w_perts = torch.mm(w_perts, evects_inv)
 
             w_mean = cov_analysed @ c_hunt @ loc_obs.t()
-            weights = w_mean.squeeze() + w_perts
+            weights = w_mean + w_perts
             tmp_ana_pert = self.state_perts[..., gp].values @ weights.numpy()
             hunt_ana_perts.append(tmp_ana_pert)
 
         ret_ana_perts = self.analyser.get_analysis_perts(
-            self.state_perts, self.normed_perts*np.sqrt(2),
-            self.normed_obs*np.sqrt(2),
+            torch.from_numpy(self.state_perts.values).float(),
+            self.normed_perts*np.sqrt(2), self.normed_obs*np.sqrt(2),
             self.state_grid, self.obs_grid
-        ).compute()
+        ).numpy()
 
         hunt_ana_perts = np.stack(hunt_ana_perts, axis=-1)
+
         np.testing.assert_almost_equal(ret_ana_perts, hunt_ana_perts,
                                        decimal=5)
 

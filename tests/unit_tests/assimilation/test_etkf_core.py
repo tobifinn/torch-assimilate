@@ -177,7 +177,7 @@ class TestETKFModule(unittest.TestCase):
 
     def test_returns_w_mean(self):
         correct_gain = np.array([0.5, -0.5])
-        correct_wa = correct_gain * 0.2
+        correct_wa = (correct_gain * 0.2).reshape(2, 1)
         ret_wa = self.module(self.normed_perts, self.normed_obs)[1]
         np.testing.assert_array_almost_equal(ret_wa.numpy(), correct_wa)
 
@@ -207,8 +207,8 @@ class TestETKFModule(unittest.TestCase):
 
     def test_weights_ens_mean(self):
         weights, w_mean, _, _ = self.module(self.normed_perts, self.normed_obs)
-        eval_mean = (weights-torch.eye(self.normed_perts.shape[0])).mean(dim=0)
-        torch.testing.assert_allclose(eval_mean, w_mean)
+        eval_mean = (weights-torch.eye(self.normed_perts.shape[0])).mean(dim=1)
+        torch.testing.assert_allclose(eval_mean.view(2, 1), w_mean)
 
 
 
