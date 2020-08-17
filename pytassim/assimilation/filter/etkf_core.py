@@ -101,7 +101,7 @@ class ETKFAnalyser(object):
 
     @staticmethod
     def _weights_matmul(perts, weights):
-        ana_perts = da.einsum('vtig,ij->vtjg', perts, weights)
+        ana_perts = da.einsum('...ig,ij->...jg', perts, weights)
         return ana_perts
 
     def get_analysis_perts(self, state_perts, normed_perts, normed_obs,

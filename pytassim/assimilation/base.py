@@ -183,7 +183,7 @@ class BaseAssimilation(object):
             state_stacked_list.append(stacked_obs)
         state_concat = xr.concat(state_stacked_list, dim='obs_id')
         state_values = state_concat.values
-        state_grid = grid_to_array(state_concat['obs_grid_1'])
+        state_grid = grid_to_array(state_concat['obs_grid_1'].values)
         return state_values, state_grid
 
     @abc.abstractmethod
