@@ -32,7 +32,6 @@ from distributed import Client
 import numpy as np
 import dask
 import torch
-import dask.array as da
 
 # Internal modules
 from .etkf_core import CorrMixin, UnCorrMixin
@@ -165,18 +164,13 @@ class DistributedLETKFBase(LETKFBase):
         state = state.chunk(
             {'grid': self.chunksize, 'var_name': -1, 'time': -1, 'ensemble': -1}
         )
-        state_grid = da.from_array(
-            state.grid.values, chunks=self.chunksize
-        )
+        state_grid = state['grid']
         chunk_pos = np.concatenate([[0], np.cumsum(state.chunks[-1])])
         state_mean, state_perts = state.state.split_mean_perts()
 
         logger.info('Scatter data')
         normed_perts, normed_obs, obs_grid = self.client.scatter(
             [normed_perts, normed_obs, obs_grid], broadcast=True
-        )
-        state_mean, state_perts, state_grid = self.client.scatter(
-            [state_mean.data, state_perts.data, state_grid]
         )
 
         @dask.delayed
@@ -186,7 +180,6 @@ class DistributedLETKFBase(LETKFBase):
 
         @dask.delayed
         def to_tensor(array_to_convert, as_tensor):
-            array_to_convert = array_to_convert.compute()
             converted_tensor = torch.from_numpy(array_to_convert).to(as_tensor)
             return converted_tensor
 
@@ -199,7 +192,7 @@ class DistributedLETKFBase(LETKFBase):
         analysis_list = []
         for k, pos in enumerate(chunk_pos[1:]):
             loc_perts = dask.delayed(slice_data)(
-                state_perts, chunk_pos[k], pos
+                state_perts.data, chunk_pos[k], pos
             )
             loc_perts = dask.delayed(to_tensor)(loc_perts, pseudo_tensor)
             loc_grid = dask.delayed(slice_data)(state_grid, chunk_pos[k], pos)
@@ -207,7 +200,7 @@ class DistributedLETKFBase(LETKFBase):
                 loc_perts, normed_perts, normed_obs, loc_grid, obs_grid
             )
             loc_mean = dask.delayed(slice_data)(
-                state_mean, chunk_pos[k], pos
+                state_mean.data, chunk_pos[k], pos
             )
             loc_mean = dask.delayed(to_tensor)(loc_mean, pseudo_tensor)
             loc_ana = dask.delayed(add_mean)(loc_perts, loc_mean)
