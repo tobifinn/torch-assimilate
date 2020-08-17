@@ -167,6 +167,7 @@ class DistributedLETKFBase(LETKFBase):
         )
         state_mean, state_perts = state.state.split_mean_perts()
         chunk_pos = np.concatenate([[0], np.cumsum(state_perts.chunks[-1])])
+        state_perts.persist()
 
         logger.info('Create analysis perturbations')
         ana_perts = []
@@ -174,7 +175,6 @@ class DistributedLETKFBase(LETKFBase):
             tmp_perts = state_perts[..., chunk_pos[k]:pos]
             loc_perts = dask.delayed(self.analyser)(tmp_perts, normed_perts,
                                                     normed_obs, obs_grid)
-            loc_perts.persist()
             ana_perts.append(loc_perts)
         ana_perts = self._client.compute(ana_perts, sync=True)
         ana_perts = xr.concat(ana_perts, dim='grid')
