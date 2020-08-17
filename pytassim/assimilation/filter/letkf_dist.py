@@ -190,7 +190,7 @@ class DistributedLETKFBase(LETKFBase):
             added_mean = perts + mean.unsqueeze(dim=-2)
             return added_mean
 
-        logger.info('Create analysis perturbations')
+        logger.info('Create analysis')
         analysis_list = []
         for k, pos in enumerate(chunk_pos[1:]):
             loc_perts = dask.delayed(slice_data)(
