@@ -28,7 +28,7 @@ import logging
 
 # External modules
 import torch
-
+import dask.array as da
 import numpy as np
 
 # Internal modules
@@ -54,8 +54,11 @@ def rev_evd(evals, evects, evects_inv):
 
 
 def grid_to_array(index):
-    raw_index_array = index
-    if not isinstance(index, np.ndarray):
+    if isinstance(index, np.ndarray):
+        raw_index_array = index
+    elif isinstance(index, da.Array):
+        raw_index_array = index.compute()
+    else:
         raw_index_array = np.atleast_1d(index.values)
     if isinstance(raw_index_array[0], tuple):
         shape = (-1, len(raw_index_array[0]))
