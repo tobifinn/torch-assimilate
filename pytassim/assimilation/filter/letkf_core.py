@@ -85,5 +85,5 @@ class LETKFAnalyser(ETKFAnalyser):
                 state_perts[..., [ind]], loc_perts, loc_obs, None, None
             )
             analysis_perts.append(loc_analysis_perts)
-        analysis_perts = da.concatenate(analysis_perts, axis=-1)
+        analysis_perts = torch.cat(analysis_perts, dim=-1)
         return analysis_perts
