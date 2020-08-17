@@ -153,51 +153,66 @@ class DistributedLETKFBase(LETKFBase):
         pseudo_obs, obs_state, obs_cov = self._states_to_torch(
             pseudo_obs, obs_state, obs_cov
         )
+        pseudo_tensor = dask.delayed(torch.zeros(0).to(obs_state))
 
         logger.info('Normalise perturbations and observations')
         obs_cinv = self._get_chol_inverse(obs_cov)
         normed_perts, normed_obs = self._normalise_obs(pseudo_obs, obs_state,
                                                        obs_cinv)
-        normed_perts, normed_obs, obs_grid = self.client.scatter(
-            [normed_perts, normed_obs, obs_grid], broadcast=True
-        )
 
         logger.info('Chunking background state')
         state = state.chunk(
             {'grid': self.chunksize, 'var_name': -1, 'time': -1, 'ensemble': -1}
         )
+        state_grid = state['grid']
+        chunk_pos = np.concatenate([[0], np.cumsum(state.chunks[-1])])
+
+        logger.info('Scatter data')
+        normed_perts, normed_obs, obs_grid = self.client.scatter(
+            [normed_perts, normed_obs, obs_grid], broadcast=True
+        )
+        scattered_data, = self.client.scatter([state.data])
+        state.data = scattered_data.result()
         state_mean, state_perts = state.state.split_mean_perts()
-        chunk_pos = np.concatenate([[0], np.cumsum(state_perts.chunks[-1])])
-        state_grid = state_perts['grid']
 
         @dask.delayed
-        def to_torch(state_arr):
-            return torch.from_numpy(state_arr).to(obs_state)
+        def slice_data(array_to_slice, min_bound, max_bound):
+            sliced_array = array_to_slice[..., min_bound:max_bound]
+            return sliced_array
+
+        @dask.delayed
+        def to_tensor(array_to_convert, as_tensor):
+            converted_tensor = torch.from_numpy(array_to_convert).to(as_tensor)
+            return converted_tensor
 
         @dask.delayed
         def add_mean(perts, mean):
-            torch_mean = torch.from_numpy(mean).to(perts).unsqueeze(dim=-2)
-            added_mean = torch_mean + perts
+            added_mean = perts + mean.unsqueeze(dim=-2)
             return added_mean
 
         logger.info('Create analysis perturbations')
         analysis_list = []
         for k, pos in enumerate(chunk_pos[1:]):
-            loc_perts = state_perts.data[..., chunk_pos[k]:pos]
-            loc_perts = dask.delayed(to_torch)(loc_perts)
-            loc_grid = state_grid[..., chunk_pos[k]:pos]
+            loc_perts = dask.delayed(slice_data)(
+                state_perts.data, chunk_pos[k], pos
+            )
+            loc_perts = dask.delayed(to_tensor)(loc_perts, pseudo_tensor)
+            loc_grid = dask.delayed(slice_data)(state_grid, chunk_pos[k], pos)
             loc_perts = dask.delayed(self.analyser)(
                 loc_perts, normed_perts, normed_obs, loc_grid, obs_grid
             )
-            loc_mean = state_mean.data[..., chunk_pos[k]:pos]
+            loc_mean = dask.delayed(slice_data)(
+                state_mean.data, chunk_pos[k], pos
+            )
+            loc_mean = dask.delayed(to_tensor)(loc_mean, pseudo_tensor)
             loc_ana = dask.delayed(add_mean)(loc_perts, loc_mean)
             analysis_list.append(loc_ana)
 
         @dask.delayed
-        def cat_numpy(perts_list):
-            cat_list = torch.cat(perts_list, dim=-1)
-            cat_np = cat_list.numpy()
-            return cat_np
+        def cat_numpy(list_to_cat):
+            concatenated_list = torch.cat(list_to_cat, dim=-1)
+            concatenated_numpy = concatenated_list.numpy()
+            return concatenated_numpy
 
         analysis = dask.delayed(cat_numpy)(analysis_list)
         analysis = analysis.compute()
