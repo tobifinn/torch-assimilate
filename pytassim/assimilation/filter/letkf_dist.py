@@ -32,6 +32,7 @@ from distributed import Client
 import numpy as np
 import dask
 import torch
+import dask.array as da
 
 # Internal modules
 from .etkf_core import CorrMixin, UnCorrMixin
@@ -164,7 +165,9 @@ class DistributedLETKFBase(LETKFBase):
         state = state.chunk(
             {'grid': self.chunksize, 'var_name': -1, 'time': -1, 'ensemble': -1}
         )
-        state_grid = state['grid']
+        state_grid = da.from_array(
+            state['grid'].values, chunks=self.chunksize
+        )
         chunk_pos = np.concatenate([[0], np.cumsum(state.chunks[-1])])
         state_mean, state_perts = state.state.split_mean_perts()
 
