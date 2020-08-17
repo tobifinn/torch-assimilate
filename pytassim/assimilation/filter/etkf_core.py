@@ -101,7 +101,7 @@ class ETKFAnalyser(object):
     @staticmethod
     def _weights_matmul(perts, weights):
         ana_perts = xr.apply_ufunc(
-            np.matmul, perts, weights,
+            np.matmul, perts, weights.T,
             input_core_dims=[['ensemble'], []], output_core_dims=[['ensemble']],
             dask='parallelized'
         )
