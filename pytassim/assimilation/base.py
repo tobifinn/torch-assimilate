@@ -63,12 +63,9 @@ class BaseAssimilation(object):
         self.dtype = torch.double
 
     def _states_to_torch(self, *states):
+        torch_states = [torch.from_numpy(s).to(self.dtype) for s in states]
         if self.gpu:
-            torch_states = [torch.tensor(s, dtype=self.dtype).cuda()
-                            for s in states]
-        else:
-            torch_states = [torch.tensor(s, dtype=self.dtype)
-                            for s in states]
+            torch_states = [s.cuda() for s in torch_states]
         return torch_states
 
     @staticmethod
