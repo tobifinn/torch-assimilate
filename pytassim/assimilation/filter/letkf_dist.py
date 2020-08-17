@@ -31,6 +31,7 @@ from distributed import Client
 import xarray as xr
 import numpy as np
 import dask
+import dask.array as da
 
 # Internal modules
 from .etkf_core import CorrMixin, UnCorrMixin
@@ -167,23 +168,24 @@ class DistributedLETKFBase(LETKFBase):
         )
         state_mean, state_perts = state.state.split_mean_perts()
         chunk_pos = np.concatenate([[0], np.cumsum(state_perts.chunks[-1])])
-        state_perts.persist()
-        state_mean.persist()
+        state_grid = state_perts['grid']
 
         logger.info('Create analysis perturbations')
         ana_perts = []
+        self._client.scatter(state_perts.data)
+        self._client.scatter(state_mean.data)
         for k, pos in enumerate(chunk_pos[1:]):
-            tmp_perts = state_perts[..., chunk_pos[k]:pos]
-            loc_perts = dask.delayed(self.analyser)(tmp_perts, normed_perts,
-                                                    normed_obs, obs_grid)
+            tmp_perts = state_perts.data.blocks[..., k]
+            tmp_grid = state_grid[..., chunk_pos[k]:pos]
+            loc_perts = dask.delayed(self.analyser)(
+                tmp_perts, normed_perts, normed_obs, tmp_grid, obs_grid
+            )
             ana_perts.append(loc_perts)
-        ana_perts = dask.delayed(xr.concat)(ana_perts, dim='grid')
-        ana_perts = ana_perts.compute()
-        print(ana_perts)
-        print(ana_perts.shape)
 
         logger.info('Add background mean to analysis perturbations')
-        analysis = ana_perts.transpose(*state_perts.dims) + state_mean
+        ana_perts = dask.delayed(da.concatenate)(ana_perts, axis=-1)
+        analysis = ana_perts.compute() + state_mean.data[..., None, :]
+        analysis = state.copy(data=analysis)
         return analysis
 
 
