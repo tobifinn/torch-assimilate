@@ -32,6 +32,7 @@ import torch
 import torch.sparse
 import scipy.linalg
 import xarray as xr
+import dask.array as da
 
 # Internal modules
 from ..utils import evd, rev_evd
@@ -100,11 +101,7 @@ class ETKFAnalyser(object):
 
     @staticmethod
     def _weights_matmul(perts, weights):
-        ana_perts = xr.apply_ufunc(
-            np.matmul, perts, weights.T,
-            input_core_dims=[['ensemble'], []], output_core_dims=[['ensemble']],
-            dask='parallelized'
-        )
+        ana_perts = da.einsum('vtig,ij->vtjg', perts, weights)
         return ana_perts
 
     def get_analysis_perts(self, state_perts, normed_perts, normed_obs,

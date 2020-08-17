@@ -142,6 +142,7 @@ class ETKFBase(FilterAssimilation):
         logger.info('Create analysis')
         analysis_perts = self.analyser(state_perts, normed_perts, normed_obs,
                                        obs_grid)
+        analysis_perts = state_perts.copy(data=analysis_perts)
         analysis = analysis_perts + state_mean
         analysis = analysis.transpose('var_name', 'time', 'ensemble', 'grid')
         return analysis
