@@ -160,20 +160,18 @@ class DistributedLETKFBase(LETKFBase):
         normed_perts, normed_obs = self._normalise_obs(pseudo_obs, obs_state,
                                                        obs_cinv)
 
-        logger.info('Chunking background state')
+        logger.info('Chunking and split background state')
         state = state.chunk(
             {'grid': self.chunksize, 'var_name': -1, 'time': -1, 'ensemble': -1}
         )
         state_grid = state['grid']
         chunk_pos = np.concatenate([[0], np.cumsum(state.chunks[-1])])
+        state_mean, state_perts = state.state.split_mean_perts()
 
         logger.info('Scatter data')
         normed_perts, normed_obs, obs_grid = self.client.scatter(
             [normed_perts, normed_obs, obs_grid], broadcast=True
         )
-        scattered_data, = self.client.scatter([state.data])
-        state.data = scattered_data.result()
-        state_mean, state_perts = state.state.split_mean_perts()
 
         @dask.delayed
         def slice_data(array_to_slice, min_bound, max_bound):
