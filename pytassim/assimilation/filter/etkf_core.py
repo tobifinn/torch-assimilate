@@ -101,7 +101,7 @@ class ETKFAnalyser(object):
 
     @staticmethod
     def _weights_matmul(perts, weights):
-        ana_perts = torch.einsum('...ig,ij->...jg', perts, weights)
+        ana_perts = torch.einsum('...ig,ij->...jg', perts, weights.t())
         return ana_perts
 
     def get_analysis_perts(self, state_perts, normed_perts, normed_obs,
