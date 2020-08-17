@@ -54,7 +54,9 @@ def rev_evd(evals, evects, evects_inv):
 
 
 def grid_to_array(index):
-    raw_index_array = np.atleast_1d(index.values)
+    raw_index_array = index
+    if not isinstance(index, np.ndarray):
+        raw_index_array = np.atleast_1d(index.values)
     if isinstance(raw_index_array[0], tuple):
         shape = (-1, len(raw_index_array[0]))
     elif raw_index_array.ndim > 1:

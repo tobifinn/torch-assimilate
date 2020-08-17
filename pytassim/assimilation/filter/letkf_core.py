@@ -29,6 +29,7 @@ import logging
 # External modules
 import torch.jit
 import xarray as xr
+import dask.array as da
 
 # Internal modules
 from ..utils import grid_to_array
@@ -72,19 +73,17 @@ class LETKFAnalyser(ETKFAnalyser):
             normed_obs = normed_obs[..., use_obs] * obs_weights
             return normed_perts, normed_obs
 
-    def get_analysis_perts(self, state_perts, normed_perts, normed_obs,
-                           obs_grid):
-        grid_first = state_perts.transpose('grid', ...)
-        grid_index = grid_to_array(grid_first['grid'])
+    def get_analysis_perts(self, state_perts, normed_perts,
+                           normed_obs, state_grid, obs_grid):
+        grid_index = grid_to_array(state_grid)
         analysis_perts = []
-        for ind, sub_perts in enumerate(grid_first):
+        for ind, grid_point in enumerate(grid_index):
             loc_perts, loc_obs = self._localise_obs(
-                grid_index[ind], normed_perts, normed_obs, obs_grid
+                grid_point, normed_perts, normed_obs, obs_grid
             )
             loc_analysis_perts = super().get_analysis_perts(
-                sub_perts, loc_perts, loc_obs, None
+                state_perts[..., [ind]], loc_perts, loc_obs, None, None
             )
             analysis_perts.append(loc_analysis_perts)
-        analysis_perts = xr.concat(analysis_perts, dim='grid')
-        analysis_perts = analysis_perts.transpose(*state_perts.dims)
+        analysis_perts = da.concatenate(analysis_perts, axis=-1)
         return analysis_perts

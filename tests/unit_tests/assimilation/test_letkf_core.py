@@ -33,11 +33,9 @@ import xarray as xr
 import torch
 import torch.jit
 import numpy as np
+import dask.array as da
 
 # Internal modules
-import pytassim.state
-import pytassim.observation
-from pytassim.assimilation.utils import evd, rev_evd
 from pytassim.assimilation.filter.letkf_core import LETKFAnalyser
 from pytassim.assimilation.filter.etkf_core import ETKFWeightsModule, \
     ETKFAnalyser
@@ -130,21 +128,23 @@ class TestLETKFCorr(unittest.TestCase):
     def test_get_analysis_perts_returns_loc_analysis_perts(self):
         etkf_analyser = ETKFAnalyser(self.analyser.inf_factor)
         right_perts = []
-        for gp in self.state_grid:
+        for ind, gp in enumerate(self.state_grid):
             loc_perts, loc_obs = self.analyser._localise_obs(
                 gp, self.normed_perts, self.normed_obs, self.obs_grid
             )
+            loc_state_perts = self.state_perts[..., [ind]]
             loc_perts = etkf_analyser.get_analysis_perts(
-                self.state_perts.sel(grid=gp), loc_perts, loc_obs, None
+                loc_state_perts, loc_perts, loc_obs, None, None
             )
             right_perts.append(loc_perts)
-        right_perts = xr.concat(right_perts, dim='grid')
-        right_perts = right_perts.transpose(*self.state_perts.dims)
+        right_perts = da.concatenate(right_perts, axis=-1)
 
         ret_perts = self.analyser.get_analysis_perts(
-            self.state_perts, self.normed_perts, self.normed_obs, self.obs_grid
+            self.state_perts, self.normed_perts, self.normed_obs,
+            self.state_grid, self.obs_grid
         )
-        np.testing.assert_almost_equal(ret_perts.values, right_perts.values)
+        np.testing.assert_almost_equal(ret_perts.compute(),
+                                       right_perts.compute())
 
     def test_letkf_analyser_gets_same_solution_as_hunt_07(self):
         hunt_ana_perts = []
@@ -184,8 +184,8 @@ class TestLETKFCorr(unittest.TestCase):
         ret_ana_perts = self.analyser.get_analysis_perts(
             self.state_perts, self.normed_perts*np.sqrt(2),
             self.normed_obs*np.sqrt(2),
-            self.obs_grid
-        ).values.squeeze()
+            self.state_grid, self.obs_grid
+        ).compute()
 
         hunt_ana_perts = np.stack(hunt_ana_perts, axis=-1)
         np.testing.assert_almost_equal(ret_ana_perts, hunt_ana_perts,
