@@ -61,25 +61,9 @@ class TestLETKFCorr(unittest.TestCase):
         self.state.close()
         self.obs.close()
 
-    def test_gen_weights_return_private(self):
-        self.algorithm._gen_weights = 1234
-        self.assertEqual(self.algorithm.gen_weights, 1234)
-
-    def test_gen_weights_none_sets_none(self):
-        self.algorithm._gen_weights = 1234
-        self.algorithm.gen_weights = None
-        self.assertIsNone(self.algorithm._gen_weights)
-
-    def test_gen_weights_jit_script(self):
-        self.algorithm._gen_weights = None
-        module = ETKFWeightsModule(1.2)
-        self.algorithm.gen_weights = module
-        self.assertIsInstance(self.algorithm._gen_weights,
-                              torch.jit.RecursiveScriptModule)
-
-    def test_gen_weights_raises_typeerror(self):
-        with self.assertRaises(TypeError):
-            self.algorithm.gen_weights = 1234
+    def test_analyser_returns_private(self):
+        self.algorithm._analyser = 1234
+        self.assertEqual(self.algorithm.analyser, 1234)
 
     def test_wo_localization_letkf_equals_etkf(self):
         etkf = ETKFCorr()
@@ -94,34 +78,6 @@ class TestLETKFCorr(unittest.TestCase):
             self.state, obs_tuple, self.state, self.state.time[-1].values
         )
         self.assertTrue(analysis.state.valid)
-
-    def test_dummy_localization_returns_equal_grids(self):
-        obs_tuple = (self.obs, self.obs)
-        prepared_states = self.algorithm._get_states(self.state, obs_tuple)
-        obs_weights = (np.abs(prepared_states[-1]-10) < 10).astype(float)[:, 0]
-        use_obs = obs_weights > 0
-
-        localization = DummyLocalization()
-        ret_use_obs, ret_weights = localization.localize_obs(
-            10, prepared_states[-1]
-        )
-
-        np.testing.assert_equal(ret_use_obs, use_obs)
-        np.testing.assert_equal(ret_weights, obs_weights)
-
-    def test_update_state_uses_localization(self):
-        self.algorithm.localization = DummyLocalization()
-        ana_time = self.state.time[-1].values
-        nr_grid_points = len(self.state.grid)
-        obs_tuple = (self.obs, self.obs)
-        prepared_states = self.algorithm._get_states(self.state, obs_tuple)
-        obs_weights = (np.abs(prepared_states[-1]-10) < 10).astype(float)[:, 0]
-        use_obs = obs_weights > 0
-        with patch('pytassim.testing.dummy.DummyLocalization.localize_obs',
-                  return_value=(use_obs, obs_weights)) as loc_patch:
-           _ = self.algorithm.update_state(self.state, obs_tuple,
-                                           self.state, ana_time)
-        self.assertEqual(loc_patch.call_count, nr_grid_points)
 
     def test_wo_localization_letkf_equals_etkf_smoothing(self):
         etkf = ETKFCorr(smoother=True)

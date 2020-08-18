@@ -32,9 +32,13 @@ import re
 # External modules
 import xarray as xr
 import numpy as np
+import pandas as pd
+
 import torch
 import torch.jit
 import torch.nn
+import torch.sparse
+
 import scipy.linalg
 import scipy.linalg.blas
 
@@ -42,183 +46,13 @@ import scipy.linalg.blas
 import pytassim.state
 import pytassim.observation
 from pytassim.assimilation.filter.etkf import ETKFCorr, ETKFUncorr
-from pytassim.assimilation.filter.etkf_core import ETKFWeightsModule
 from pytassim.testing import dummy_obs_operator, if_gpu_decorator
-from pytassim.assimilation.filter import etkf_core
 
 
 logging.basicConfig(level=logging.INFO)
 
 BASE_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
-
-
-class TestETKFModule(unittest.TestCase):
-    def setUp(self):
-        self.module = ETKFWeightsModule()
-        self.state, self.obs = self._create_matrices()
-        innov = (self.obs['observations']-self.state.mean('ensemble'))
-        innov = innov.values.reshape(-1)
-        hx_perts = self.state.values.reshape(2, 1)
-        obs_cov = self.obs['covariance'].values
-        prepared_states = [innov, hx_perts, obs_cov]
-        torch_states = [torch.from_numpy(s).float() for s in prepared_states]
-        innov, hx_perts, obs_cov = torch_states
-        obs_cinv = torch.cholesky(obs_cov).inverse()
-        self.normed_perts = hx_perts @ obs_cinv
-        self.normed_obs = (innov @ obs_cinv).view(1, 1)
-
-    def _create_matrices(self):
-        ens_obs = np.array([0.5, -0.5])
-        obs = np.array([0.2, ])
-        obs_var = np.array([0.5, ])
-        grid = np.array([0, ])
-        time = np.array([0, ])
-        var_name = np.array([0, ])
-        ensemble = np.arange(2)
-        state = xr.DataArray(
-            ens_obs.reshape(1, 1, 2, 1),
-            coords=dict(
-                time=time,
-                var_name=var_name,
-                ensemble=ensemble,
-                grid=grid
-            ),
-            dims=('var_name', 'time', 'ensemble', 'grid')
-        )
-        obs_da = xr.DataArray(
-            obs.reshape(1, 1),
-            coords=dict(
-                time=time,
-                obs_grid_1=grid
-            ),
-            dims=('time', 'obs_grid_1')
-        )
-        obs_cov_da = xr.DataArray(
-            obs_var.reshape(1, 1),
-            coords=dict(
-                obs_grid_1=grid,
-                obs_grid_2=grid
-            ),
-            dims=('obs_grid_1', 'obs_grid_2')
-        )
-        obs_ds = xr.Dataset(
-            {
-                'observations': obs_da,
-                'covariance': obs_cov_da
-            }
-        )
-        return state, obs_ds
-
-    def test_is_module(self):
-        self.assertIsInstance(self.module, torch.nn.Module)
-        try:
-            _ = torch.jit.script(self.module)
-        except RuntimeError:
-            raise AssertionError('JIT is not possible!')
-
-    def test_inf_factor_float_to_tensor(self):
-        self.module._inf_factor = None
-        self.assertIsNone(self.module._inf_factor)
-        self.module.inf_factor = 1.2
-        self.assertIsInstance(self.module._inf_factor, torch.Tensor)
-        torch.testing.assert_allclose(
-            self.module._inf_factor, torch.tensor(1.2)
-        )
-
-    def test_inf_factor_uses_tensor(self):
-        self.module._inf_factor = None
-        self.assertIsNone(self.module._inf_factor)
-        test_tensor = torch.tensor(1.2)
-        self.module.inf_factor = test_tensor
-        self.assertEqual(id(self.module._inf_factor), id(test_tensor))
-
-    def test_dot_product(self):
-        right_dot_product = self.normed_perts @ self.normed_perts.t()
-        out_dot = self.module._dot_product(self.normed_perts, self.normed_perts)
-        torch.testing.assert_allclose(out_dot, right_dot_product)
-
-    def test_differentiable(self):
-        normed_perts = torch.nn.Parameter(self.normed_perts.clone())
-        self.assertIsNone(normed_perts.grad)
-        ret_val = self.module(normed_perts, self.normed_obs)[0]
-        ret_val.mean().backward()
-        self.assertIsNotNone(normed_perts.grad)
-        self.assertIsInstance(normed_perts.grad, torch.Tensor)
-
-    def test_right_cov(self):
-        ret_kernel = self.module._dot_product(self.normed_perts,
-                                              self.normed_perts)
-        ret_evd = etkf_core.evd(ret_kernel, 1)
-        evals, evects, evals_inv, evects_inv = ret_evd
-
-        cov_analysed = torch.matmul(evects, torch.diagflat(evals_inv))
-        cov_analysed = torch.matmul(cov_analysed, evects_inv)
-
-        right_cov = np.array([
-            [0.75, 0.25],
-            [0.25, 0.75]
-        ])
-
-        np.testing.assert_array_almost_equal(cov_analysed, right_cov)
-
-    def test_rev_evd(self):
-        ret_kernel = self.module._dot_product(self.normed_perts,
-                                              self.normed_perts)
-        evals, evects, evals_inv, evects_inv = etkf_core.evd(
-            ret_kernel, 1
-        )
-        right_rev = torch.mm(evects, torch.diagflat(evals))
-        right_rev = torch.mm(right_rev, evects_inv)
-
-        ret_rev = etkf_core.rev_evd(evals, evects, evects_inv)
-        torch.testing.assert_allclose(ret_rev, right_rev)
-
-    def test_right_w_eigendecomposition(self):
-        ret_prec = self.normed_perts @ self.normed_perts.t()
-        evals, evects = np.linalg.eigh(ret_prec)
-        evals = evals + 1
-        evals_inv_sqrt = np.diagflat(np.sqrt(1/evals))
-        w_pert = np.dot(evals_inv_sqrt, evects.T)
-        w_pert = np.dot(evects, w_pert)
-
-        ret_perts = self.module(self.normed_perts, self.normed_obs)[2]
-        np.testing.assert_array_almost_equal(ret_perts.numpy(), w_pert)
-
-    def test_returns_w_mean(self):
-        correct_gain = np.array([0.5, -0.5])
-        correct_wa = correct_gain * 0.2
-        ret_wa = self.module(self.normed_perts, self.normed_obs)[1]
-        np.testing.assert_array_almost_equal(ret_wa.numpy(), correct_wa)
-
-    def test_returns_w_perts(self):
-        right_cov = np.array([
-            [0.75, 0.25],
-            [0.25, 0.75]
-        ])
-        return_perts = self.module(self.normed_perts, self.normed_obs)[2]
-        return_perts = return_perts.numpy()
-        ret_cov = np.matmul(return_perts, return_perts.T)
-        np.testing.assert_array_almost_equal(ret_cov, right_cov)
-
-    def test_returns_w_cov(self):
-        right_cov = np.array([
-            [0.75, 0.25],
-            [0.25, 0.75]
-        ])
-        return_cov = self.module(self.normed_perts, self.normed_obs)[3]
-        return_cov = return_cov.numpy()
-        np.testing.assert_array_almost_equal(return_cov, right_cov)
-
-    def test_returns_weights(self):
-        weights, w_mean, w_perts, _ = self.module(self.normed_perts,
-                                                  self.normed_obs)
-        torch.testing.assert_allclose(weights, w_mean+w_perts)
-
-    def test_weights_ens_mean(self):
-        weights, w_mean, _, _ = self.module(self.normed_perts, self.normed_obs)
-        eval_mean = (weights-torch.eye(self.normed_perts.shape[0])).mean(dim=0)
-        torch.testing.assert_allclose(eval_mean, w_mean)
 
 
 class TestETKFCorr(unittest.TestCase):
@@ -234,20 +68,11 @@ class TestETKFCorr(unittest.TestCase):
         self.state.close()
         self.obs.close()
 
-    def test_inf_factor_returns_private(self):
-        self.algorithm._inf_factor = 3.2
-        self.assertEqual(self.algorithm.inf_factor, 3.2)
-
-    def test_inf_factor_sets_private_inf_factor(self):
-        self.algorithm._inf_factor = None
+    def test_inf_factor_sets_analyser(self):
+        old_id = id(self.algorithm._analyser)
         self.algorithm.inf_factor = 3.2
-        self.assertEqual(self.algorithm._inf_factor, 3.2)
-
-    def test_inf_factor_sets_new_weight_gen(self):
-        old_id = id(self.algorithm.gen_weights)
-        self.algorithm.inf_factor = 3.2
-        self.assertNotEqual(id(self.algorithm.gen_weights), old_id)
-        self.assertEqual(self.algorithm.gen_weights.inf_factor, 3.2)
+        self.assertNotEqual(id(self.algorithm._analyser), old_id)
+        self.assertEqual(self.algorithm._analyser.inf_factor, 3.2)
 
     def test_prepare_obs_stackes_and_concats_obs(self):
         obs_stacked = self.obs['observations'].stack(
@@ -268,6 +93,17 @@ class TestETKFCorr(unittest.TestCase):
             (self.obs, self.obs)
         )
         np.testing.assert_equal(obs_grid.reshape(-1, 1), returned_grid)
+
+    def test_prepare_obs_returns_obs_grid_multiindex(self):
+        multiindex_grid = pd.MultiIndex.from_product(
+            [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10], [0.1, 0.2, 0.3, 0.4]]
+        )
+        self.obs['obs_grid_1'] = self.obs['obs_grid_2'] = multiindex_grid
+        obs_grid = np.tile(multiindex_grid.to_frame().values, (6, 1))
+        _, returned_grid = self.algorithm._prepare_obs(
+            (self.obs, self.obs)
+        )
+        np.testing.assert_equal(obs_grid, returned_grid)
 
     def test_prepare_obs_returns_obs_cov_matrix(self):
         len_time = len(self.obs.time)
@@ -390,17 +226,6 @@ class TestETKFCorr(unittest.TestCase):
             np.testing.assert_array_equal(state.cpu().numpy(),
                                           prepared_states[k])
 
-    def test_update_states_uses_states_to_torch(self):
-        ana_time = self.state.time[-1].values
-        obs_tuple = (self.obs, self.obs.copy())
-        prepared_states = self.algorithm._get_states(self.state, obs_tuple)
-        torch_states = self.algorithm._states_to_torch(*prepared_states)[:-1]
-        trg = 'pytassim.assimilation.filter.etkf.ETKFCorr._states_to_torch'
-        with patch(trg, return_value=torch_states) as torch_patch:
-            _ = self.algorithm.update_state(self.state, obs_tuple, self.state,
-                                            ana_time)
-        torch_patch.assert_called_once()
-
     def test_get_obs_cinv(self):
         perts = torch.zeros(100, 5).normal_()
         cov = (perts.t() @ perts) / 99
@@ -422,46 +247,92 @@ class TestETKFCorr(unittest.TestCase):
                                             ana_time)
         cinv_patch.assert_called_once()
 
-    def test_center_tensor_centers_original_tensor(self):
-        test_tensor = torch.zeros(10, 5).normal_(mean=1.)
-        test_mean = test_tensor.mean(dim=-2, keepdim=True)
-        centered_tensor = test_tensor-test_mean
-        ret_tensor, = self.algorithm._centre_tensors(test_tensor)
+    def test_normalise_centers_pseudo_obs(self):
+        test_pseudo = torch.zeros(10, 5).normal_(mean=1.)
+        test_obs = torch.zeros(1, 5).normal_()
+        test_mean = test_pseudo.mean(dim=-2, keepdim=True)
+        perts = torch.zeros(100, 5).normal_()
+        cov = (perts.t() @ perts) / 99
+        chol_decomp = np.linalg.cholesky(cov.numpy())
+        test_cinv = np.linalg.inv(chol_decomp)
+        test_cinv = torch.from_numpy(test_cinv).float()
+
+        norm_perts, _ = self.algorithm._normalise_obs(test_pseudo, test_obs,
+                                                      test_cinv)
+
+        centered_tensor = test_pseudo-test_mean
+        ret_tensor = norm_perts.numpy() @ chol_decomp
         torch.testing.assert_allclose(ret_tensor, centered_tensor)
 
-    def test_center_tensor_centers_arguments(self):
-        test_tensor = torch.zeros(10, 5).normal_(mean=1.)
-        test_mean = test_tensor.mean(dim=-2, keepdim=True)
-        test_2_tensor = torch.zeros(100, 5).normal_(mean=2.)
-        centered_2_tensor = test_2_tensor-test_mean
-        _, ret_tensor_1, ret_tensor_2 = self.algorithm._centre_tensors(
-            test_tensor, test_2_tensor, test_2_tensor
+    def test_normalise_centers_obs(self):
+        test_pseudo = torch.zeros(10, 5).normal_(mean=1.)
+        test_obs = torch.zeros(1, 5).normal_()
+        test_mean = test_pseudo.mean(dim=-2, keepdim=True)
+        perts = torch.zeros(100, 5).normal_()
+        cov = (perts.t() @ perts) / 99
+        chol_decomp = np.linalg.cholesky(cov.numpy())
+        test_cinv = np.linalg.inv(chol_decomp)
+        test_cinv = torch.from_numpy(test_cinv).float()
+
+        _, normed_obs = self.algorithm._normalise_obs(test_pseudo, test_obs,
+                                                      test_cinv)
+
+        centered_tensor = test_obs-test_mean
+        ret_tensor = normed_obs.numpy() @ chol_decomp
+        torch.testing.assert_allclose(ret_tensor, centered_tensor)
+
+    def test_normalise_returns_normed_perts_obs(self):
+        test_pseudo = torch.zeros(10, 5).normal_(mean=1.)
+        test_obs = torch.zeros(1, 5).normal_()
+        test_mean = test_pseudo.mean(dim=-2, keepdim=True)
+        perts = torch.zeros(100, 5).normal_()
+        cov = (perts.t() @ perts) / 99
+        chol_decomp = np.linalg.cholesky(cov.numpy())
+        test_cinv = np.linalg.inv(chol_decomp)
+        test_cinv = torch.from_numpy(test_cinv).float()
+
+        normed_perts = (test_pseudo-test_mean) @ test_cinv
+        normed_obs = (test_obs-test_mean)  @ test_cinv
+
+        ret_perts, ret_obs = self.algorithm._normalise_obs(
+            test_pseudo, test_obs, test_cinv
         )
-        torch.testing.assert_allclose(ret_tensor_1, centered_2_tensor)
-        torch.testing.assert_allclose(ret_tensor_2, centered_2_tensor)
+
+        torch.testing.assert_allclose(ret_perts, normed_perts)
+        torch.testing.assert_allclose(ret_obs, normed_obs)
+
+    def test_normalise_uses_multiply_cinv(self):
+        test_pseudo = torch.zeros(10, 5).normal_(mean=1.)
+        test_obs = torch.zeros(1, 5).normal_()
+        test_mean = test_pseudo.mean(dim=-2, keepdim=True)
+        perts = torch.zeros(100, 5).normal_()
+        cov = (perts.t() @ perts) / 99
+        chol_decomp = np.linalg.cholesky(cov.numpy())
+        test_cinv = np.linalg.inv(chol_decomp)
+        test_cinv = torch.from_numpy(test_cinv).float()
+
+        trg = 'pytassim.assimilation.filter.etkf.ETKFCorr._mul_cinv'
+        with patch(trg, return_value=test_pseudo) as cinv_patch:
+            _ = self.algorithm._normalise_obs(
+                test_pseudo, test_obs, test_cinv
+            )
+        cinv_patch.assert_called()
+        self.assertEqual(cinv_patch.call_count, 2)
 
     def test_uses_center_tensors(self):
         ana_time = self.state.time[-1].values
         obs_tuple = (self.obs, self.obs.copy())
         prepared_states = self.algorithm._get_states(self.state, obs_tuple)
         torch_states = self.algorithm._states_to_torch(*prepared_states)[:-1]
-        centered_tensors = self.algorithm._centre_tensors(*torch_states[:2])
+        obs_cinv = self.algorithm._get_chol_inverse(torch_states[-1])
+        normed_tensors = self.algorithm._normalise_obs(*torch_states[:2],
+                                                       obs_cinv)
 
-        trg = 'pytassim.assimilation.filter.etkf.ETKFCorr._centre_tensors'
-        with patch(trg, return_value=centered_tensors) as center_patch:
+        trg = 'pytassim.assimilation.filter.etkf.ETKFCorr._normalise_obs'
+        with patch(trg, return_value=normed_tensors) as center_patch:
             _ = self.algorithm.update_state(self.state, obs_tuple, self.state,
                                             ana_time)
         center_patch.assert_called_once()
-
-    def test_normalise_cinv_multiplies_cinv(self):
-        state = torch.zeros(10, 5).normal_()
-        perts = torch.zeros(100, 5).normal_()
-        cov = (perts.t() @ perts) / 99
-        chol_decomp = np.linalg.cholesky(cov.numpy())
-        cinv = torch.from_numpy(np.linalg.inv(chol_decomp)).float()
-        norm_state = torch.mm(state, cinv)
-        ret_state = self.algorithm._normalise_cinv(state, cinv)
-        torch.testing.assert_allclose(ret_state, norm_state)
 
     def test_algorithm_works(self):
         ana_time = self.state.time[-1].values
@@ -498,7 +369,7 @@ class TestETKFUncorr(unittest.TestCase):
         state = torch.zeros(10, 5).normal_()
         sqrt_inv = torch.zeros(5).uniform_(1, 5)
         norm_state = torch.mm(state, torch.eye(5) * sqrt_inv)
-        ret_state = self.algorithm._normalise_cinv(state, sqrt_inv)
+        ret_state = self.algorithm._mul_cinv(state, sqrt_inv)
         torch.testing.assert_allclose(ret_state, norm_state)
 
     def test_get_chol_inverse_ret_sqrt_inv(self):

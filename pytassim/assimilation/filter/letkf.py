@@ -32,137 +32,49 @@ from tqdm import tqdm
 import torch
 
 # Internal modules
-from .etkf import _ETKFBase
-from .etkf_core import ETKFWeightsModule, _CorrMixin, _UnCorrMixin
+from .etkf import ETKFBase
+from .etkf_core import CorrMixin, UnCorrMixin
+from .letkf_core import LETKFAnalyser
 
 logger = logging.getLogger(__name__)
 
 
-class _LETKFBase(_ETKFBase):
+class LETKFBase(ETKFBase):
     def __init__(self, localization=None, inf_factor=1.0, smoother=True,
                  gpu=False, pre_transform=None, post_transform=None):
-        self._gen_weights = None
         super().__init__(inf_factor=inf_factor, smoother=smoother, gpu=gpu,
                          pre_transform=pre_transform,
                          post_transform=post_transform)
-        self.localization = localization
+        self._analyser = LETKFAnalyser(localization=localization,
+                                       inf_factor=inf_factor)
+        self._name = 'Sequential LETKF'
 
     @property
-    def gen_weights(self):
-        return self._gen_weights
+    def localization(self):
+        return self._analyser.localization
 
-    @gen_weights.setter
-    def gen_weights(self, new_module):
-        if new_module is None:
-            self._gen_weights = None
-        elif isinstance(new_module, ETKFWeightsModule):
-            self._gen_weights = torch.jit.script(new_module)
+    @localization.setter
+    def localization(self, new_locs):
+        self._analyser = LETKFAnalyser(
+            localization=new_locs, inf_factor=self.analyser.inf_factor
+        )
+
+    @property
+    def inf_factor(self):
+        return self._analyser.inf_factor
+
+    @inf_factor.setter
+    def inf_factor(self, new_factor):
+        if self.analyser is None:
+            localization = None
         else:
-            raise TypeError('Given weights module is not a valid '
-                            '`ETKFWeightsModule or None!')
-
-    def _localise_obs(self, grid_point, centred_perts, centred_obs, obs_cinv,
-                      obs_grid):
-        if self.localization is None:
-            return centred_perts, centred_obs, obs_cinv
-        else:
-            use_obs, obs_weights = self.localization.localize_obs(
-                grid_point, obs_grid
-            )
-            obs_weights = torch.as_tensor(obs_weights[use_obs],
-                                          dtype=centred_perts.dtype)
-            centred_perts = centred_perts[..., use_obs]
-            centred_obs = centred_obs[..., use_obs]
-            obs_cinv = obs_cinv[use_obs, ...]
-            if obs_cinv.dim() == 2:
-                obs_cinv = obs_cinv[..., use_obs]
-            obs_cinv = obs_cinv * obs_weights
-            return centred_perts, centred_obs, obs_cinv
-
-    def _localised_analysis(self, state_perts, centered_perts, centered_obs,
-                            obs_cinv, obs_grid):
-        grid_first = state_perts.transpose('grid', ...)
-        analysis_perts = []
-        for sub_perts in grid_first:
-            loc_perts, loc_obs, loc_cinv = self._localise_obs(
-                sub_perts.grid.values, centered_perts, centered_obs, obs_cinv,
-                obs_grid
-            )
-            loc_perts = self._normalise_cinv(loc_perts, loc_cinv)
-            loc_obs = self._normalise_cinv(loc_obs, loc_cinv)
-            weights = self.gen_weights(loc_perts, loc_obs)[0]
-            weights = weights.detach().cpu().numpy()
-            loc_ana_perts = self._weights_matmul(sub_perts, weights)
-            analysis_perts.append(loc_ana_perts)
-        analysis_perts = xr.concat(analysis_perts, dim='grid')
-        analysis_perts = analysis_perts.transpose(*state_perts.dims)
-        return analysis_perts
-
-    def update_state(self, state, observations, pseudo_state, analysis_time):
-        """
-        This method updates the state based on given observations and ansub_array.gridalysis
-        time. This method prepares different states, localize these states,
-        iterates over state grid points, calculates the ensemble  weights and
-        applies these weight to localized state. The calculation of the
-        weights is based on PyTorch, while everything else is calculated with
-        Numpy / Xarray.
-
-        Parameters
-        ----------
-        state : :py:class:`xarray.DataArray`
-            This state is updated by this assimilation algorithm and given
-            ``observation``. This :py:class:`~xarray.DataArray` should have
-            four coordinates, which are specified in
-            :py:class:`pytassim.state.ModelState`.
-        observations : :py:class:`xarray.Dataset` or \
-        iterable(:py:class:`xarray.Dataset`)
-            These observations are used to update given state. An iterable of
-            many :py:class:`xarray.Dataset` can be used to assimilate different
-            variables. For the observation state, these observations are
-            stacked such that the observation state contains all observations.
-        pseudo_state : :py:class:`xarray.DataArray`
-            This state is used to generate an observation-equivalent. This
-             :py:class:`~xarray.DataArray` should have four coordinates, which
-             are specified in :py:class:`pytassim.state.ModelState`.
-        analysis_time : :py:class:`datetime.datetime`
-            This analysis time determines at which point the state is updated.
-
-        Returns
-        -------
-        analysis : :py:class:`xarray.DataArray`
-            The analysed state based on given state and observations. The
-            analysis has same coordinates as given ``state``. If filtering mode
-            is on, then the time axis has only one element.
-        """
-        logger.info('####### Serial LETKF #######')
-        logger.info('Starting with applying observation operator')
-        pseudo_obs, obs_state, obs_cov, obs_grid = self._get_states(
-            pseudo_state, observations,
+            localization = self.analyser.localization
+        self._analyser = LETKFAnalyser(
+            localization=localization, inf_factor=new_factor
         )
 
-        logger.info('Scatter the data to torch')
-        pseudo_obs, obs_state, obs_cov = self._states_to_torch(
-            pseudo_obs, obs_state, obs_cov
-        )
 
-        logger.info('Normalise perturbations and observations')
-        centred_perts, centred_obs = self._centre_tensors(pseudo_obs, obs_state)
-        obs_cinv = self._get_chol_inverse(obs_cov)
-
-        logger.info('Split background into mean and perturbations')
-        state_mean, state_perts = state.state.split_mean_perts()
-
-        logger.info('Create analysis perturbations')
-        analysis_perts = self._localised_analysis(
-            state_perts, centred_perts, centred_obs, obs_cinv, obs_grid
-        )
-        logger.info('Add background mean to analysis perturbations')
-        analysis = (state_mean + analysis_perts).transpose(*state.dims)
-        logger.info('Finished with analysis creation')
-        return analysis
-
-
-class LETKFCorr(_CorrMixin, _LETKFBase):
+class LETKFCorr(CorrMixin, LETKFBase):
     """
     This is an implementation of the `localized ensemble transform Kalman
     filter` :cite:`hunt_efficient_2007` for correlated observations.
@@ -203,7 +115,7 @@ class LETKFCorr(_CorrMixin, _LETKFBase):
     pass
 
 
-class LETKFUncorr(_UnCorrMixin, _LETKFBase):
+class LETKFUncorr(UnCorrMixin, LETKFBase):
     """
     This is an implementation of the `localized ensemble transform Kalman
     filter` :cite:`hunt_efficient_2007` for uncorrelated observations.

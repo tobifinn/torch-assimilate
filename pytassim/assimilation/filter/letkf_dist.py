@@ -25,27 +25,34 @@
 
 # System modules
 import logging
+import operator
 
 # External modules
 from distributed import Client
-import xarray as xr
-
+import numpy as np
+import dask
 import torch
+import dask.array as da
 
 # Internal modules
-from .etkf_core import _CorrMixin, _UnCorrMixin
-from .letkf import _LETKFBase
+from .etkf_core import CorrMixin, UnCorrMixin
+from .letkf import LETKFBase
 
 
 logger = logging.getLogger(__name__)
 
 
-class _DistributedLETKFBase(_LETKFBase):
+def localised_analysis(state, *args):
+    return state
+
+
+class DistributedLETKFBase(LETKFBase):
     def __init__(self, client=None, cluster=None, chunksize=10,
                  localization=None, inf_factor=1.0, smoother=True,
                  gpu=False, pre_transform=None, post_transform=None):
         super().__init__(localization, inf_factor, smoother, gpu, pre_transform,
                          post_transform)
+        self._name = 'Distributed LETKF'
         self._cluster = None
         self._client = None
         self._chunksize = 1
@@ -137,44 +144,84 @@ class _DistributedLETKFBase(_LETKFBase):
             analysis has same coordinates as given ``state``. If filtering mode
             is on, then the time axis has only one element.
         """
-        logger.info('####### DISTRIBUTED LETKF #######')
-        logger.info('Starting with applying observation operator')
+        logger.info('####### {0:s} #######'.format(self._name))
+        logger.info('Starting with specific preparation')
         pseudo_obs, obs_state, obs_cov, obs_grid = self._get_states(
             pseudo_state, observations,
         )
 
-        logger.info('Scatter the data to processes')
+        logger.info('Transfering the data to torch')
         pseudo_obs, obs_state, obs_cov = self._states_to_torch(
             pseudo_obs, obs_state, obs_cov
         )
+        pseudo_tensor = dask.delayed(torch.zeros(0).to(obs_state))
 
         logger.info('Normalise perturbations and observations')
-        normed_perts, normed_obs = self._centre_tensors(pseudo_obs, obs_state)
         obs_cinv = self._get_chol_inverse(obs_cov)
-        normed_perts, normed_obs, obs_cinv, obs_grid = self.client.scatter(
-            [normed_perts, normed_obs, obs_cinv, obs_grid], broadcast=True
-        )
+        normed_perts, normed_obs = self._normalise_obs(pseudo_obs, obs_state,
+                                                       obs_cinv)
 
-        logger.info('Chunking background state')
+        logger.info('Chunking and split background state')
         state = state.chunk(
             {'grid': self.chunksize, 'var_name': -1, 'time': -1, 'ensemble': -1}
         )
-        state_mean, state_perts = state.state.split_mean_perts()
-        logger.info('Create analysis perturbations')
-        ana_perts = xr.map_blocks(
-            self._localised_analysis,
-            obj=state_perts,
-            args=(normed_perts, normed_obs, obs_cinv, obs_grid),
-            template=state_perts
+        state_grid = da.from_array(
+            state['grid'].values, chunks=self.chunksize
         )
-        logger.info('Add background mean to analysis perturbations')
-        analysis = ana_perts + state_mean
-        logger.info('Compute analysis')
+        chunk_pos = np.concatenate([[0], np.cumsum(state.chunks[-1])])
+        state_mean, state_perts = state.state.split_mean_perts()
+
+        logger.info('Scatter data')
+        normed_perts, normed_obs, obs_grid = self.client.scatter(
+            [normed_perts, normed_obs, obs_grid], broadcast=True
+        )
+
+        @dask.delayed
+        def slice_data(array_to_slice, min_bound, max_bound):
+            sliced_array = array_to_slice[..., min_bound:max_bound]
+            return sliced_array
+
+        @dask.delayed
+        def to_tensor(array_to_convert, as_tensor):
+            converted_tensor = torch.from_numpy(array_to_convert).to(as_tensor)
+            return converted_tensor
+
+        @dask.delayed
+        def add_mean(perts, mean):
+            added_mean = perts + mean.unsqueeze(dim=-2)
+            return added_mean
+
+        logger.info('Create analysis')
+        analysis_list = []
+        for k, pos in enumerate(chunk_pos[1:]):
+            loc_perts = dask.delayed(slice_data)(
+                state_perts.data, chunk_pos[k], pos
+            )
+            loc_perts = dask.delayed(to_tensor)(loc_perts, pseudo_tensor)
+            loc_grid = dask.delayed(slice_data)(state_grid, chunk_pos[k], pos)
+            loc_perts = dask.delayed(self.analyser)(
+                loc_perts, normed_perts, normed_obs, loc_grid, obs_grid
+            )
+            loc_mean = dask.delayed(slice_data)(
+                state_mean.data, chunk_pos[k], pos
+            )
+            loc_mean = dask.delayed(to_tensor)(loc_mean, pseudo_tensor)
+            loc_ana = dask.delayed(add_mean)(loc_perts, loc_mean)
+            analysis_list.append(loc_ana)
+
+        @dask.delayed
+        def cat_numpy(list_to_cat):
+            concatenated_list = torch.cat(list_to_cat, dim=-1)
+            concatenated_numpy = concatenated_list.numpy()
+            return concatenated_numpy
+
+        analysis = dask.delayed(cat_numpy)(analysis_list)
         analysis = analysis.compute()
+        analysis = state.copy(data=analysis)
         return analysis
 
 
-class DistributedLETKFCorr(_CorrMixin, _DistributedLETKFBase):
+class DistributedLETKFCorr(CorrMixin, DistributedLETKFBase):
     """
     This is a dask-based implementation of the `localized ensemble transform
     Kalman filter` :cite:`hunt_efficient_2007` for correlated observations.
@@ -220,7 +267,7 @@ class DistributedLETKFCorr(_CorrMixin, _DistributedLETKFBase):
     pass
 
 
-class DistributedLETKFUncorr(_UnCorrMixin, _DistributedLETKFBase):
+class DistributedLETKFUncorr(UnCorrMixin, DistributedLETKFBase):
     """
     This is a dask-based implementation of the `localized ensemble transform
     Kalman filter` :cite:`hunt_efficient_2007` for uncorrelated observations.

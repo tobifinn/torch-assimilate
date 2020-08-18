@@ -27,13 +27,11 @@ import unittest
 from unittest.mock import MagicMock
 import logging
 import os
-import time
 
 # External modules
 import xarray as xr
-import torch
 import numpy as np
-import scipy.spatial.distance
+import distributed.protocol.serialize
 
 from dask.distributed import LocalCluster, Client
 
@@ -56,7 +54,8 @@ class TestLETKFDistributed(unittest.TestCase):
     def setUpClass(cls):
         cls.cluster = LocalCluster(
             n_workers=1, threads_per_worker=1,
-            local_directory="/tmp/dask_work", processes=False
+            local_directory="/tmp/dask_work",
+            processes=False
         )
         cls.client = Client(cls.cluster)
 
