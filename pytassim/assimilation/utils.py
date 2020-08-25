@@ -48,9 +48,9 @@ def evd(tensor, reg_value=torch.tensor(0)):
 
 def rev_evd(evals, evects, evects_inv):
     diag_flat_evals = torch.diagflat(evals)
-    rev_evd = torch.mm(evects, diag_flat_evals)
-    rev_evd = torch.mm(rev_evd, evects_inv)
-    return rev_evd
+    rev_mat = torch.einsum('...ij,...jk->...ik', evects, diag_flat_evals)
+    rev_mat = torch.einsum('...ij,...jk->...ik', rev_mat, evects_inv)
+    return rev_mat
 
 
 def grid_to_array(index):
