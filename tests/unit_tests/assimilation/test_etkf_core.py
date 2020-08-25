@@ -211,6 +211,50 @@ class TestETKFModule(unittest.TestCase):
         eval_mean = (weights-torch.eye(self.normed_perts.shape[0])).mean(dim=1)
         torch.testing.assert_allclose(eval_mean.view(2, 1), w_mean)
 
+    def test_batchwise_evd(self):
+        normed_perts = torch.ones(5, 3, 2).normal_()
+        k_mat = torch.einsum('...ij,...kl->...ik', normed_perts, normed_perts)
+        batched_stats = evd(k_mat, reg_value=10.)[0]
+
+        looped_stats = []
+        for i in range(5):
+            tmp_evals = evd(k_mat[i], reg_value=10.)[0]
+            looped_stats.append(tmp_evals)
+        looped_stats = torch.stack(looped_stats, dim=0)
+
+        torch.testing.assert_allclose(batched_stats, looped_stats)
+
+    def test_batchwise_revevd(self):
+        normed_perts = torch.ones(5, 3, 2).normal_()
+        k_mat = torch.einsum('...ij,...kl->...ik', normed_perts, normed_perts)
+        batched_stats = evd(k_mat)
+        batched_mat = rev_evd(batched_stats[0], batched_stats[1])
+        torch.testing.assert_allclose(batched_mat, k_mat)
+
+        batched_mat = rev_evd(batched_stats[2], batched_stats[1])
+        looped_mat = []
+        for i in range(5):
+            tmp_evals = rev_evd(batched_stats[2][i], batched_stats[1][i])
+            looped_mat.append(tmp_evals)
+        looped_mat = torch.stack(looped_mat, dim=0)
+        torch.testing.assert_allclose(batched_mat, looped_mat)
+
+    def test_batchwise_etkf(self):
+        normed_perts = torch.ones(5, 3, 2).normal_()
+        normed_obs = torch.ones(5, 1, 2).normal_()
+        normed_mean = normed_perts.mean(dim=-2, keepdims=True)
+        normed_perts = normed_perts-normed_mean
+        normed_obs = normed_obs-normed_mean
+
+        batch_weights = self.module(normed_perts, normed_obs)[3]
+
+        looped_weights = []
+        for i in range(5):
+            tmp_weights = self.module(normed_perts[i], normed_obs[i])[3]
+            looped_weights.append(tmp_weights)
+        looped_weights = torch.stack(looped_weights, dim=0)
+
+        torch.testing.assert_allclose(batch_weights, looped_weights)
 
 
 if __name__ == '__main__':
