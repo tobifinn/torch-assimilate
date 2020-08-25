@@ -143,10 +143,10 @@ class TestETKFModule(unittest.TestCase):
         ret_kernel = self.module._apply_kernel(self.normed_perts,
                                                self.normed_perts)
         ret_evd = evd(ret_kernel, 1)
-        evals, evects, evals_inv, evects_inv = ret_evd
+        evals, evects, evals_inv = ret_evd
 
         cov_analysed = torch.matmul(evects, torch.diagflat(evals_inv))
-        cov_analysed = torch.matmul(cov_analysed, evects_inv)
+        cov_analysed = torch.matmul(cov_analysed, evects.t())
 
         right_cov = np.array([
             [0.75, 0.25],
@@ -158,11 +158,11 @@ class TestETKFModule(unittest.TestCase):
     def test_rev_evd(self):
         ret_kernel = self.module._apply_kernel(self.normed_perts,
                                                self.normed_perts)
-        evals, evects, evals_inv, evects_inv = evd(ret_kernel, 1)
+        evals, evects, evals_inv = evd(ret_kernel, 1)
         right_rev = torch.mm(evects, torch.diagflat(evals))
-        right_rev = torch.mm(right_rev, evects_inv)
+        right_rev = torch.mm(right_rev, evects.t())
 
-        ret_rev = rev_evd(evals, evects, evects_inv)
+        ret_rev = rev_evd(evals, evects)
         torch.testing.assert_allclose(ret_rev, right_rev)
 
     def test_right_w_eigendecomposition(self):

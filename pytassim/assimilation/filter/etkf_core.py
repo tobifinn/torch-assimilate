@@ -72,14 +72,14 @@ class ETKFWeightsModule(torch.nn.Module):
         ens_size = normed_perts.shape[0]
         reg_value = (ens_size-1) / self._inf_factor
         kernel_perts = self._apply_kernel(normed_perts, normed_perts)
-        evals, evects, evals_inv, evects_inv = evd(kernel_perts, reg_value)
-        cov_analysed = rev_evd(evals_inv, evects, evects_inv)
+        evals, evects, evals_inv = evd(kernel_perts, reg_value)
+        cov_analysed = rev_evd(evals_inv, evects)
 
         kernel_obs = self._apply_kernel(normed_perts, normed_obs)
         w_mean = torch.einsum('...ij,...jk->...ik', cov_analysed, kernel_obs)
 
         square_root_einv = ((ens_size - 1) * evals_inv).sqrt()
-        w_perts = rev_evd(square_root_einv, evects, evects_inv)
+        w_perts = rev_evd(square_root_einv, evects)
         weights = w_mean + w_perts
         return weights, w_mean, w_perts, cov_analysed
 

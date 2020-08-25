@@ -42,14 +42,13 @@ def evd(tensor, reg_value=torch.tensor(0)):
     evals = evals.clamp(min=0)
     evals = evals + reg_value
     evals_inv = 1 / evals
-    evects_inv = evects.t()
-    return evals, evects, evals_inv, evects_inv
+    return evals, evects, evals_inv
 
 
-def rev_evd(evals, evects, evects_inv):
+def rev_evd(evals, evects):
     diag_flat_evals = torch.diagflat(evals)
     rev_mat = torch.einsum('...ij,...jk->...ik', evects, diag_flat_evals)
-    rev_mat = torch.einsum('...ij,...jk->...ik', rev_mat, evects_inv)
+    rev_mat = torch.einsum('...ij,...kj->...ik', rev_mat, evects)
     return rev_mat
 
 
