@@ -76,7 +76,7 @@ class ETKFWeightsModule(torch.nn.Module):
         cov_analysed = rev_evd(evals_inv, evects)
 
         kernel_obs = self._apply_kernel(normed_perts, normed_obs)
-        w_mean = torch.einsum('...ij,...jk->...ik', cov_analysed, kernel_obs)
+        w_mean = torch.einsum('...ij,...jk->...ik', cov_analysed, kernel_obs,)
 
         square_root_einv = ((ens_size - 1) * evals_inv).sqrt()
         w_perts = rev_evd(square_root_einv, evects)
@@ -86,17 +86,14 @@ class ETKFWeightsModule(torch.nn.Module):
 
 class ETKFAnalyser(object):
     def __init__(self, inf_factor=1.0):
-        self._inf_factor = None
-        self.gen_weights = None
         self.inf_factor = inf_factor
 
     @property
     def inf_factor(self):
-        return self._inf_factor
+        return self.gen_weights.inf_factor
 
     @inf_factor.setter
     def inf_factor(self, new_factor):
-        self._inf_factor = new_factor
         self.gen_weights = ETKFWeightsModule(new_factor)
 
     @staticmethod
