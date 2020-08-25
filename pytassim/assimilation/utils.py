@@ -46,7 +46,7 @@ def evd(tensor, reg_value=torch.tensor(0)):
 
 
 def rev_evd(evals, evects):
-    diag_flat_evals = torch.diagflat(evals)
+    diag_flat_evals = torch.diag_embed(evals)
     rev_mat = torch.einsum('...ij,...jk->...ik', evects, diag_flat_evals)
     rev_mat = torch.einsum('...ij,...kj->...ik', rev_mat, evects)
     return rev_mat
