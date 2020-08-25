@@ -127,7 +127,8 @@ class TestETKFModule(unittest.TestCase):
 
     def test_dot_product(self):
         right_dot_product = self.normed_perts @ self.normed_perts.t()
-        out_dot = self.module._dot_product(self.normed_perts, self.normed_perts)
+        out_dot = self.module._apply_kernel(self.normed_perts,
+                                            self.normed_perts)
         torch.testing.assert_allclose(out_dot, right_dot_product)
 
     def test_differentiable(self):
@@ -139,8 +140,8 @@ class TestETKFModule(unittest.TestCase):
         self.assertIsInstance(normed_perts.grad, torch.Tensor)
 
     def test_right_cov(self):
-        ret_kernel = self.module._dot_product(self.normed_perts,
-                                              self.normed_perts)
+        ret_kernel = self.module._apply_kernel(self.normed_perts,
+                                               self.normed_perts)
         ret_evd = evd(ret_kernel, 1)
         evals, evects, evals_inv, evects_inv = ret_evd
 
@@ -155,8 +156,8 @@ class TestETKFModule(unittest.TestCase):
         np.testing.assert_array_almost_equal(cov_analysed, right_cov)
 
     def test_rev_evd(self):
-        ret_kernel = self.module._dot_product(self.normed_perts,
-                                              self.normed_perts)
+        ret_kernel = self.module._apply_kernel(self.normed_perts,
+                                               self.normed_perts)
         evals, evects, evals_inv, evects_inv = evd(ret_kernel, 1)
         right_rev = torch.mm(evects, torch.diagflat(evals))
         right_rev = torch.mm(right_rev, evects_inv)

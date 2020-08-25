@@ -64,19 +64,19 @@ class ETKFWeightsModule(torch.nn.Module):
             self._inf_factor = torch.tensor(new_factor)
 
     @staticmethod
-    def _dot_product(x, y):
-        k_mat = torch.mm(x, y.t())
+    def _apply_kernel(x, y):
+        k_mat = torch.einsum('...ij,...kj->...ik', x, y)
         return k_mat
 
     def forward(self, normed_perts, normed_obs):
         ens_size = normed_perts.shape[0]
         reg_value = (ens_size-1) / self._inf_factor
-        kernel_perts = torch.mm(normed_perts, normed_perts.t())
+        kernel_perts = self._apply_kernel(normed_perts, normed_perts)
         evals, evects, evals_inv, evects_inv = evd(kernel_perts, reg_value)
         cov_analysed = rev_evd(evals_inv, evects, evects_inv)
 
-        kernel_obs = torch.mm(normed_perts, normed_obs.t())
-        w_mean = torch.mm(cov_analysed, kernel_obs)
+        kernel_obs = self._apply_kernel(normed_perts, normed_obs)
+        w_mean = torch.einsum('...ij,...jk->...ik', cov_analysed, kernel_obs)
 
         square_root_einv = ((ens_size - 1) * evals_inv).sqrt()
         w_perts = rev_evd(square_root_einv, evects, evects_inv)
