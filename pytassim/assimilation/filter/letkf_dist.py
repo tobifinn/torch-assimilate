@@ -42,10 +42,6 @@ from .letkf import LETKFBase
 logger = logging.getLogger(__name__)
 
 
-def localised_analysis(state, *args):
-    return state
-
-
 class DistributedLETKFBase(LETKFBase):
     def __init__(self, client=None, cluster=None, chunksize=10,
                  localization=None, inf_factor=1.0, smoother=True,

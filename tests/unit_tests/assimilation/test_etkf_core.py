@@ -127,7 +127,8 @@ class TestETKFModule(unittest.TestCase):
 
     def test_dot_product(self):
         right_dot_product = self.normed_perts @ self.normed_perts.t()
-        out_dot = self.module._dot_product(self.normed_perts, self.normed_perts)
+        out_dot = self.module._apply_kernel(self.normed_perts,
+                                            self.normed_perts)
         torch.testing.assert_allclose(out_dot, right_dot_product)
 
     def test_differentiable(self):
@@ -139,13 +140,13 @@ class TestETKFModule(unittest.TestCase):
         self.assertIsInstance(normed_perts.grad, torch.Tensor)
 
     def test_right_cov(self):
-        ret_kernel = self.module._dot_product(self.normed_perts,
-                                              self.normed_perts)
+        ret_kernel = self.module._apply_kernel(self.normed_perts,
+                                               self.normed_perts)
         ret_evd = evd(ret_kernel, 1)
-        evals, evects, evals_inv, evects_inv = ret_evd
+        evals, evects, evals_inv = ret_evd
 
         cov_analysed = torch.matmul(evects, torch.diagflat(evals_inv))
-        cov_analysed = torch.matmul(cov_analysed, evects_inv)
+        cov_analysed = torch.matmul(cov_analysed, evects.t())
 
         right_cov = np.array([
             [0.75, 0.25],
@@ -155,13 +156,13 @@ class TestETKFModule(unittest.TestCase):
         np.testing.assert_array_almost_equal(cov_analysed, right_cov)
 
     def test_rev_evd(self):
-        ret_kernel = self.module._dot_product(self.normed_perts,
-                                              self.normed_perts)
-        evals, evects, evals_inv, evects_inv = evd(ret_kernel, 1)
+        ret_kernel = self.module._apply_kernel(self.normed_perts,
+                                               self.normed_perts)
+        evals, evects, evals_inv = evd(ret_kernel, 1)
         right_rev = torch.mm(evects, torch.diagflat(evals))
-        right_rev = torch.mm(right_rev, evects_inv)
+        right_rev = torch.mm(right_rev, evects.t())
 
-        ret_rev = rev_evd(evals, evects, evects_inv)
+        ret_rev = rev_evd(evals, evects)
         torch.testing.assert_allclose(ret_rev, right_rev)
 
     def test_right_w_eigendecomposition(self):
@@ -210,6 +211,50 @@ class TestETKFModule(unittest.TestCase):
         eval_mean = (weights-torch.eye(self.normed_perts.shape[0])).mean(dim=1)
         torch.testing.assert_allclose(eval_mean.view(2, 1), w_mean)
 
+    def test_batchwise_evd(self):
+        normed_perts = torch.ones(5, 3, 2).normal_()
+        k_mat = torch.einsum('...ij,...kl->...ik', normed_perts, normed_perts)
+        batched_stats = evd(k_mat, reg_value=10.)[0]
+
+        looped_stats = []
+        for i in range(5):
+            tmp_evals = evd(k_mat[i], reg_value=10.)[0]
+            looped_stats.append(tmp_evals)
+        looped_stats = torch.stack(looped_stats, dim=0)
+
+        torch.testing.assert_allclose(batched_stats, looped_stats)
+
+    def test_batchwise_revevd(self):
+        normed_perts = torch.ones(5, 3, 2).normal_()
+        k_mat = torch.einsum('...ij,...kl->...ik', normed_perts, normed_perts)
+        batched_stats = evd(k_mat)
+        batched_mat = rev_evd(batched_stats[0], batched_stats[1])
+        torch.testing.assert_allclose(batched_mat, k_mat)
+
+        batched_mat = rev_evd(batched_stats[2], batched_stats[1])
+        looped_mat = []
+        for i in range(5):
+            tmp_evals = rev_evd(batched_stats[2][i], batched_stats[1][i])
+            looped_mat.append(tmp_evals)
+        looped_mat = torch.stack(looped_mat, dim=0)
+        torch.testing.assert_allclose(batched_mat, looped_mat)
+
+    def test_batchwise_etkf(self):
+        normed_perts = torch.ones(5, 3, 2).normal_()
+        normed_obs = torch.ones(5, 1, 2).normal_()
+        normed_mean = normed_perts.mean(dim=-2, keepdims=True)
+        normed_perts = normed_perts-normed_mean
+        normed_obs = normed_obs-normed_mean
+
+        batch_weights = self.module(normed_perts, normed_obs)[3]
+
+        looped_weights = []
+        for i in range(5):
+            tmp_weights = self.module(normed_perts[i], normed_obs[i])[3]
+            looped_weights.append(tmp_weights)
+        looped_weights = torch.stack(looped_weights, dim=0)
+
+        torch.testing.assert_allclose(batch_weights, looped_weights)
 
 
 if __name__ == '__main__':
