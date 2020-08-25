@@ -95,14 +95,14 @@ class TestKETKFWeightsModule(unittest.TestCase):
         m_k_perts_m = k_perts_m.mean(dim=-1, keepdims=True)
         k_perts_centered = k_perts - k_perts_m - m_k_perts + m_k_perts_m
         reg_value = 9.
-        evals, evects, evals_inv, evects_inv = evd(k_perts_centered, reg_value)
-        cov_analysed = rev_evd(evals_inv, evects, evects_inv)
+        evals, evects, evals_inv = evd(k_perts_centered, reg_value)
+        cov_analysed = rev_evd(evals_inv, evects)
         k_obs = new_kernel(self.normed_perts, self.normed_obs)
         m_k_obs = k_obs.mean(dim=-2, keepdims=True)
         k_obs_centered = k_obs - k_perts_m - m_k_obs + m_k_perts_m
         w_mean = torch.mm(cov_analysed, k_obs_centered)
         sqrt_evals = (9. * evals_inv).sqrt()
-        w_perts = rev_evd(sqrt_evals, evects, evects_inv)
+        w_perts = rev_evd(sqrt_evals, evects)
         weights = w_mean + w_perts
 
         ret_weight_stats = self.module(self.normed_perts, self.normed_obs)

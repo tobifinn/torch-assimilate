@@ -56,8 +56,8 @@ class KETKFWeightsModule(ETKFWeightsModule):
         k_perts_centered = k_perts - k_perts.mean(dim=-2, keepdims=True) - \
                            k_part_mean
 
-        evals, evects, evals_inv, evects_inv = evd(k_perts_centered, reg_value)
-        cov_analysed = rev_evd(evals_inv, evects, evects_inv)
+        evals, evects, evals_inv = evd(k_perts_centered, reg_value)
+        cov_analysed = rev_evd(evals_inv, evects)
 
         k_obs = self._apply_kernel(normed_perts, normed_obs)
         k_obs_centered = k_obs - k_obs.mean(dim=-2, keepdims=True) - k_part_mean
@@ -66,7 +66,7 @@ class KETKFWeightsModule(ETKFWeightsModule):
         )
 
         square_root_einv = ((ens_size - 1) * evals_inv).sqrt()
-        w_perts = rev_evd(square_root_einv, evects, evects_inv)
+        w_perts = rev_evd(square_root_einv, evects)
         weights = w_mean + w_perts
         return weights, w_mean, w_perts, cov_analysed
 
