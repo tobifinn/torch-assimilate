@@ -259,15 +259,34 @@ class TestETKFModule(unittest.TestCase):
     def test_ektf_weights_returns_prior_for_empty_observations(self):
         normed_perts = torch.ones(10, 0)
         normed_obs = torch.ones(1, 0)
-
         self.module.inf_factor = 1.1
-        ret_weights = self.module(normed_perts, normed_obs)
 
+        prior_mean = torch.zeros(10, 1)
+        prior_perts = np.sqrt(self.module.inf_factor) * torch.eye(10)
         prior_cov = self.module.inf_factor / 9 * torch.eye(10)
 
-        torch.testing.assert_allclose(ret_weights[0], torch.eye(10))
-        torch.testing.assert_allclose(ret_weights[1], torch.zeros(10))
-        torch.testing.assert_allclose(ret_weights[2], torch.eye(10))
+        ret_weights = self.module(normed_perts, normed_obs)
+
+        torch.testing.assert_allclose(ret_weights[0], prior_perts)
+        torch.testing.assert_allclose(ret_weights[1], prior_mean)
+        torch.testing.assert_allclose(ret_weights[2], prior_perts)
+        torch.testing.assert_allclose(ret_weights[3], prior_cov)
+
+    def test_ektf_weights_returns_prior_for_empty_observations_multidim(self):
+        normed_perts = torch.ones(2, 10, 0)
+        normed_obs = torch.ones(2, 1, 0)
+        self.module.inf_factor = 1.1
+
+        prior_eye = torch.diag_embed(torch.ones(2, 10))
+        prior_mean = torch.zeros(2, 10, 1)
+        prior_perts = np.sqrt(self.module.inf_factor) * prior_eye
+        prior_cov = self.module.inf_factor / 9 * prior_eye
+
+        ret_weights = self.module(normed_perts, normed_obs)
+
+        torch.testing.assert_allclose(ret_weights[0], prior_perts)
+        torch.testing.assert_allclose(ret_weights[1], prior_mean)
+        torch.testing.assert_allclose(ret_weights[2], prior_perts)
         torch.testing.assert_allclose(ret_weights[3], prior_cov)
 
     def test_raises_valueerror_if_different_observation_size(self):
