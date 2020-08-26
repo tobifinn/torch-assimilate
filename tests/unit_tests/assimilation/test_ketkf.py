@@ -70,6 +70,13 @@ class TestKETKF(unittest.TestCase):
         self.state.close()
         self.obs.close()
 
+    def test_inf_factor_gets_inf_factor_from_analyser(self):
+        old_id = deepcopy(id(self.algorithm.inf_factor))
+        self.algorithm._analyser.inf_factor = 1.2
+        self.assertEqual(self.algorithm._analyser.inf_factor,
+                         self.algorithm.inf_factor)
+        self.assertNotEqual(old_id, id(self.algorithm.inf_factor))
+
     def test_inf_factor_sets_analyser(self):
         old_id = id(self.algorithm._analyser)
         self.algorithm.inf_factor = 3.2
