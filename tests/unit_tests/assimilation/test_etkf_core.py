@@ -264,6 +264,20 @@ class TestETKFModule(unittest.TestCase):
         prior_weights = torch.eye(10)
         torch.testing.assert_allclose(zeros_weights, prior_weights)
 
+    def test_raises_valueerror_if_different_observation_size(self):
+        normed_perts = torch.ones(10, 4)
+        normed_obs = torch.ones(1, 3)
+
+        with self.assertRaises(ValueError):
+            _ = self.module(normed_perts, normed_obs)
+
+    def test_raises_valueerror_if_different_batch_sizes(self):
+        normed_perts = torch.ones(4, 10, 4).normal_()
+        normed_obs = torch.ones(3, 1, 4).normal_()
+
+        with self.assertRaises(ValueError):
+            _ = self.module(normed_perts, normed_obs)
+
 
 if __name__ == '__main__':
     unittest.main()
