@@ -66,11 +66,6 @@ class KETKFBase(ETKFBase):
             kernel=new_kernel, inf_factor=self._analyser.inf_factor
         )
 
-    def _normalise_obs(self, pseudo_obs, obs, cinv):
-        normed_perts = self._mul_cinv(pseudo_obs, cinv)
-        normed_obs = self._mul_cinv(obs.view(1, -1), cinv)
-        return normed_perts, normed_obs
-
 
 class KETKFCorr(CorrMixin, KETKFBase):
     """

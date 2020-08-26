@@ -83,6 +83,14 @@ class TestKETKF(unittest.TestCase):
         self.assertEqual(id(new_kernel), id(self.algorithm.kernel))
         self.assertNotEqual(old_id, id(self.algorithm.kernel))
 
+    def test_kernel_sets_analyser(self):
+        old_id = id(self.algorithm._analyser)
+        new_kernel = kernels.RBFKernel(gamma=10.)
+        self.algorithm.kernel = new_kernel
+        self.assertNotEqual(id(self.algorithm._analyser), old_id)
+        self.assertEqual(self.algorithm.kernel, new_kernel)
+        self.assertEqual(self.algorithm._analyser.kernel, new_kernel)
+
     def test_linear_gives_same_result_as_etkf(self):
         etkf = ETKFCorr()
         obs_tuple = (self.obs, self.obs)
