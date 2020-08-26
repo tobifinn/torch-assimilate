@@ -58,7 +58,7 @@ class KETKFBase(ETKFBase):
 
     @property
     def kernel(self):
-        return self._analyser.inf_factor
+        return self._analyser.kernel
 
     @kernel.setter
     def kernel(self, new_kernel):

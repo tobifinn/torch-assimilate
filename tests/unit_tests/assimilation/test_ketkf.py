@@ -26,6 +26,7 @@ Created for torch-assimilate
 import unittest
 import logging
 import os
+from copy import deepcopy
 
 # External modules
 import xarray as xr
@@ -64,6 +65,23 @@ class TestKETKF(unittest.TestCase):
         obs_path = os.path.join(DATA_PATH, 'test_single_obs.nc')
         self.obs = xr.open_dataset(obs_path).load()
         self.obs.obs.operator = dummy_obs_operator
+
+    def tearDown(self):
+        self.state.close()
+        self.obs.close()
+
+    def test_inf_factor_sets_analyser(self):
+        old_id = id(self.algorithm._analyser)
+        self.algorithm.inf_factor = 3.2
+        self.assertNotEqual(id(self.algorithm._analyser), old_id)
+        self.assertEqual(self.algorithm._analyser.inf_factor, 3.2)
+
+    def test_kernel_gets_kernel_from_analyser(self):
+        old_id = deepcopy(id(self.algorithm.kernel))
+        new_kernel = kernels.RBFKernel(gamma=10.)
+        self.algorithm._analyser.kernel = new_kernel
+        self.assertEqual(id(new_kernel), id(self.algorithm.kernel))
+        self.assertNotEqual(old_id, id(self.algorithm.kernel))
 
     def test_linear_gives_same_result_as_etkf(self):
         etkf = ETKFCorr()
