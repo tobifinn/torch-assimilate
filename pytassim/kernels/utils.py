@@ -51,7 +51,8 @@ def dot_product(x, y):
     mat : :py:class:`torch.Tensor` (n_samples_x, n_samples_y)
         The dot product between given `x` and `y`.
     """
-    return torch.mm(x, y.t())
+    mat = torch.einsum('...ij,...kj->...ik', x, y)
+    return mat
 
 
 def distance_matrix(x, y, norm=2.0):
