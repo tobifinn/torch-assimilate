@@ -256,6 +256,53 @@ class TestETKFModule(unittest.TestCase):
 
         torch.testing.assert_allclose(batch_weights, looped_weights)
 
+    def test_ektf_weights_returns_prior_for_empty_observations(self):
+        normed_perts = torch.ones(10, 0)
+        normed_obs = torch.ones(1, 0)
+        self.module.inf_factor = 1.1
+
+        prior_mean = torch.zeros(10, 1)
+        prior_perts = np.sqrt(self.module.inf_factor) * torch.eye(10)
+        prior_cov = self.module.inf_factor / 9 * torch.eye(10)
+
+        ret_weights = self.module(normed_perts, normed_obs)
+
+        torch.testing.assert_allclose(ret_weights[0], prior_perts)
+        torch.testing.assert_allclose(ret_weights[1], prior_mean)
+        torch.testing.assert_allclose(ret_weights[2], prior_perts)
+        torch.testing.assert_allclose(ret_weights[3], prior_cov)
+
+    def test_ektf_weights_returns_prior_for_empty_observations_multidim(self):
+        normed_perts = torch.ones(2, 10, 0)
+        normed_obs = torch.ones(2, 1, 0)
+        self.module.inf_factor = 1.1
+
+        prior_eye = torch.diag_embed(torch.ones(2, 10))
+        prior_mean = torch.zeros(2, 10, 1)
+        prior_perts = np.sqrt(self.module.inf_factor) * prior_eye
+        prior_cov = self.module.inf_factor / 9 * prior_eye
+
+        ret_weights = self.module(normed_perts, normed_obs)
+
+        torch.testing.assert_allclose(ret_weights[0], prior_perts)
+        torch.testing.assert_allclose(ret_weights[1], prior_mean)
+        torch.testing.assert_allclose(ret_weights[2], prior_perts)
+        torch.testing.assert_allclose(ret_weights[3], prior_cov)
+
+    def test_raises_valueerror_if_different_observation_size(self):
+        normed_perts = torch.ones(10, 4)
+        normed_obs = torch.ones(1, 3)
+
+        with self.assertRaises(ValueError):
+            _ = self.module(normed_perts, normed_obs)
+
+    def test_raises_valueerror_if_different_batch_sizes(self):
+        normed_perts = torch.ones(4, 10, 4).normal_()
+        normed_obs = torch.ones(3, 1, 4).normal_()
+
+        with self.assertRaises(ValueError):
+            _ = self.module(normed_perts, normed_obs)
+
 
 if __name__ == '__main__':
     unittest.main()

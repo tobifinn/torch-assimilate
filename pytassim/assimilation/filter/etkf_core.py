@@ -64,11 +64,37 @@ class ETKFWeightsModule(torch.nn.Module):
             self._inf_factor = torch.tensor(new_factor)
 
     @staticmethod
+    def _test_sizes(normed_perts, normed_obs):
+        if normed_perts.shape[-1] != normed_obs.shape[-1]:
+            raise ValueError(
+                'Observational size between ensemble ({0:d}) and observations '
+                '({1:d}) do not match!'.format(
+                    normed_perts.shape[-1], normed_obs.shape[-1]
+                )
+            )
+        if normed_perts.shape[:-2] != normed_obs.shape[:-2]:
+            raise ValueError(
+                'Batch sizes between ensemble {0} and observations {1} do not '
+                'match!'.format(
+                    tuple(normed_perts.shape[:-2]), tuple(normed_obs.shape[:-2])
+                )
+            )
+
+    @staticmethod
     def _apply_kernel(x, y):
         k_mat = torch.einsum('...ij,...kj->...ik', x, y)
         return k_mat
 
-    def forward(self, normed_perts, normed_obs):
+    def _get_prior_weights(self, normed_perts, normed_obs):
+        ens_size = normed_perts.shape[-2]
+        prior_mean = torch.zeros(normed_perts.shape[:-1]+(1,)).to(normed_perts)
+        prior_eye = torch.ones(normed_perts.shape[:-1]).to(normed_perts)
+        prior_eye = torch.diag_embed(prior_eye)
+        prior_cov = self._inf_factor / (ens_size-1) * prior_eye
+        prior_perts = self._inf_factor.sqrt() * prior_eye
+        return prior_mean, prior_perts, prior_cov
+
+    def _estimate_weights(self, normed_perts, normed_obs):
         ens_size = normed_perts.shape[-2]
         reg_value = (ens_size-1) / self._inf_factor
         kernel_perts = self._apply_kernel(normed_perts, normed_perts)
@@ -80,6 +106,18 @@ class ETKFWeightsModule(torch.nn.Module):
 
         square_root_einv = ((ens_size - 1) * evals_inv).sqrt()
         w_perts = rev_evd(square_root_einv, evects)
+        return w_mean, w_perts, cov_analysed
+
+    def forward(self, normed_perts, normed_obs):
+        self._test_sizes(normed_perts, normed_obs)
+        if normed_perts.shape[-1] == 0:
+            w_mean, w_perts, cov_analysed = self._get_prior_weights(
+                normed_perts, normed_obs
+            )
+        else:
+            w_mean, w_perts, cov_analysed = self._estimate_weights(
+                normed_perts, normed_obs
+            )
         weights = w_mean + w_perts
         return weights, w_mean, w_perts, cov_analysed
 
