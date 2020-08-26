@@ -27,8 +27,6 @@
 import logging
 
 # External modules
-import torch
-import torch.nn
 
 # Internal modules
 from .base_kernels import BaseKernel
