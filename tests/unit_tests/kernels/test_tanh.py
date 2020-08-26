@@ -74,6 +74,20 @@ class TestTanhKernel(unittest.TestCase):
         kernel_out = self.kernel(x_tensor, y_tensor)
         torch.testing.assert_allclose(kernel_out, right_out)
 
+    def test_kernel_is_diffbar(self):
+        self.kernel.coeff = torch.nn.Parameter(torch.ones(1))
+        self.kernel.const = torch.nn.Parameter(torch.ones(1))
+
+        kernel_out = self.kernel(self.tensor, self.tensor).mean()
+        right_grads = grad(
+            [kernel_out], [self.kernel.coeff, self.kernel.const],
+            retain_graph=True
+        )
+        kernel_out.backward()
+
+        torch.testing.assert_allclose(self.kernel.coeff.grad, right_grads[0])
+        torch.testing.assert_allclose(self.kernel.const.grad, right_grads[1])
+
 
 if __name__ == '__main__':
     unittest.main()
