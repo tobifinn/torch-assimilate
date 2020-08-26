@@ -256,6 +256,14 @@ class TestETKFModule(unittest.TestCase):
 
         torch.testing.assert_allclose(batch_weights, looped_weights)
 
+    def test_ektf_weights_returns_prior_for_empty_observations(self):
+        normed_perts = torch.ones(10, 0)
+        normed_obs = torch.ones(1, 0)
+
+        zeros_weights = self.module(normed_perts, normed_obs)[0]
+        prior_weights = torch.eye(10)
+        torch.testing.assert_allclose(zeros_weights, prior_weights)
+
 
 if __name__ == '__main__':
     unittest.main()
