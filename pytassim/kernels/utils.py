@@ -68,16 +68,16 @@ def distance_matrix(
 
     Parameters
     ----------
-    x : :py:class:`torch.Tensor` (*, n_samples_x, n_features)
+    x : :py:class:`torch.Tensor` (..., n_samples_x, n_features)
         The first input to the kernel.
-    y : :py:class:`torch.Tensor` (*, n_samples_y, n_features)
+    y : :py:class:`torch.Tensor` (..., n_samples_y, n_features)
         The second input to the kernel.
     norm : :py:class:`float`
         The norm of this distance (default=2.0).
 
     Returns
     -------
-    dist : :py:class:`torch.Tensor` (*, n_samples_x, n_samples_y)
+    dist : :py:class:`torch.Tensor` (..., n_samples_x, n_samples_y)
         p-norm distance between x and y.
     """
     x_batched = x.unsqueeze(0)
@@ -96,14 +96,14 @@ def euclidean_dist(
 
     Parameters
     ----------
-    x : :py:class:`torch.Tensor` (*, n_samples_x, n_features)
+    x : :py:class:`torch.Tensor` (..., n_samples_x, n_features)
         The first input to the kernel.
-    y : :py:class:`torch.Tensor` (*, n_samples_y, n_features)
+    y : :py:class:`torch.Tensor` (..., n_samples_y, n_features)
         The second input to the kernel.
 
     Returns
     -------
-    dist : :py:class:`torch.Tensor` (*, n_samples_x, n_samples_y)
+    dist : :py:class:`torch.Tensor` (..., n_samples_x, n_samples_y)
         Euclidean distance between x and y.
     """
     dist = distance_matrix(x, y, norm=2.).pow(2)

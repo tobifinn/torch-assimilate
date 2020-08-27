@@ -15,6 +15,13 @@ Localization
 
    localization
 
+Kernels
+-------
+.. toctree::
+   :maxdepth: 2
+
+   kernels
+
 Models
 ------
 .. toctree::

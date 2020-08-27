@@ -64,7 +64,7 @@ Base
 ----
 These base kernel modules are normally not used and only for internal purpose.
 
-.. automodule:: pytassim.kernels.base
+.. automodule:: pytassim.kernels.base_kernels
     :members:
     :undoc-members:
     :show-inheritance:
