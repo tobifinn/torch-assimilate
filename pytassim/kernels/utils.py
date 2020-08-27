@@ -35,7 +35,10 @@ import torch
 logger = logging.getLogger(__name__)
 
 
-def dot_product(x, y):
+def dot_product(
+        x: torch.Tensor,
+        y: torch.Tensor
+) -> torch.Tensor:
     """
     The linear kernel defined by the dot product between x and y.
 
@@ -55,22 +58,26 @@ def dot_product(x, y):
     return mat
 
 
-def distance_matrix(x, y, norm=2.0):
+def distance_matrix(
+        x: torch.Tensor,
+        y: torch.Tensor,
+        norm: float = 2.
+) -> torch.Tensor:
     """
     The distance matrix between given tensors defined via the p-norm distance.
 
     Parameters
     ----------
-    x : :py:class:`torch.Tensor` (n_samples_x, n_features)
+    x : :py:class:`torch.Tensor` (*, n_samples_x, n_features)
         The first input to the kernel.
-    y : :py:class:`torch.Tensor` (n_samples_y, n_features)
+    y : :py:class:`torch.Tensor` (*, n_samples_y, n_features)
         The second input to the kernel.
     norm : :py:class:`float`
         The norm of this distance (default=2.0).
 
     Returns
     -------
-    dist : :py:class:`torch.Tensor` (n_samples_x, n_samples_y)
+    dist : :py:class:`torch.Tensor` (*, n_samples_x, n_samples_y)
         p-norm distance between x and y.
     """
     x_batched = x.unsqueeze(0)
@@ -78,26 +85,3 @@ def distance_matrix(x, y, norm=2.0):
     dist_tensor = torch.cdist(x_batched, y_batched, p=norm)
     dist_squeezed = dist_tensor.squeeze(0)
     return dist_squeezed
-
-
-def euclidean_dist(x, y):
-    """
-    The euclidean distance defined as squared difference between x and y.
-
-    Parameters
-    ----------
-    x : :py:class:`torch.Tensor` (n_samples_x, n_features)
-        The first input to the kernel.
-    y : :py:class:`torch.Tensor` (n_samples_y, n_features)
-        The second input to the kernel.
-
-    Returns
-    -------
-    dist : :py:class:`torch.Tensor` (n_samples_x, n_samples_y)
-        Euclidean distance between x and y.
-    """
-    xx = x.pow(2).sum(dim=1).view(-1, 1)
-    yy = y.pow(2).sum(dim=1).view(1, -1)
-    xy = torch.mm(x, y.t())
-    dist = xx + yy - 2 * xy
-    return dist
