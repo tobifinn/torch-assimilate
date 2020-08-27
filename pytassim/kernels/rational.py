@@ -42,12 +42,12 @@ class RationalKernel(BaseKernel):
     """
     The rational kernel is similar to apply radial basis function kernels
     with different lengthscales. This kernel has a basis lengthscale
-    :math:`l` and a weighting factor :math:`a', which weights small-scale to
+    :math:`l` and a weighting factor :math:`a`, which weights small-scale to
     large-scale variations (:cite:`duvenaud_automatic_2014`),
 
     .. math::
 
-       K(x_i, x_j) = (1 + -\frac{{x_i-x_j}^2}{2\,a\,l^2})^{-a}.
+       K(x_i, x_j) = (1 + \\frac{{(x_i-x_j)}^2}{2\\,a\\,l^2})^{-a}.
 
 
     Parameters
@@ -58,6 +58,7 @@ class RationalKernel(BaseKernel):
     weighting : torch.Tensor, optional
         This weighting factor specifies the relative weighting between
         small-scale to large-scale variations (default=1.)
+
     """
     def __init__(self, lengthscale: torch.Tensor = torch.tensor(1.),
                  weighting: torch.Tensor = torch.tensor(1.)):
