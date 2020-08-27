@@ -32,7 +32,7 @@ import torch.nn
 
 # Internal modules
 from .base_kernels import BaseKernel
-from .utils import distance_matrix
+from .utils import euclidean_dist
 
 
 logger = logging.getLogger(__name__)
@@ -77,7 +77,7 @@ class GaussKernel(BaseKernel):
     def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         x_scaled = x.div(self.lengthscale)
         y_scaled = y.div(self.lengthscale)
-        euc_dist = distance_matrix(x_scaled, y_scaled, norm=2.)
+        euc_dist = euclidean_dist(x_scaled, y_scaled)
         factor = euc_dist / 2.
         k_mat = torch.exp(-factor)
         return k_mat
