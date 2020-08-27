@@ -85,3 +85,29 @@ def distance_matrix(
     dist_tensor = torch.cdist(x_batched, y_batched, p=norm)
     dist_squeezed = dist_tensor.squeeze(0)
     return dist_squeezed
+
+
+def euclidean_dist(
+        x: torch.Tensor,
+        y: torch.Tensor
+) -> torch.Tensor:
+    """
+    The euclidean distance defined as squared difference between x and y.
+
+    Parameters
+    ----------
+    x : :py:class:`torch.Tensor` (*, n_samples_x, n_features)
+        The first input to the kernel.
+    y : :py:class:`torch.Tensor` (*, n_samples_y, n_features)
+        The second input to the kernel.
+
+    Returns
+    -------
+    dist : :py:class:`torch.Tensor` (*, n_samples_x, n_samples_y)
+        Euclidean distance between x and y.
+    """
+    xx = x.pow(2).sum(dim=1).view(-1, 1)
+    yy = y.pow(2).sum(dim=1).view(1, -1)
+    xy = torch.mm(x, y.t())
+    dist = xx + yy - 2 * xy
+    return dist
