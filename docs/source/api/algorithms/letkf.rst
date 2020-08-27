@@ -10,3 +10,8 @@ Localized ensemble transform Kalman filter (LETKF)
    :members:
    :undoc-members:
    :show-inheritance:
+
+.. automodule:: pytassim.assimilation.filter.letkf_core
+   :members:
+   :undoc-members:
+   :show-inheritance:
