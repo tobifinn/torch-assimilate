@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 
 class RationalKernel(BaseKernel):
     def __init__(self, lengthscale: torch.Tensor = torch.tensor(1.),
-                 weighting: torch.Tensor = 1.):
+                 weighting: torch.Tensor = torch.tensor(1.)):
         """
         The rational kernel is similar to apply radial basis function kernels
         with different lengthscales. This kernel has a basis lengthscale
