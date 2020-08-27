@@ -74,6 +74,57 @@ class TestGaussKernel(unittest.TestCase):
         ret_k_mat = self.kernel(self.tensor, self.tensor[:3])
         torch.testing.assert_allclose(ret_k_mat, k_mat)
 
+    def test_gauss_kernel_works_multidim(self):
+        test_tensor = torch.zeros(5, 5, 10, 2).normal_()
+        test_tensor_2 = torch.zeros(5, 5, 10, 2).normal_()
+
+        un_tensor = test_tensor.unsqueeze(-2)
+        un_tensor_2 = test_tensor_2.unsqueeze(-3)
+        dist = un_tensor - un_tensor_2
+        euc_dist = dist.pow(2).sum(dim=-1)
+        k_mat = torch.exp(-0.5*euc_dist)
+
+        ret_k_mat = self.kernel(test_tensor, test_tensor_2)
+        torch.testing.assert_allclose(ret_k_mat, k_mat)
+
+    def test_kernel_multidim_lengthscale(self):
+        lengthscale = torch.tensor([1., 2.])
+        scaled_tensor = self.tensor / lengthscale
+        k_mat = self.kernel(scaled_tensor, scaled_tensor)
+        self.kernel.lengthscale = lengthscale
+        ret_k_mat = self.kernel(self.tensor, self.tensor)
+        torch.testing.assert_allclose(ret_k_mat, k_mat)
+
+    def test_kernel_diffbar(self):
+        self.kernel.lengthscale = torch.nn.Parameter(torch.tensor([0.5]))
+        k_mat = self.kernel(self.tensor, self.tensor).mean()
+        right_grad = grad([k_mat], [self.kernel.lengthscale],
+                          retain_graph=True)[0]
+        k_mat.backward()
+        torch.testing.assert_allclose(self.kernel.lengthscale.grad, right_grad)
+
+
+class TestRBFKernel(unittest.TestCase):
+    def setUp(self) -> None:
+        self.kernel = RBFKernel()
+        self.tensor = torch.zeros(10, 2).normal_()
+
+    def test_rbf_kernel_gives_same_result_as_gauss_kernel(self):
+        gauss_kernel = GaussKernel()
+        right_k_mat = gauss_kernel(self.tensor, self.tensor)
+        ret_k_mat = self.kernel(self.tensor, self.tensor)
+        torch.testing.assert_allclose(ret_k_mat, right_k_mat)
+
+    def test_lengthscale_returns_gamma_lengthscale(self):
+        self.kernel.gamma = torch.tensor(0.1)
+        self.assertEqual(
+            self.kernel._lengthscale,
+            (0.5/torch.tensor(0.1)).sqrt()
+        )
+
+
+
+
 
 if __name__ == '__main__':
     unittest.main()

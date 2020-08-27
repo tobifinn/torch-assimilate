@@ -65,6 +65,7 @@ class GaussKernel(BaseKernel):
     def __repr__(self):
         return "GaussKernel"
 
+    @property
     def _lengthscale(self):
         return self.lengthscale
 
@@ -102,5 +103,6 @@ class RBFKernel(GaussKernel):
     def __repr__(self):
         return "RBFKernel"
 
+    @property
     def _lengthscale(self):
-        return 1 / (2 * self.gamma) ** 0.5
+        return (0.5 / self.gamma) ** 0.5
