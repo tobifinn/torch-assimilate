@@ -67,7 +67,8 @@ transform Kalman filter are implemented.
 .. toctree::
    :maxdepth: 1
 
-   algorithms/etkf
+    algorithms/etkf
+    algorithms/ketkf
 
 .. autosummary::
     pytassim.assimilation.filter.filter.FilterAssimilation
