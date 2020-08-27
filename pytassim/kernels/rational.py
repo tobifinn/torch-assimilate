@@ -45,8 +45,10 @@ class RationalKernel(BaseKernel):
         self.weighting = weighting
 
     def forward(self, x, y):
-        euc_dist = euclidean_dist(x, y)
-        norm_factor = 2 * self.weighting * self.lengthscale
+        x_scaled = x.div(self.lengthscale)
+        y_scaled = y.div(self.lengthscale)
+        euc_dist = euclidean_dist(x_scaled, y_scaled)
+        norm_factor = 2 * self.weighting
         factor = 1 + euc_dist / norm_factor
         k_mat = factor.pow(-self.weighting)
         return k_mat
