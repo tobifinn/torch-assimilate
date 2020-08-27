@@ -39,23 +39,23 @@ logger = logging.getLogger(__name__)
 
 
 class GaussKernel(BaseKernel):
+    """
+    The Gaussian kernel is a type of radial basis function
+    kernel :py:class:`pytassim.kernels.rbf.RBFKernel` and is implemented
+    with a given lengthscale :math:`l`,
+
+    .. math::
+
+       K(x_i, x_j) = exp(-\frac{{x_i-x_j}^2}{2\,l^2}).
+
+
+    Parameters
+    ----------
+    lengthscale : torch.Tensor, optional
+        This lengthscale is used to estimate the Gaussian kernel. The
+        default value of 1 assumes that the input is already normalized.
+    """
     def __init__(self, lengthscale: torch.Tensor = torch.tensor(1.)):
-        """
-        The Gaussian kernel is a type of radial basis function
-        kernel :py:class:`pytassim.kernels.rbf.RBFKernel` and is implemented
-        with a given lengthscale :math:`l`,
-
-        .. math::
-
-           K(x_i, x_j) = exp(-\frac{{x_i-x_j}^2}{2\,l^2}).
-
-
-        Parameters
-        ----------
-        lengthscale : torch.Tensor, optional
-            This lengthscale is used to estimate the Gaussian kernel. The
-            default value of 1 assumes that the input is already normalized.
-        """
         super().__init__()
         self.lengthscale = lengthscale
 
@@ -79,21 +79,21 @@ class GaussKernel(BaseKernel):
 
 
 class RBFKernel(GaussKernel):
+    """
+    This radial basis function kernel is a universal kernel and is
+    dependent on the chosen `gamma` :math:`\gamma` factor,
+
+    .. math::
+
+       K(x_i, x_j) = exp(-\gamma{x_i-x_j}^2).
+
+    Parameters
+    ----------
+    gamma : torch.Tensor, optional
+        This gamma value if  is used to estimate the Gaussian kernel. The
+        default value of 0.5 assumes that the input is already normalized.
+    """
     def __init__(self, gamma: torch.Tensor = torch.tensor(0.5)):
-        """
-        This radial basis function kernel is a universal kernel and is
-        dependent on the chosen `gamma` :math:`\gamma` factor,
-
-        .. math::
-
-           K(x_i, x_j) = exp(-\gamma{x_i-x_j}^2).
-
-        Parameters
-        ----------
-        gamma : torch.Tensor, optional
-            This gamma value if  is used to estimate the Gaussian kernel. The
-            default value of 0.5 assumes that the input is already normalized.
-        """
         super().__init__()
         self.gamma = gamma
 
