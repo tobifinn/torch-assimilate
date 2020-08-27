@@ -32,30 +32,86 @@ import torch.nn
 
 # Internal modules
 from .base_kernels import BaseKernel
-from .utils import euclidean_dist
+from .utils import distance_matrix
 
 
 logger = logging.getLogger(__name__)
 
 
-class RBFKernel(BaseKernel):
-    def __init__(self, gamma=1.):
-        super().__init__()
-        if gamma is not None:
-            self.gamma = gamma
+class GaussKernel(BaseKernel):
+    def __init__(self, lengthscale: torch.Tensor = torch.tensor(1.)):
+        """
+        The Gaussian kernel is a type of radial basis function
+        kernel :py:class:`pytassim.kernels.rbf.RBFKernel` and is implemented
+        with a given lengthscale :math:`l`,
 
-    def forward(self, x, y):
-        euc_dist = euclidean_dist(x, y)
-        factor = -self.gamma * euc_dist
-        k_mat = torch.exp(factor)
+        .. math::
+
+           K(x_i, x_j) = exp(-\frac{{x_i-x_j}^2}{2\,l^2}).
+
+
+        Parameters
+        ----------
+        lengthscale : torch.Tensor, optional
+            This lengthscale is used to estimate the Gaussian kernel. The
+            default value of 1 assumes that the input is already normalized.
+        """
+        super().__init__()
+        self._lengthscale = None
+        self.lengthscale = lengthscale
+
+    def __str__(self):
+        return "GaussKernel(l={0})".format(self.lengthscale)
+
+    def __repr__(self):
+        return "GaussKernel"
+
+    @property
+    def lengthscale(self) -> torch.Tensor:
+        return self._lengthscale
+
+    @lengthscale.setter
+    def lengthscale(self, new_scale: torch.Tensor):
+        self._lengthscale = new_scale
+
+    def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        x_scaled = x.div(self.lengthscale)
+        y_scaled = y.div(self.lengthscale)
+        euc_dist = distance_matrix(x_scaled, y_scaled, norm=2.)
+        factor = euc_dist / 2.
+        k_mat = torch.exp(-factor)
         return k_mat
 
 
-class GaussKernel(RBFKernel):
-    def __init__(self, lengthscale=1.):
-        super().__init__(None)
-        self.lengthscale = lengthscale
+class RBFKernel(GaussKernel):
+    def __init__(self, gamma: torch.Tensor = torch.tensor(0.5)):
+        """
+        This radial basis function kernel is a universal kernel and is
+        dependent on the chosen `gamma` :math:`\gamma` factor,
+
+        .. math::
+
+           K(x_i, x_j) = exp(-\gamma{x_i-x_j}^2}).
+
+        Parameters
+        ----------
+        gamma : torch.Tensor, optional
+            This gamma value if  is used to estimate the Gaussian kernel. The
+            default value of 0.5 assumes that the input is already normalized.
+        """
+        super().__init__()
+        self.gamma = gamma
+
+    def __str__(self):
+        return "RBFKernel(\u03B3={0})".format(self.gamma)
+
+    def __repr__(self):
+        return "RBFKernel"
 
     @property
-    def gamma(self):
-        return 1 / (2 * self.lengthscale ** 2)
+    def gamma(self) -> torch.Tensor:
+        return 1/(2*self._lengthscale**2)
+
+    @gamma.setter
+    def gamma(self, new_gamma: torch.Tensor):
+        self._lengthscale = 1 / (2 * new_gamma) ** 0.5
