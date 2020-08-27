@@ -39,12 +39,33 @@ logger = logging.getLogger(__name__)
 
 
 class RationalKernel(BaseKernel):
-    def __init__(self, lengthscale=1., weighting=1.):
+    def __init__(self, lengthscale: torch.Tensor = torch.tensor(1.),
+                 weighting: torch.Tensor = 1.):
+        """
+        The rational kernel is similar to apply radial basis function kernels
+        with different lengthscales. This kernel has a basis lengthscale
+        :math:`l` and a weighting factor :math:`a', which weights small-scale to
+        large-scale variations (:cite:`duvenaud_automatic_2014`),
+
+        .. math::
+
+           K(x_i, x_j) = (1 + -\frac{{x_i-x_j}^2}{2\,a\,l^2})^{-a}.
+
+
+        Parameters
+        ----------
+        lengthscale : torch.Tensor, optional
+            This lengthscale specifies the scale of variations. The
+            default value of 1 assumes that the input is already normalized.
+        weighting : torch.Tensor, optional
+            This weighting factor specifies the relative weighting between
+            small-scale to large-scale variations (default=1.)
+        """
         super().__init__()
         self.lengthscale = lengthscale
         self.weighting = weighting
 
-    def forward(self, x, y):
+    def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         x_scaled = x.div(self.lengthscale)
         y_scaled = y.div(self.lengthscale)
         euc_dist = euclidean_dist(x_scaled, y_scaled)
