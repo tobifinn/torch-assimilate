@@ -57,26 +57,20 @@ class GaussKernel(BaseKernel):
             default value of 1 assumes that the input is already normalized.
         """
         super().__init__()
-        self._lengthscale = None
         self.lengthscale = lengthscale
 
     def __str__(self):
-        return "GaussKernel(l={0})".format(self.lengthscale)
+        return "GaussKernel(l={0})".format(self._lengthscale)
 
     def __repr__(self):
         return "GaussKernel"
 
-    @property
-    def lengthscale(self) -> torch.Tensor:
-        return self._lengthscale
-
-    @lengthscale.setter
-    def lengthscale(self, new_scale: torch.Tensor):
-        self._lengthscale = new_scale
+    def _lengthscale(self):
+        return self.lengthscale
 
     def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        x_scaled = x.div(self.lengthscale)
-        y_scaled = y.div(self.lengthscale)
+        x_scaled = x.div(self._lengthscale)
+        y_scaled = y.div(self._lengthscale)
         euc_dist = euclidean_dist(x_scaled, y_scaled)
         factor = euc_dist / 2.
         k_mat = torch.exp(-factor)
@@ -91,7 +85,7 @@ class RBFKernel(GaussKernel):
 
         .. math::
 
-           K(x_i, x_j) = exp(-\gamma{x_i-x_j}^2}).
+           K(x_i, x_j) = exp(-\gamma{x_i-x_j}^2).
 
         Parameters
         ----------
@@ -108,10 +102,5 @@ class RBFKernel(GaussKernel):
     def __repr__(self):
         return "RBFKernel"
 
-    @property
-    def gamma(self) -> torch.Tensor:
-        return 1/(2*self._lengthscale**2)
-
-    @gamma.setter
-    def gamma(self, new_gamma: torch.Tensor):
-        self._lengthscale = 1 / (2 * new_gamma) ** 0.5
+    def _lengthscale(self):
+        return 1 / (2 * self.gamma) ** 0.5
