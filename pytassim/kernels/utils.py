@@ -106,8 +106,5 @@ def euclidean_dist(
     dist : :py:class:`torch.Tensor` (*, n_samples_x, n_samples_y)
         Euclidean distance between x and y.
     """
-    xx = x.pow(2).sum(dim=1).view(-1, 1)
-    yy = y.pow(2).sum(dim=1).view(1, -1)
-    xy = torch.mm(x, y.t())
-    dist = xx + yy - 2 * xy
+    dist = distance_matrix(x, y, norm=2.).pow(2)
     return dist
