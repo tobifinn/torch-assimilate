@@ -196,4 +196,46 @@
   year = {2018}
 }
 
+@phdthesis{duvenaud_automatic_2014,
+  title = {Automatic Model Construction with {{Gaussian}} Processes},
+  author = {Duvenaud, David},
+  year = {2014},
+  month = nov,
+  doi = {10.17863/CAM.14087},
+  abstract = {This thesis develops a method for automatically constructing, visualizing and describing
+a large class of models, useful for forecasting and finding structure in domains such
+as time series, geological formations, and physical dynamics. These models, based on
+Gaussian processes, can capture many types of statistical structure, such as periodicity,
+changepoints, additivity, and symmetries. Such structure can be encoded through kernels,
+which have historically been hand-chosen by experts. We show how to automate
+this task, creating a system that explores an open-ended space of models and reports
+the structures discovered.
 
+To automatically construct Gaussian process models, we search over sums and products
+of kernels, maximizing the approximate marginal likelihood. We show how any
+model in this class can be automatically decomposed into qualitatively different parts,
+and how each component can be visualized and described through text. We combine
+these results into a procedure that, given a dataset, automatically constructs a model
+along with a detailed report containing plots and generated text that illustrate the
+structure discovered in the data.
+
+The introductory chapters contain a tutorial showing how to express many types of
+structure through kernels, and how adding and multiplying different kernels combines
+their properties. Examples also show how symmetric kernels can produce priors over
+topological manifolds such as cylinders, toruses, and M\"obius strips, as well as their
+higher-dimensional generalizations.
+
+This thesis also explores several extensions to Gaussian process models. First, building
+on existing work that relates Gaussian processes and neural nets, we analyze natural
+extensions of these models to deep kernels and deep Gaussian processes. Second, we examine
+additive Gaussian processes, showing their relation to the regularization method
+of dropout. Third, we combine Gaussian processes with the Dirichlet process to produce
+the warped mixture model: a Bayesian clustering model having nonparametric cluster
+shapes, and a corresponding latent space in which each cluster has an interpretable
+parametric form.},
+  copyright = {Attribution-ShareAlike 2.0 UK: England \& Wales},
+  file = {/home/tfinn/Zotero/storage/V8ACGB8D/Duvenaud_2014_Automatic model construction with Gaussian processes.pdf;/home/tfinn/Zotero/storage/DFDGNFIY/247281.html},
+  language = {en},
+  school = {University of Cambridge},
+  type = {Thesis}
+}
