@@ -26,20 +26,15 @@ Created for torch-assimilate
 import unittest
 import logging
 import os
-from unittest.mock import patch
 
 # External modules
 import xarray as xr
-import torch
 import numpy as np
 
 # Internal modules
-import pytassim.state
-import pytassim.observation
 from pytassim.assimilation.filter.etkf import ETKFCorr
 from pytassim.assimilation.filter.letkf import LETKFCorr, LETKFUncorr
-from pytassim.assimilation.filter.etkf_core import ETKFWeightsModule
-from pytassim.testing import dummy_obs_operator, DummyLocalization
+from pytassim.testing import dummy_obs_operator
 
 
 logging.basicConfig(level=logging.INFO)
