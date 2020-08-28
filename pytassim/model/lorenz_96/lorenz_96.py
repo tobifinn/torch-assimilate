@@ -97,7 +97,7 @@ class Lorenz96(object):
         self.forcing = forcing
 
     def __str__(self):
-        return 'Lorenz96(f={0})'.format(self.forcing)
+        return 'Lorenz96(F={0})'.format(self.forcing)
 
     def __repr__(self):
         return 'Lorenz96'

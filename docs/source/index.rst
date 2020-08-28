@@ -16,7 +16,7 @@ PyTorch based data assimilation package
     * - quality
       - |quality|
     * - package
-      - |pypi-test| |pypi| |conda|
+      - |pypi-test| |pypi| |conda| |zenodo|
 
 .. |pipeline| image:: https://gitlab.com/tobifinn/torch-assimilate/badges/dev/pipeline.svg
     :target: https://gitlab.com/tobifinn/torch-assimilate/pipelines
@@ -35,6 +35,8 @@ PyTorch based data assimilation package
     :target: https://test.pypi.org/project/torch-assimilate/
 .. |conda| image:: https://img.shields.io/badge/conda-unavailable-lightgrey.svg
     :target: https://anaconda.org/tobifinn/torch-assimilate
+.. |zenodo| image:: https://zenodo.org/badge/DOI/10.5281/zenodo.4005995.svg
+    :target: https://doi.org/10.5281/zenodo.4005995
 
 .. end_badges
 
