@@ -34,7 +34,7 @@ import torch.nn
 from torch.autograd import grad
 
 # Internal modules
-from pytassim.kernels.module_kernel import NNetKernel
+from pytassim.kernels.module_kernel import ModuleKernel
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -43,14 +43,14 @@ BASE_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
 
 
-class TestNNKernel(unittest.TestCase):
+class TestModuleKernel(unittest.TestCase):
     def setUp(self) -> None:
         self.small_nn = torch.nn.Sequential(
             torch.nn.Linear(2, 4),
             torch.nn.ReLU(),
             torch.nn.Linear(4, 8)
         )
-        self.kernel = NNetKernel(self.small_nn)
+        self.kernel = ModuleKernel(self.small_nn)
         self.tensor = torch.zeros(10, 2).normal_()
 
     def test_sets_net(self):
