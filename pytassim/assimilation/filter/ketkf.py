@@ -73,7 +73,7 @@ class KETKFBase(ETKFBase):
 class KETKFCorr(CorrMixin, KETKFBase):
     """
     This is a kernelised verison of the `ensemble transform Kalman filter`
-    :cite:`bishop_adaptive_2001` for uncorrelated observation covariances.
+    :cite:`bishop_adaptive_2001` for correlated observation covariances.
     This kernelised ensemble Kalman filter is a deterministic filter, where the
     state is globally updated. Ensemble weights are estimated in a reduced
     ensemble space, and then applied to a given state. This kernelised data
