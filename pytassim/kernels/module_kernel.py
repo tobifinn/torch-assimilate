@@ -36,10 +36,24 @@ from .utils import dot_product
 logger = logging.getLogger(__name__)
 
 
-__all__ = ['NNetKernel']
+__all__ = ['ModuleKernel']
 
 
-class NNetKernel(BaseKernel):
+class ModuleKernel(BaseKernel):
+    """
+    This module kernel can be used to specify an explicit feature
+    transformation process. This kernel takes a :py:class:`torch.nn.Module`
+    :math:`\\phi`, which is then applied to the given data. The result is
+    combined with a linear kernel as follows,
+
+
+    .. math::
+
+       K(x_i, x_j) = \\phi(x_i)(\\phi(x_y))^T.
+
+
+
+    """
     def __init__(self, net):
         super().__init__()
         self.add_module('net', net)

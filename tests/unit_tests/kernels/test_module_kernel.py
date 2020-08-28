@@ -34,7 +34,7 @@ import torch.nn
 from torch.autograd import grad
 
 # Internal modules
-from pytassim.kernels.nnet import NNetKernel
+from pytassim.kernels.module_kernel import NNetKernel
 
 
 logging.basicConfig(level=logging.DEBUG)

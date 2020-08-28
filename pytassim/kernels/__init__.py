@@ -1,6 +1,6 @@
 from .diag import DiagKernel
 from .linear import LinearKernel
-from .nnet import NNetKernel
+from .module_kernel import ModuleKernel
 from .orn_uhl import OrnsteinUhlenbeckKernel
 from .periodic import PeriodicKernel
 from .polynomial import PolyKernel
