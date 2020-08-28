@@ -56,7 +56,7 @@ class TestKETKFWeightsModule(unittest.TestCase):
         obs_path = os.path.join(DATA_PATH, 'test_single_obs.nc')
         obs = xr.open_dataset(obs_path).load().isel(time=0)
         obs.obs.operator = dummy_obs_operator
-        pseudo_state = obs.obs.operator(state)
+        pseudo_state = obs.obs.operator(obs, state)
         cls.state_perts = state - state.mean('ensemble')
         cls.normed_perts = torch.from_numpy(
             (pseudo_state - pseudo_state.mean('ensemble')).values

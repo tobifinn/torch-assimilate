@@ -25,6 +25,7 @@
 
 # System modules
 import logging
+from typing import Tuple, Any
 
 # External modules
 import torch
@@ -37,7 +38,36 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
-def evd(tensor, reg_value=torch.tensor(0)):
+def evd(
+        tensor: torch.Tensor,
+        reg_value: torch.Tensor = torch.tensor(0),
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """
+    Performs eigendecomposition of a symmetric hermitian tensor. The eigenvalues
+    of the nearest positive semidefinit matrix are returned to ensure
+    differentiability.
+
+    Parameters
+    ----------
+    tensor : :py:class:`torch.Tensor` (..., nx, nx)
+        This tensor is eigen decomposed. The values of the nearest positive
+        semidefinit matrix to this tensor are returned.
+    reg_value : :py:class:`torch.Tensor`, optional
+        This regularization value is added to the eigenvalues and represents
+        a regularization of the matrix diagonal. The regularization is
+        deactivated with the default value of 0.
+
+    Returns
+    -------
+    evals : :py:class:`torch.Tensor` (..., nx)
+        The eigenvalues of the nearest positive semidefinit matrix to the
+        given tensor. The regularization value is already added to these
+        eigenvalues.
+    evects : :py:class:`torch.Tensor` (..., nx, nx)
+        The estimated eigenvectors based on given tensor.
+    evals_inv : :py:class:`torch.Tensor` (..., nx)
+        The inverted eigenvalues, which can be used to invert the given tensor.
+    """
     evals, evects = torch.symeig(tensor, eigenvectors=True, upper=False)
     evals = evals.clamp(min=0)
     evals = evals + reg_value
@@ -45,14 +75,56 @@ def evd(tensor, reg_value=torch.tensor(0)):
     return evals, evects, evals_inv
 
 
-def rev_evd(evals, evects):
+def rev_evd(
+        evals: torch.Tensor,
+        evects: torch.Tensor,
+) -> torch.Tensor:
+    """
+    Composes a tensor :math:`A` based on given eigenvalues :math:`\\lambda` and
+    eigenvectors :math:`u`,
+
+
+    .. math::
+
+       A = u \\lambda (u)^T
+
+
+    Parameters
+    ----------
+    evals : :py:class:`torch.Tensor` (..., nx)
+        These eigenvalues are used to recompose the matrix.
+    evects : :py:class:`torch.Tensor` (..., nx, nx)
+        These eigenvectors are used to recompose the matrix.
+
+    Returns
+    -------
+    rev_mat : :py:class:`torch.Tensor` (..., nx, nx)
+        The recomposed matrix based on given eigenvalues and eigenvectors.
+    """
     diag_flat_evals = torch.diag_embed(evals)
     rev_mat = torch.einsum('...ij,...jk->...ik', evects, diag_flat_evals)
     rev_mat = torch.einsum('...ij,...kj->...ik', rev_mat, evects)
     return rev_mat
 
 
-def grid_to_array(index):
+def grid_to_array(
+        index: Any
+) -> np.ndarray:
+    """
+    Transform a given index into a :py:class:`np.ndarray`, which can be then
+    used by localization within the assimilation.
+
+    Parameters
+    ----------
+    index : any
+        This index is transformed into an array.
+
+    Returns
+    -------
+    index_array : :py:class:`np.ndarray` (n_points, n_grid)
+        This is the transformmed array, which is then used within the
+        assimilation.
+    """
     if isinstance(index, np.ndarray):
         raw_index_array = index
     elif isinstance(index, da.Array):

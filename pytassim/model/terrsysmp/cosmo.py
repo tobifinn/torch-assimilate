@@ -25,10 +25,12 @@
 
 # System modules
 import logging
+from typing import Iterable
 
 # External modules
 import numpy as np
 import scipy.spatial.distance
+import xarray as xr
 
 # Internal modules
 from . import common
@@ -43,7 +45,10 @@ _cosmo_vcoords = ['height_2m', 'height_10m', 'height_toa', 'soil1',
                   'level1', 'level', 'no_vgrid']
 
 
-def preprocess_cosmo(cosmo_ds, assim_vars):
+def preprocess_cosmo(
+        cosmo_ds: xr.Dataset,
+        assim_vars: Iterable[str]
+) -> xr.DataArray:
     """
     This function can be used to pre-process COSMO data. There are different
     pre-processing steps included:
@@ -89,7 +94,10 @@ def preprocess_cosmo(cosmo_ds, assim_vars):
     return prepared_data
 
 
-def postprocess_cosmo(analysis_data, cosmo_ds):
+def postprocess_cosmo(
+        analysis_data: xr.DataArray,
+        cosmo_ds: xr.Dataset
+) -> xr.Dataset:
     """
     This function can be used to post-process COSMO data and incorporate
     included variables into given COSMO dataset. There are different steps
@@ -126,7 +134,7 @@ def postprocess_cosmo(analysis_data, cosmo_ds):
     return analysis_ds
 
 
-def _prepare_vgrid(ds, vcoord):
+def _prepare_vgrid(ds: xr.Dataset, vcoord: xr.DataArray) -> xr.Dataset:
     ds = ds.copy()
     dims_non_vert = [d for d in vcoord.dims if d not in _cosmo_vcoords]
     vcoord_vals = vcoord.mean(dim=dims_non_vert).values
@@ -143,7 +151,7 @@ def _prepare_vgrid(ds, vcoord):
     return ds
 
 
-def _interp_vgrid(ds):
+def _interp_vgrid(ds: xr.Dataset) -> xr.Dataset:
     vgrid_neighbor_funcs = {
         'no_vgrid': _inds_nearest,
         'height_2m': _inds_nearest,
@@ -161,7 +169,7 @@ def _interp_vgrid(ds):
     return ds
 
 
-def _inds_nearest(coord_val, vgrid_val):
+def _inds_nearest(coord_val: np.ndarray, vgrid_val: np.ndarray) -> np.ndarray:
     dist_matrix = scipy.spatial.distance.cdist(
         coord_val[:, None], vgrid_val[:, None]
     )
@@ -169,15 +177,15 @@ def _inds_nearest(coord_val, vgrid_val):
     return dist_argmin
 
 
-def _inds_top(coord_val, vgrid_val):
+def _inds_top(coord_val: np.ndarray, vgrid_val: np.ndarray) -> np.ndarray:
     return np.arange(len(vgrid_val))[:len(coord_val)]
 
 
-def _inds_bottom(coord_val, vgrid_val):
+def _inds_bottom(coord_val: np.ndarray, vgrid_val: np.ndarray) -> np.ndarray:
     return np.arange(len(vgrid_val))[-len(coord_val):]
 
 
-def _replace_coords(ds):
+def _replace_coords(ds: xr.Dataset) -> xr.Dataset:
     rename_vertical = {c: 'vgrid' for c in _cosmo_vcoords}
     ds = common.replace_grid(ds, rename_vertical)
     rename_horizontal = {'srlat': 'rlat', 'srlon': 'rlon'}

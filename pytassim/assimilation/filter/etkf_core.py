@@ -25,6 +25,7 @@
 
 # System modules
 import logging
+from typing import Union, Tuple, Iterable
 
 # External modules
 import numpy as np
@@ -47,24 +48,41 @@ class ETKFWeightsModule(torch.nn.Module):
     This module estimates weight statistics with given perturbations and
     observations.
     """
-    def __init__(self, inf_factor=1.0):
+    def __init__(
+            self,
+            inf_factor: Union[float, torch.Tensor, torch.nn.Parameter] = 1.0
+    ):
         super().__init__()
         self._inf_factor = None
         self.inf_factor = inf_factor
 
+    def __str__(self) -> str:
+        return 'ETKFWeightsModule({0})'.format(self.inf_factor)
+
+    def __repr__(self) -> str:
+        return 'ETKFWeightsModule'
+
     @property
-    def inf_factor(self):
+    def inf_factor(self) -> Union[float, torch.Tensor, torch.nn.Parameter]:
         return self._inf_factor
 
     @inf_factor.setter
-    def inf_factor(self, new_factor):
+    def inf_factor(
+            self, new_factor: Union[float, torch.Tensor, torch.nn.Parameter]
+    ):
+        """
+        Sets a new inflation factor.
+        """
         if isinstance(new_factor, (torch.Tensor, torch.nn.Parameter)):
             self._inf_factor = new_factor
         else:
             self._inf_factor = torch.tensor(new_factor)
 
     @staticmethod
-    def _test_sizes(normed_perts, normed_obs):
+    def _test_sizes(normed_perts: torch.Tensor, normed_obs: torch.Tensor):
+        """
+        Tests if sizes between perturbations and observations match.
+        """
         if normed_perts.shape[-1] != normed_obs.shape[-1]:
             raise ValueError(
                 'Observational size between ensemble ({0:d}) and observations '
@@ -81,11 +99,22 @@ class ETKFWeightsModule(torch.nn.Module):
             )
 
     @staticmethod
-    def _apply_kernel(x, y):
+    def _apply_kernel(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        """
+        Apply set kernel matrix, here the dot product, to given tensors.
+        """
         k_mat = torch.einsum('...ij,...kj->...ik', x, y)
         return k_mat
 
-    def _get_prior_weights(self, normed_perts, normed_obs):
+    def _get_prior_weights(
+            self,
+            normed_perts: torch.Tensor,
+            normed_obs: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        Get prior weights. The perturbations and covariance matrix are
+        already inflated by set inflation factor.
+        """
         ens_size = normed_perts.shape[-2]
         prior_mean = torch.zeros(normed_perts.shape[:-1]+(1,)).to(normed_perts)
         prior_eye = torch.ones(normed_perts.shape[:-1]).to(normed_perts)
@@ -94,7 +123,15 @@ class ETKFWeightsModule(torch.nn.Module):
         prior_perts = self._inf_factor.sqrt() * prior_eye
         return prior_mean, prior_perts, prior_cov
 
-    def _estimate_weights(self, normed_perts, normed_obs):
+    def _estimate_weights(
+            self,
+            normed_perts: torch.Tensor,
+            normed_obs: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        Estimates the weights with set inflation factor, _apply_kernel method
+        and given data.
+        """
         ens_size = normed_perts.shape[-2]
         reg_value = (ens_size-1) / self._inf_factor
         kernel_perts = self._apply_kernel(normed_perts, normed_perts)
@@ -108,7 +145,17 @@ class ETKFWeightsModule(torch.nn.Module):
         w_perts = rev_evd(square_root_einv, evects)
         return w_mean, w_perts, cov_analysed
 
-    def forward(self, normed_perts, normed_obs):
+    def forward(
+            self,
+            normed_perts: torch.Tensor,
+            normed_obs: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        Get the ensemble weights for given inflation factor, _apply_kernel
+        method and data.
+        If the perturbations and observations are empty, the inflated prior
+        weights are returned.
+        """
         self._test_sizes(normed_perts, normed_obs)
         if normed_perts.shape[-1] == 0:
             w_mean, w_perts, cov_analysed = self._get_prior_weights(
@@ -123,31 +170,72 @@ class ETKFWeightsModule(torch.nn.Module):
 
 
 class ETKFAnalyser(object):
-    def __init__(self, inf_factor=1.0):
+    """
+    Analyser to get analysis perturbations based on given background
+    perturbations and normalized observational quantities.
+    """
+    def __init__(
+            self,
+            inf_factor: Union[float, torch.Tensor, torch.nn.Parameter] = 1.0
+    ):
         self.inf_factor = inf_factor
 
+    def __str__(self) -> str:
+        return 'ETKFAnalyser({0})'.format(self.inf_factor)
+
+    def __repr__(self) -> str:
+        return 'ETKFAnalyser'
+
     @property
-    def inf_factor(self):
+    def inf_factor(self) -> Union[float, torch.Tensor, torch.nn.Parameter]:
         return self.gen_weights.inf_factor
 
     @inf_factor.setter
-    def inf_factor(self, new_factor):
+    def inf_factor(
+            self,
+            new_factor: Union[float, torch.Tensor, torch.nn.Parameter]
+    ):
+        """
+        Sets a new inflation factor.
+        """
         self.gen_weights = ETKFWeightsModule(new_factor)
 
     @staticmethod
-    def _weights_matmul(perts, weights):
+    def _weights_matmul(
+            perts: torch.Tensor,
+            weights: torch.Tensor
+    ) -> torch.Tensor:
+        """
+        Multiply given ensemble perturbations with ensemble weights.
+        """
         ana_perts = torch.einsum('...ig,ij->...jg', perts, weights)
         return ana_perts
 
-    def get_analysis_perts(self, state_perts, normed_perts, normed_obs,
-                           state_grid, obs_grid):
+    def get_analysis_perts(
+            self,
+            state_perts: torch.Tensor,
+            normed_perts: torch.Tensor,
+            normed_obs: torch.Tensor,
+            state_grid: np.ndarray,
+            obs_grid: np.ndarray
+    ) -> torch.Tensor:
+        """
+        Estimate the analysis perturbations with given data, set inflation
+        factor and kernel.
+        """
         weights = self.gen_weights(normed_perts, normed_obs)[0]
         weights = weights.detach()
         ana_perts = self._weights_matmul(state_perts, weights)
         return ana_perts
 
-    def __call__(self, state_perts, normed_perts, normed_obs,
-                 state_grid, obs_grid):
+    def __call__(
+            self,
+            state_perts: torch.Tensor,
+            normed_perts: torch.Tensor,
+            normed_obs: torch.Tensor,
+            state_grid: np.ndarray,
+            obs_grid: np.ndarray
+    ) -> torch.Tensor:
         return self.get_analysis_perts(state_perts, normed_perts, normed_obs,
                                        state_grid, obs_grid)
 
@@ -156,7 +244,10 @@ class CorrMixin(object):
     _correlated = True
 
     @staticmethod
-    def _get_obs_cov(observations):
+    def _get_obs_cov(observations: Iterable[xr.Dataset]) -> np.ndarray:
+        """
+        Get the observational covariance from given observations.
+        """
         cov_stacked_list = []
         for obs in observations:
             len_time = len(obs.time)
@@ -167,13 +258,21 @@ class CorrMixin(object):
         return obs_cov
 
     @staticmethod
-    def _get_chol_inverse(cov):
+    def _get_chol_inverse(cov: torch.Tensor) -> torch.Tensor:
+        """
+        Decomposes given covariance with cholesky decomposition and returns the
+        inverse of the cholesky decomposition.
+        """
         chol_decomp = torch.cholesky(cov)
         chol_inv = chol_decomp.inverse()
         return chol_inv
 
     @staticmethod
-    def _mul_cinv(state, cinv):
+    def _mul_cinv(state: torch.Tensor, cinv: torch.Tensor) -> torch.Tensor:
+        """
+        Multiplies given tensor with given inverse of the cholesky decomposed
+        covariance matrix.
+        """
         normed_state = torch.mm(state, cinv)
         return normed_state
 
@@ -182,7 +281,10 @@ class UnCorrMixin(object):
     _correlated = False
 
     @staticmethod
-    def _get_obs_cov(observations):
+    def _get_obs_cov(observations: Iterable[xr.Dataset]) -> np.ndarray:
+        """
+        Get the observational covariance from given observations.
+        """
         cov_stacked_list = []
         for obs in observations:
             len_time = len(obs.time)
@@ -193,12 +295,20 @@ class UnCorrMixin(object):
         return obs_cov
 
     @staticmethod
-    def _get_chol_inverse(cov):
+    def _get_chol_inverse(cov: torch.Tensor) -> torch.Tensor:
+        """
+        Decomposes given covariance with cholesky decomposition and returns the
+        inverse of the cholesky decomposition.
+        """
         chol_decomp = cov.sqrt()
         chol_inv = 1 / chol_decomp
         return chol_inv
 
     @staticmethod
-    def _mul_cinv(state, cinv):
+    def _mul_cinv(state: torch.Tensor, cinv: torch.Tensor) -> torch.Tensor:
+        """
+        Multiplies given tensor with given inverse of the cholesky decomposed
+        covariance matrix.
+        """
         normed_state = state * cinv
         return normed_state

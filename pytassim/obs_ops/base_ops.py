@@ -26,8 +26,11 @@
 # System modules
 import logging
 import abc
+from typing import Union, Any, Tuple, Dict
 
 # External modules
+import xarray as xr
+import numpy as np
 import torch
 
 # Internal modules
@@ -37,7 +40,11 @@ logger = logging.getLogger(__name__)
 
 
 class BaseOperator(object):
-    def __init__(self, len_grid=40, random_state=None):
+    def __init__(
+            self,
+            len_grid: int = 40,
+            random_state: Union[None, np.random.RandomState] = None
+    ):
         """
         This is a BaseClass for observation operators. These observation
         operators are used to map a model state to observations.
@@ -52,23 +59,28 @@ class BaseOperator(object):
         self.len_grid = len_grid
         self.random_state = random_state
 
-    def __call__(self, input_vals, *args, **kwargs):
-        return self.obs_op(input_vals, *args, **kwargs)
+    def __call__(
+            self,
+            obs_ds: xr.Dataset,
+            input_vals: xr.DataArray,
+            *args: Tuple[Any],
+            **kwargs: Dict[str, Any]
+    ) -> xr.DataArray:
+        pseudo_obs = self.obs_op(input_vals, *args, **kwargs)
+        pseudo_obs = pseudo_obs.rename(grid='obs_grid_1')
+        pseudo_obs['time'] = obs_ds.time.values
+        pseudo_obs['obs_grid_1'] = obs_ds.obs_grid_1.values
+        return pseudo_obs
 
     @abc.abstractmethod
-    def obs_op(self, in_array, *args, **kwargs):
+    def obs_op(
+            self,
+            in_array: xr.DataArray,
+            *args: Tuple[Any],
+            **kwargs: Dict[str, Any]
+    ) -> xr.DataArray:
         pass
 
     @abc.abstractmethod
-    def torch_operator(self):
+    def torch_operator(self) -> torch.Tensor:
         pass
-
-    @property
-    def get_obs_method(self):
-        def observation_operator(cls, state):
-            pseudo_obs = self.obs_op(state)
-            pseudo_obs = pseudo_obs.rename(grid='obs_grid_1')
-            pseudo_obs['time'] = cls.ds.time.values
-            pseudo_obs['obs_grid_1'] = cls.ds.obs_grid_1.values
-            return pseudo_obs
-        return observation_operator

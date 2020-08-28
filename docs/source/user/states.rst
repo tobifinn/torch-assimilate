@@ -10,6 +10,34 @@ check if given fields are valid for the assimilation.
 
 Model states
 ------------
+The model states are represented as :py:class:`xarray.DataArray` with
+coordinates, which are explained in the following:
+
+    ``var_name`` – str
+        This coordinate allows to concatenate multiple variables into
+        one single array. The coordinate should have :py:class:`str` as
+        dtype.
+
+    ``time`` – datetime like
+        Different times can be concatenated into this coordinate. This
+        coordinate is useful for data assimilation algorithms which
+        allow assimilation of time dependent variables. The coordinate
+        should be a datetime like dtype.
+
+    ``ensemble`` – int
+        This coordinate is used for ensemble based data assimilation
+        algorithms. The ensemble members are numbered as
+        :py:class:`int`. An integer value of 0 symbolizes a
+        deterministic or control run. In some ensemble based algorithms,
+        the ensemble coordinate is looped.
+
+    ``grid``
+        This coordinate is used to characterize the spatial position
+        of one single value within the array. This coordinate can be a
+        :py:class:`~pandas.MultiIndex`, where different coordinate
+        components are stacked. In some algorithms the analysis is
+        calculated for every grid point independently such that the
+        algorithm loops over this coordinate.
 
 
 Observations

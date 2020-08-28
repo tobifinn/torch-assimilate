@@ -97,14 +97,28 @@ class Lorenz84(object):
         influences the eddies. :math:`Y` would converge to this value if the
         variables are not coupled by other terms. Default value is 1.
     """
-    def __init__(self, damp_factor=0.25, dis_factor=4.0, symm_forcing=8.0,
-                 asymm_forcing=1.0):
+    def __init__(
+            self,
+            damp_factor: float = 0.25,
+            dis_factor: float = 4.0,
+            symm_forcing: float = 8.0,
+            asymm_forcing: float = 1.0
+    ):
         self.dis_factor = dis_factor
         self.damp_factor = damp_factor
         self.symm_forcing = symm_forcing
         self.asymm_forcing = asymm_forcing
 
-    def _calc_westerly(self, state):
+    def __str__(self) -> str:
+        return 'Lorenz84({0}, {1}, {2}, {3})'.format(
+            self.damp_factor, self.dis_factor, self.symm_forcing,
+            self.asymm_forcing
+        )
+
+    def __repr__(self) -> str:
+        return 'Lorenz84'
+
+    def _calc_westerly(self, state: torch.Tensor) -> torch.Tensor:
         """
         Calculate the amplification of the westerly current, including coupling
         effects, damping and forcing
@@ -130,7 +144,7 @@ class Lorenz84(object):
         amp = coupling - damping + forcing
         return amp
 
-    def _calc_cosine_phase(self, state):
+    def _calc_cosine_phase(self, state: torch.Tensor) -> torch.Tensor:
         """
         Calculates the change in the cosine phase of the eddies, including
         amplification and displacement caused by westerly current, damping and
@@ -158,7 +172,7 @@ class Lorenz84(object):
         phase_change = amp + displace - damping + forcing
         return phase_change
 
-    def _calc_sine_phase(self, state):
+    def _calc_sine_phase(self, state: torch.Tensor) -> torch.Tensor:
         """
         Calculates the change in the sine phase of the eddies, including
         amplification and displacement caused by westerly current and damping.
@@ -185,7 +199,7 @@ class Lorenz84(object):
         phase_change = amp + displace - damping
         return phase_change
 
-    def __call__(self, state):
+    def __call__(self, state: torch.Tensor) -> torch.Tensor:
         """
         Estimate the time-derivative of this model. The time-derivative is
         estimated based on amplification of the westerly current, and cosine and

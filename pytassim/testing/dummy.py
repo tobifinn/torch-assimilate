@@ -36,7 +36,7 @@ import torch
 logger = logging.getLogger(__name__)
 
 
-def dummy_obs_operator(self, state):
+def dummy_obs_operator(obs_ds, state):
     """
     This dummy observation operator can be used to patch
     :py:meth:`~pytassim.observation.Observation.operator` for testing purpose.
@@ -46,8 +46,8 @@ def dummy_obs_operator(self, state):
 
     Parameters
     ----------
-    self : :py:class:`pytassim.observation.Observation`
-        This dummy_obs_operator is patched to this given observation instance.
+    obs_ds : :py:class:`~xarray.Dataset`
+        This observational dataset is used as basis dataset.
     state : :py:class:`~xarray.DataArray`
         The pseudo observations are created based on this state.
 
@@ -61,8 +61,8 @@ def dummy_obs_operator(self, state):
     """
     pseudo_obs = state.sel(var_name='x')
     pseudo_obs = pseudo_obs.rename(grid='obs_grid_1')
-    pseudo_obs['time'] = self.ds.time.values
-    pseudo_obs['obs_grid_1'] = self.ds.obs_grid_1.values
+    pseudo_obs['time'] = obs_ds.time.values
+    pseudo_obs['obs_grid_1'] = obs_ds.obs_grid_1.values
     return pseudo_obs
 
 

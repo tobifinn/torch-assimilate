@@ -57,5 +57,11 @@ class LinearKernel(BaseKernel):
        K(x_i, x_j) = x_i(x_j)^T
 
     """
+    def __str__(self) -> str:
+        return 'LinearKernel'
+
+    def __repr__(self) -> str:
+        return 'Linear'
+
     def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         return kernel_utils.dot_product(x, y)

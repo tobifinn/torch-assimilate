@@ -4,6 +4,7 @@ exclude_lines =
     @abstract
     @abc.abtractmethod
     (abc.ABC):
+    def __str__
     def __repr__
     raise AssertionError
     except AttributeError:

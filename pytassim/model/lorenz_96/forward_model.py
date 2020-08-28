@@ -25,6 +25,7 @@
 
 # System modules
 import logging
+from typing import Type
 
 # External modules
 from tqdm import tqdm
@@ -33,12 +34,32 @@ import numpy as np
 import torch
 
 # Internal modules
+from pytassim.model.integration.integrator import BaseIntegrator
 
 
 logger = logging.getLogger(__name__)
 
 
-def forward_model(all_steps, start_point, start_state, integrator):
+def forward_model(
+        all_steps: np.ndarray,
+        start_point: int,
+        start_state: torch.Tensor,
+        integrator: Type[BaseIntegrator]
+) -> xr.DataArray:
+    """
+    This forward model can be used to integrate the Lorenz 96 in time.
+
+    Parameters
+    ----------
+    all_steps : :py:class:`np.ndarray`
+        All time steps, which should be estimated.
+    start_point : int
+        Starting from this point, all steps are written as output.
+    start_state : :py:class:`torch.Tensor`
+        This start state is used as initial value for the integration.
+    integrator : child of :py:class:`pytassim.model.integration.integrator.BaseIntegrator
+        This integrator is used to integrate the model.
+    """
     output_steps = all_steps[all_steps >= start_point]
     dataset = []
     curr_state = start_state

@@ -29,19 +29,20 @@ import abc
 import warnings
 import time
 import datetime
+from typing import Union, Iterable, Tuple, Any, List
 
 # External modules
 import xarray as xr
-import numpy as np
-import scipy.linalg
 import pandas as pd
 import torch
+import numpy as np
 
 # Internal modules
 from .utils import grid_to_array
 
 from pytassim.state import StateError
 from pytassim.observation import ObservationError
+from pytassim.transform import BaseTransformer
 
 
 logger = logging.getLogger(__name__)
@@ -54,22 +55,32 @@ class BaseAssimilation(object):
     assimilation, one needs to overwrite
     :py:meth:`~pytassim.assimilation.base.BaseAssimilation.update_state`.
     """
-    def __init__(self, smoother=False, gpu=False, pre_transform=None,
-                 post_transform=None):
+    def __init__(self, smoother: bool = False, gpu: bool = False,
+                 pre_transform: Union[None, Iterable[BaseTransformer]] = None,
+                 post_transform: Union[None, Iterable[BaseTransformer]] = None):
         self.smoother = smoother
         self.gpu = gpu
         self.pre_transform = pre_transform
         self.post_transform = post_transform
         self.dtype = torch.double
 
-    def _states_to_torch(self, *states):
+    def __str__(self):
+        return 'BaseAssimilation'
+
+    def __repr__(self):
+        return 'BaseAssimilation'
+
+    def _states_to_torch(
+            self,
+            *states: Tuple[np.ndarray]
+    ) -> Tuple[torch.Tensor]:
         torch_states = [torch.from_numpy(s).to(self.dtype) for s in states]
         if self.gpu:
             torch_states = [s.cuda() for s in torch_states]
         return torch_states
 
     @staticmethod
-    def _validate_state(state):
+    def _validate_state(state: xr.DataArray):
         if not isinstance(state, xr.DataArray):
             raise TypeError('*** Given state is not a valid '
                             '``xarray.DataArray`` ***\n{0:s}'.format(state))
@@ -77,7 +88,7 @@ class BaseAssimilation(object):
             err_msg = '*** Given state is not a valid state ***\n{0:s}'
             raise StateError(err_msg.format(str(state)))
 
-    def _validate_single_obs(self, observation):
+    def _validate_single_obs(self, observation: xr.Dataset):
         if not isinstance(observation, xr.Dataset):
             raise TypeError('*** Given observation is not a valid'
                             '``xarray.Dataset`` ***\n{0:s}'.format(observation))
@@ -94,7 +105,9 @@ class BaseAssimilation(object):
                                str(observation.obs.correlated))
             )
 
-    def _validate_observations(self, observations):
+    def _validate_observations(
+            self, observations: Union[xr.Dataset, Iterable[xr.Dataset]]
+    ):
         if isinstance(observations, (list, set, tuple)):
             for obs in observations:
                 self._validate_single_obs(obs)
@@ -102,7 +115,10 @@ class BaseAssimilation(object):
             self._validate_single_obs(observations)
 
     @staticmethod
-    def _get_analysis_time(state, analysis_time=None):
+    def _get_analysis_time(
+            state: xr.Dataset,
+            analysis_time: Any = None
+    ) -> pd.Timestamp:
         if analysis_time is None:
             valid_time = state.time[-1]
         else:
@@ -124,7 +140,10 @@ class BaseAssimilation(object):
         return valid_time
 
     @staticmethod
-    def _apply_obs_operator(pseudo_state, observations):
+    def _apply_obs_operator(
+            pseudo_state: xr.DataArray,
+            observations: Iterable[xr.Dataset]
+    ) -> Tuple[List[xr.DataArray], List[xr.Dataset]]:
         """
         This method applies the observation operator on given state. The
         observation operator has to be set within given observations. It is
@@ -142,7 +161,7 @@ class BaseAssimilation(object):
 
         Returns
         -------
-        obs_equivalent : iterable(:py:class:`xarray.DataArray`)
+        obs_equivalent : list(:py:class:`xarray.DataArray`)
             A list with observation equivalents as :py:class:`xarray.DataArray`.
             These observation equivalents have three dimensions, ``ensemble``,
             ``time`` and ``obs_grid``. The order within these observation
@@ -155,19 +174,20 @@ class BaseAssimilation(object):
         filtered_observations = []
         for obs in observations:
             try:
-                obs_equivalent.append(obs.obs.operator(pseudo_state))
+                obs_equivalent.append(obs.obs.operator(obs, pseudo_state))
                 filtered_observations.append(obs)
             except NotImplementedError:
                 pass
         return obs_equivalent, filtered_observations
 
-
-
     @abc.abstractmethod
-    def _get_obs_cov(self, observations):
+    def _get_obs_cov(self, observations: Iterable[xr.Dataset]) -> np.ndarray:
         pass
 
-    def _prepare_obs(self, observations):
+    def _prepare_obs(
+            self,
+            observations: List[xr.Dataset]
+    ) -> Tuple[np.ndarray, np.ndarray]:
         state_stacked_list = []
         for obs in observations:
             if isinstance(obs.indexes['obs_grid_1'], pd.MultiIndex):
@@ -184,7 +204,13 @@ class BaseAssimilation(object):
         return state_values, state_grid
 
     @abc.abstractmethod
-    def update_state(self, state, observations, pseudo_state, analysis_time):
+    def update_state(
+            self,
+            state: xr.DataArray,
+            observations: Union[xr.Dataset, Iterable[xr.Dataset]],
+            pseudo_state: xr.DataArray,
+            analysis_time: pd.Timestamp
+    ) -> xr.DataArray:
         """
         This method is called by
         :py:meth:`~pytassim.assimilation.base.BaseAssimilation.assimilate` and
@@ -221,8 +247,13 @@ class BaseAssimilation(object):
         """
         pass
 
-    def assimilate(self, state, observations, pseudo_state=None,
-                   analysis_time=None):
+    def assimilate(
+            self,
+            state: xr.DataArray,
+            observations: Union[xr.Dataset, Iterable[xr.Dataset]],
+            pseudo_state: Union[xr.DataArray, None] = None,
+            analysis_time: Any = None
+    ) -> xr.DataArray:
         """
         This assimilate the ``observations`` in given background ``state`` and
         creates an analysis for given ``analysis_time``. The observations need
@@ -294,8 +325,12 @@ class BaseAssimilation(object):
             logger.info('Assimilation in non-smoother mode')
             pseudo_state = pseudo_state.sel(time=[analysis_time, ])
             back_state = state.sel(time=[analysis_time, ])
-            observations = [obs.sel(time=[analysis_time, ])
-                            for obs in observations]
+            sel_obs = []
+            for obs in observations:
+                tmp_obs = obs.sel(time=[analysis_time, ])
+                tmp_obs.obs.operator = obs.obs.operator
+                sel_obs.append(tmp_obs)
+            observations = sel_obs
         if self.pre_transform:
             for trans in self.pre_transform:
                 back_state, observations, pseudo_state = trans.pre(

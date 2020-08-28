@@ -25,9 +25,11 @@
 
 # System modules
 import logging
+from typing import Iterable, Dict, Any
 
 # External modules
 import numpy as np
+import xarray as xr
 
 # Internal modules
 
@@ -35,7 +37,10 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
-def create_vgrid(ds, vcoords):
+def create_vgrid(
+        ds: xr.Dataset,
+        vcoords: Iterable[str]
+) -> xr.Dataset:
     """
     Create a vertical grid based on given vertical coordinates
     """
@@ -46,7 +51,11 @@ def create_vgrid(ds, vcoords):
     return ds
 
 
-def add_no_vgrid(ds, vcoords, val=0):
+def add_no_vgrid(
+        ds: xr.Dataset,
+        vcoords: Iterable[str],
+        val: float = 0
+) -> xr.Dataset:
     """
     Add an additional variable if no vertical grid is available
     """
@@ -60,18 +69,21 @@ def add_no_vgrid(ds, vcoords, val=0):
     return ds
 
 
-def replace_grid(ds, remap_dict):
+def replace_grid(
+        ds: xr.Dataset,
+        remap_dict: Dict[str, Any]
+) -> xr.Dataset:
     """
     Replace grid variables within given dataset
     """
     rename_dict = {k: v for k, v in remap_dict.items()
                    if k in ds.coords}
-    ds = ds.drop(list(rename_dict.keys()))
+    ds = ds.drop_sel(list(rename_dict.keys()))
     ds = ds.rename(rename_dict)
     return ds
 
 
-def ds_to_array(ds, grid_dims):
+def ds_to_array(ds: xr.Dataset, grid_dims: Iterable[str]) -> xr.DataArray:
     """
     Stack a prepared dataset into a valid state array
     """
@@ -85,7 +97,7 @@ def ds_to_array(ds, grid_dims):
     return prepared_data
 
 
-def array_to_ds(data):
+def array_to_ds(data: xr.DataArray) -> xr.Dataset:
     """
     Unstack an array to dataset
     """
@@ -98,7 +110,7 @@ def array_to_ds(data):
     return prepared_ds
 
 
-def dim_transpose(array, vcoords):
+def dim_transpose(array: xr.DataArray, vcoords: Iterable[str]):
     dim_generic = ['time', 'ensemble']
     dim_order = [d for d in dim_generic if d in array.dims]
     dim_order += [d for d in vcoords+['vgrid', ] if d in array.dims]
@@ -108,7 +120,11 @@ def dim_transpose(array, vcoords):
     return array_trans
 
 
-def generic_postprocess(analysis_data, origin_ds, vcoords):
+def generic_postprocess(
+        analysis_data: xr.DataArray,
+        origin_ds: xr.Dataset,
+        vcoords: Iterable[str]
+) -> xr.Dataset:
     """
     This function can be used to post-process analysis data and incorporate
     included variables into given origin dataset. There are different steps
@@ -130,6 +146,8 @@ def generic_postprocess(analysis_data, origin_ds, vcoords):
         This origin dataset is used as source dataset to convert given analysis
         array into a valid origin dataset. The resulting dataset is a copy of
         this dataset, where the assimilated variables are replaced.
+    vcoords : Iterable(str)
+        These vcoords are used to unstack the analysis data.
 
     Returns
     -------

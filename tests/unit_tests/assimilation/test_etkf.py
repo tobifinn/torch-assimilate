@@ -132,7 +132,7 @@ class TestETKFCorr(unittest.TestCase):
         np.testing.assert_equal(returned_cov, stacked_cov)
 
     def test_prepare_state_returns_state_array(self):
-        hx = self.obs.obs.operator(self.state)
+        hx = self.obs.obs.operator(self.obs, self.state)
         hx_stacked = hx.stack(obs_id=('time', 'obs_grid_1'))
         hx_concat = xr.concat([hx_stacked, hx_stacked], dim='obs_id')
         pseudo_obs, _ = self.algorithm._get_pseudo_obs(

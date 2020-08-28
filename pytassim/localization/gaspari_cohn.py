@@ -26,6 +26,7 @@
 # System modules
 import logging
 import warnings
+from typing import Tuple, Union, Callable, Any
 
 # External modules
 import numpy as np
@@ -56,14 +57,25 @@ class GaspariCohn(BaseLocalization):
         This functions takes two different grid lists and estimates a distance
         between these two grids.
     """
-    def __init__(self, length_scale, dist_func, epsilon=1E-5):
+    def __init__(
+            self,
+            length_scale: Union[float, Tuple[float]],
+            dist_func: Callable,
+            epsilon: float = 1E-5
+    ):
         self.radius = np.atleast_1d(length_scale)
         self.dist_func = dist_func
         self.epsilon = epsilon
         self._thres = [2, 1]
 
+    def __str__(self) -> str:
+        return 'GaspariCohn(l={0})'.format(str(self.radius))
+
+    def __repr__(self) -> str:
+        return 'GaspariCohn'
+
     @staticmethod
-    def _f1(dist):
+    def _f1(dist: np.ndarray) -> np.ndarray:
         f1 = - 0.25 * dist ** 5
         f1 += 0.5 * dist ** 4
         f1 += 0.625 * dist ** 3
@@ -72,7 +84,7 @@ class GaspariCohn(BaseLocalization):
         return f1
 
     @staticmethod
-    def _f2(dist):
+    def _f2(dist: np.ndarray) -> np.ndarray:
         f2 = 1 / 12 * dist ** 5
         f2 -= 0.5 * dist ** 4
         f2 += 0.625 * dist ** 3
@@ -82,7 +94,11 @@ class GaspariCohn(BaseLocalization):
         f2 -= 2 / 3 / dist
         return f2
 
-    def localize_obs(self, grid_ind, obs_grid):
+    def localize_obs(
+            self,
+            grid_ind: Any,
+            obs_grid: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         This method creates weights for observations based on given grid index
         and observation grid.
@@ -139,14 +155,25 @@ class GaspariCohnInf(BaseLocalization):
         This functions takes two different grid lists and estimates a distance
         between these two grids.
     """
-    def __init__(self, length_scale, dist_func, epsilon=1E-5):
+    def __init__(
+            self,
+            length_scale: Union[float, Tuple[float]],
+            dist_func: Callable,
+            epsilon: float = 1E-5
+    ):
         self.radius = length_scale
         self.dist_func = dist_func
         self.epsilon = epsilon
         self._thres = [2, 1.5, 1, 0.5]
 
+    def __str__(self) -> str:
+        return 'GaspariCohnInf(l={0})'.format(str(self.radius))
+
+    def __repr__(self) -> str:
+        return 'GaspariCohnInf'
+
     @staticmethod
-    def _f1(dist):
+    def _f1(dist: np.ndarray) -> np.ndarray:
         f1 = -28 * dist ** 5 / 33
         f1 += 8 * dist ** 4 / 11
         f1 += 20 * dist ** 3 / 11
@@ -155,7 +182,7 @@ class GaspariCohnInf(BaseLocalization):
         return f1
 
     @staticmethod
-    def _f2(dist):
+    def _f2(dist: np.ndarray) -> np.ndarray:
         f2 = 20 * dist ** 5 / 33
         f2 -= 16 * dist ** 4 / 11
         f2 += 100 * dist ** 2 / 33
@@ -165,7 +192,7 @@ class GaspariCohnInf(BaseLocalization):
         return f2
 
     @staticmethod
-    def _f3(dist):
+    def _f3(dist: np.ndarray) -> np.ndarray:
         f3 = -4 * dist ** 5 / 11
         f3 += 16 * dist ** 4 / 11
         f3 -= 10 * dist ** 3 / 11
@@ -176,7 +203,7 @@ class GaspariCohnInf(BaseLocalization):
         return f3
 
     @staticmethod
-    def _f4(dist):
+    def _f4(dist: np.ndarray) -> np.ndarray:
         f4 = 4 * dist ** 5 / 33
         f4 -= 8 * dist ** 4 / 11
         f4 += 10 * dist ** 3 / 11
@@ -186,7 +213,11 @@ class GaspariCohnInf(BaseLocalization):
         f4 -= 32 / (33 * dist)
         return f4
 
-    def localize_obs(self, grid_ind, obs_grid):
+    def localize_obs(
+            self,
+            grid_ind: Any,
+            obs_grid: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         This method creates weights for observations based on given grid index
         and observation grid.

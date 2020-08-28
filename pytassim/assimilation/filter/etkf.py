@@ -26,15 +26,18 @@
 # System modules
 import logging
 import abc
+from typing import Union, Iterable, Tuple, List
 
 # External modules
 import xarray as xr
 import numpy as np
 import pandas as pd
+import torch
 
 # Internal modules
 from .etkf_core import ETKFAnalyser, CorrMixin, UnCorrMixin
 from .filter import FilterAssimilation
+from pytassim.transform import BaseTransformer
 
 
 logger = logging.getLogger(__name__)
@@ -47,8 +50,16 @@ __all__ = [
 
 
 class ETKFBase(FilterAssimilation):
-    def __init__(self, inf_factor=1.0, smoother=True, gpu=False,
-                 pre_transform=None, post_transform=None):
+    """
+    The base object for the ensemble transform Kalman filter.
+    """
+    def __init__(
+            self,
+            inf_factor: Union[float, torch.Tensor, torch.nn.Parameter] = 1.0,
+            smoother: bool = False, gpu: bool = False,
+            pre_transform: Union[None, Iterable[BaseTransformer]] = None,
+            post_transform: Union[None, Iterable[BaseTransformer]] = None
+    ):
         super().__init__(smoother=smoother, gpu=gpu,
                          pre_transform=pre_transform,
                          post_transform=post_transform)
@@ -56,37 +67,75 @@ class ETKFBase(FilterAssimilation):
         self._weights = None
         self.inf_factor = inf_factor
 
+    def __str__(self):
+        return 'Global ETKF({0})'.format(self.inf_factor)
+
+    def __repr__(self):
+        return 'ETKF'
+
     @property
-    def inf_factor(self):
+    def inf_factor(self) -> Union[float, torch.Tensor, torch.nn.Parameter]:
         return self._analyser.inf_factor
 
     @inf_factor.setter
-    def inf_factor(self, new_factor):
+    def inf_factor(
+            self,
+            new_factor: Union[float, torch.Tensor, torch.nn.Parameter]
+    ):
+        """
+        Sets a new inflation factor.
+        """
         self._analyser = ETKFAnalyser(inf_factor=new_factor)
 
     @property
-    def analyser(self):
+    def analyser(self) -> ETKFAnalyser:
         return self._analyser
 
     @property
-    def weights(self):
+    def weights(self) -> torch.Tensor:
         return self._weights
 
-    def _normalise_obs(self, pseudo_obs, obs, cinv):
+    def _normalise_obs(
+            self,
+            pseudo_obs: torch.Tensor,
+            obs: torch.Tensor,
+            cinv: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Normalise given pseudo observations and observations with given
+        inverse cholesky decomposition of the observational covariance.
+        """
         pseudo_mean = pseudo_obs.mean(dim=-2, keepdim=True)
         normed_perts = self._mul_cinv(pseudo_obs-pseudo_mean, cinv)
         normed_obs = self._mul_cinv(obs.view(1, -1)-pseudo_mean, cinv)
         return normed_perts, normed_obs
 
     @abc.abstractmethod
-    def _mul_cinv(self, state, cinv):
+    def _mul_cinv(
+            self,
+            state: torch.Tensor,
+            cinv: torch.Tensor
+    ) -> torch.Tensor:
+        """
+        Multiply given state with given inverse cholesky decomposition of the
+        observational covariance.
+        """
         pass
 
     @abc.abstractmethod
-    def _get_chol_inverse(self, cov):
+    def _get_chol_inverse(self, cov: torch.Tensor) -> torch.Tensor:
+        """
+        Estimate the cholesky inverse of given covariance matrix.
+        """
         pass
 
-    def update_state(self, state, observations, pseudo_state, analysis_time):
+    def update_state(
+            self,
+            state: xr.DataArray,
+            observations: Union[xr.Dataset, Iterable[xr.Dataset]],
+            pseudo_state: xr.DataArray,
+            analysis_time: pd.Timestamp
+    ) -> xr.DataArray:
         """
         This method updates the state based on given observations and analysis
         time. This method prepares the different states, calculates the ensemble
@@ -150,7 +199,11 @@ class ETKFBase(FilterAssimilation):
         analysis = analysis.transpose('var_name', 'time', 'ensemble', 'grid')
         return analysis
 
-    def _get_states(self, pseudo_state, observations):
+    def _get_states(
+            self,
+            pseudo_state: xr.DataArray,
+            observations: Union[xr.Dataset, Iterable[xr.Dataset]]
+    ) -> Union[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
         This method prepares the different parts of the state. It calculates
         statistics in observation space and concatenates given observations into
@@ -203,13 +256,26 @@ class ETKFBase(FilterAssimilation):
         obs_cov = self._get_obs_cov(filtered_obs)
         return pseudo_obs, obs_state, obs_cov, obs_grid
 
-    def _get_pseudo_obs(self, state, observations):
+    def _get_pseudo_obs(
+            self,
+            state: xr.DataArray,
+            observations: Union[xr.Dataset, Iterable[xr.Dataset]]
+    ) -> Tuple[np.ndarray, List[np.ndarray]]:
+        """
+        Get pseudo observational array and filtered observations. This method
+        applies the observation operator and concatenates the pseudo
+        observations.
+        """
         pseudo_obs, filtered_obs = self._apply_obs_operator(state, observations)
         pseudo_obs = self._cat_pseudo_obs(pseudo_obs)
         return pseudo_obs, filtered_obs
 
     @staticmethod
-    def _cat_pseudo_obs(pseudo_obs):
+    def _cat_pseudo_obs(pseudo_obs: Iterable[xr.DataArray]) -> np.ndarray:
+        """
+        Concatenate given pseudo observations into a pseudo observational
+        array.
+        """
         state_stacked_list = []
         for obs in pseudo_obs:
             if isinstance(obs.indexes['obs_grid_1'], pd.MultiIndex):
@@ -253,7 +319,11 @@ class ETKFCorr(CorrMixin, ETKFBase):
         or CPU (False): Default is None. For small models, estimation of the
         weights on CPU is faster than on GPU!.
     """
-    pass
+    def __str__(self) -> str:
+        return 'Correlated {0:s}'.format(str(super(ETKFBase)))
+
+    def __repr__(self) -> str:
+        return 'Corr{0:s}'.format(repr(super(ETKFBase)))
 
 
 class ETKFUncorr(UnCorrMixin, ETKFBase):
@@ -286,4 +356,8 @@ class ETKFUncorr(UnCorrMixin, ETKFBase):
         or CPU (False): Default is None. For small models, estimation of the
         weights on CPU is faster than on GPU!.
     """
-    pass
+    def __str__(self) -> str:
+        return 'Uncorrelated {0:s}'.format(str(super(ETKFBase)))
+
+    def __repr__(self) -> str:
+        return 'Uncorr{0:s}'.format(repr(super(ETKFBase)))

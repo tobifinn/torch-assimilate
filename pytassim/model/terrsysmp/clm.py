@@ -25,9 +25,11 @@
 
 # System modules
 import logging
+from typing import Iterable
 
 # External modules
 import numpy as np
+import xarray as xr
 
 # Internal modules
 from . import common
@@ -39,7 +41,15 @@ logger = logging.getLogger(__name__)
 _clm_vcoords = ['levsoi', 'levtot', 'levsno', 'levlak', 'no_vgrid']
 
 
-def preprocess_clm(ds_clm, assim_vars):
+def preprocess_clm(
+        ds_clm: xr.Dataset,
+        assim_vars: Iterable[str]
+) -> xr.DataArray:
+    """
+    Preprocess a given CLM dataset. This dataset is typically created based
+    on read-in of `clmoas.clm2.*.nc`files. Only variables specified in
+    `assim_vars` are kept.
+    """
     sliced_ds = ds_clm[assim_vars]
     ds_gridded = common.create_vgrid(sliced_ds, _clm_vcoords)
     ds_added_no_vgrid = common.add_no_vgrid(
@@ -60,7 +70,10 @@ def preprocess_clm(ds_clm, assim_vars):
     return prepared_data
 
 
-def postprocess_clm(analysis_data, ds_clm):
+def postprocess_clm(
+        analysis_data: xr.DataArray,
+        ds_clm: xr.Dataset
+) -> xr.Dataset:
     """
     This function can be used to post-process CLM data and incorporate
     included variables into given CLM dataset. There are different steps
@@ -96,7 +109,13 @@ def postprocess_clm(analysis_data, ds_clm):
     return analysis_ds
 
 
-def _interp_vgrid(ds):
+def _interp_vgrid(
+        ds: xr.Dataset
+) -> xr.Dataset:
+    """
+    Reindexes the `vgrid` coordinate and is used in
+    :py:func:`preprocess_clm`.
+    """
     avail_vcoords = [c for c in _clm_vcoords if c in ds.dims]
     interp_ds = ds.reindex(
         **{c: ds['vgrid'].values for c in avail_vcoords}, method=None

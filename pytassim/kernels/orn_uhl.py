@@ -63,6 +63,12 @@ class OrnsteinUhlenbeckKernel(BaseKernel):
         super().__init__()
         self.lengthscale = lengthscale
 
+    def __str__(self) -> str:
+        return 'OrnsteinUhlenbeckKernel({0})'.format(str(self.lengthscale))
+
+    def __repr__(self) -> str:
+        return 'OrnUhlKernel({0})'.format(repr(self.lengthscale))
+
     def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         abs_dist = distance_matrix(x, y, norm=1)
         factor = -abs_dist / self.lengthscale

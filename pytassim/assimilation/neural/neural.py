@@ -26,11 +26,17 @@
 # System modules
 import logging
 from copy import deepcopy
+from typing import Union, Iterable
 
 # External modules
+import torch.nn
+
+import xarray as xr
+import pandas as pd
 
 # Internal modules
 from ..base import BaseAssimilation
+from pytassim.transform import BaseTransformer
 
 
 logger = logging.getLogger(__name__)
@@ -61,20 +67,31 @@ class NeuralAssimilation(BaseAssimilation):
         or CPU (False). Default value is False, indicating computations on CPU.
         This flag transfers also given model to CPU or GPU.
     """
-    def __init__(self, model, smoother=True, gpu=False, pre_transform=None,
-                 post_transform=None):
+    def __init__(
+            self,
+            model: torch.nn.Module,
+            smoother: bool = False, gpu: bool = False,
+            pre_transform: Union[None, Iterable[BaseTransformer]] = None,
+            post_transform: Union[None, Iterable[BaseTransformer]] = None
+    ):
         super().__init__(smoother=smoother, gpu=gpu,
                          pre_transform=pre_transform,
                          post_transform=post_transform)
         self._model = None
         self.model = model
 
+    def __str__(self) -> str:
+        return 'NeuralAssimilation'
+
+    def __repr__(self) -> str:
+        return 'NeuralAssimilation'
+
     @property
-    def model(self):
+    def model(self) -> torch.nn.Module:
         return self._model
 
     @model.setter
-    def model(self, new_model):
+    def model(self, new_model: torch.nn.Module):
         if not hasattr(new_model, 'assimilate'):
             raise TypeError('Given model is not a valid assimilation model!')
         cloned_model = deepcopy(new_model)
@@ -84,7 +101,13 @@ class NeuralAssimilation(BaseAssimilation):
         else:
             self._model = cloned_model.cpu()
 
-    def update_state(self, state, observations, pseudo_state, analysis_time):
+    def update_state(
+            self,
+            state: xr.DataArray,
+            observations: Union[xr.Dataset, Iterable[xr.Dataset]],
+            pseudo_state: xr.DataArray,
+            analysis_time: pd.Timestamp
+    ) -> xr.DataArray:
         """
         This method updates given `state` with given `observations`. This method
         stacks the observations and covariance together. The state values and

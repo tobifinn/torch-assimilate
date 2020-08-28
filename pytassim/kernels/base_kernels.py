@@ -95,6 +95,12 @@ class AdditiveKernel(CompKernel):
         This is the second kernel, which is used to compose a given new kernel.
 
     """
+    def __str__(self) -> str:
+        return "{0:s}+{1:s}".format(str(self.kernel_1), str(self.kernel_2))
+
+    def __repr__(self) -> str:
+        return "{0:s}+{1:s}".format(repr(self.kernel_1), repr(self.kernel_2))
+
     def forward(self, x: torch.tensor, y: torch.tensor) -> torch.tensor:
         return self.kernel_1(x, y) + self.kernel_2(x, y)
 
@@ -117,6 +123,12 @@ class MultiplicativeKernel(CompKernel):
         This is the second kernel, which is used to compose a given new kernel.
 
     """
+    def __str__(self) -> str:
+        return "{0:s}*{1:s}".format(str(self.kernel_1), str(self.kernel_2))
+
+    def __repr__(self) -> str:
+        return "{0:s}*{1:s}".format(repr(self.kernel_1), repr(self.kernel_2))
+
     def forward(self, x: torch.tensor, y: torch.tensor) -> torch.tensor:
         return self.kernel_1(x, y) * self.kernel_2(x, y)
 
@@ -139,5 +151,12 @@ class PowerKernel(CompKernel):
         This is the second kernel, which is used to compose a given new kernel.
 
     """
+    def __str__(self) -> str:
+        return "{0:s}^{1:s}".format(str(self.kernel_1), str(self.kernel_2))
+
+    def __repr__(self) -> str:
+        return "{0:s}^{1:s}".format(repr(self.kernel_1), repr(self.kernel_2))
+
+
     def forward(self, x: torch.tensor, y: torch.tensor) -> torch.tensor:
         return self.kernel_1(x, y).pow(self.kernel_2(x, y))

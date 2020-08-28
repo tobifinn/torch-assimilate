@@ -53,34 +53,30 @@ class TestBaseOperator(unittest.TestCase):
 
     def test_call_calls_obs_op(self):
         self.operator.obs_op = MagicMock()
-        self.operator(self.state, 1, test=2)
+        self.operator(self.obs, self.state, 1, test=2)
         self.operator.obs_op.assert_called_once_with(self.state, 1, test=2)
 
     def test_get_obs_method_uses_obs_op(self):
         self.operator.obs_op = MagicMock(return_value=self.state)
-        obs_inst = Observation(self.obs)
-        _ = self.operator.get_obs_method(obs_inst, self.state)
+        _ = self.operator(self.obs, self.state)
         self.operator.obs_op.assert_called_once_with(self.state)
 
     def test_get_obs_method_renames_grid(self):
         self.operator.obs_op = MagicMock(return_value=self.state)
-        obs_inst = Observation(self.obs)
-        pseudo_obs = self.operator.get_obs_method(obs_inst, self.state)
+        pseudo_obs = self.operator(self.obs, self.state)
         np.testing.assert_equal(self.state.values, pseudo_obs.values)
         self.assertEqual(pseudo_obs.dims[-1], 'obs_grid_1')
 
     def test_get_obs_method_sets_new_time(self):
         self.operator.obs_op = MagicMock(return_value=self.state)
         self.obs['time'] = self.obs['time'] + 1
-        obs_inst = Observation(self.obs)
-        pseudo_obs = self.operator.get_obs_method(obs_inst, self.state)
+        pseudo_obs = self.operator(self.obs, self.state)
         np.testing.assert_equal(pseudo_obs.time.values, self.obs.time.values)
 
     def test_get_obs_method_sets_new_grid(self):
         self.operator.obs_op = MagicMock(return_value=self.state)
         self.obs['obs_grid_1'] = self.obs['obs_grid_1'] + 1
-        obs_inst = Observation(self.obs)
-        pseudo_obs = self.operator.get_obs_method(obs_inst, self.state)
+        pseudo_obs = self.operator(self.obs, self.state)
         np.testing.assert_equal(pseudo_obs.obs_grid_1.values,
                                 self.obs.obs_grid_1.values)
 

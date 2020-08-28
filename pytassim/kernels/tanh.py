@@ -72,6 +72,14 @@ class TanhKernel(BaseKernel):
         self.coeff = coeff
         self.const = const
 
+    def __str__(self) -> str:
+        return 'TanhKernel({0}, {1})'.format(
+            str(self.coeff), str(self.const)
+        )
+
+    def __repr__(self) -> str:
+        return 'Tanh({0}, {1})'.format(repr(self.coeff), repr(self.const))
+
     def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         xy = dot_product(x, y)
         logit = self.coeff * xy + self.const

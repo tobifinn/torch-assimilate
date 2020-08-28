@@ -25,10 +25,11 @@
 
 # System modules
 import logging
+from typing import Union, Iterable, Dict, Tuple
 
 # External modules
+import xarray as xr
 from xarray import register_dataarray_accessor
-import numpy as np
 
 # Internal modules
 
@@ -85,11 +86,17 @@ class ModelState(object):
                 calculated for every grid point independently such that the
                 algorithm loops over this coordinate.
     """
-    def __init__(self, xr_da):
+    def __init__(self, xr_da: xr.DataArray):
         self.array = xr_da
 
+    def __str__(self):
+        return 'ModelState({0}'.format(str(self.array))
+
+    def __repr__(self):
+        return 'ModelState'
+
     @property
-    def _valid_dims(self):
+    def _valid_dims(self) -> bool:
         """
         Checks if the dimension of this array are valid. The dimensions need
         to be in right order and have the right names as specified in
@@ -105,7 +112,7 @@ class ModelState(object):
         return valid_dims
 
     @property
-    def valid(self):
+    def valid(self) -> bool:
         """
         Checks if the array has the right form, coordinates and dimensions.
 
@@ -117,7 +124,10 @@ class ModelState(object):
         valid_array = self._valid_dims
         return valid_array
 
-    def split_mean_perts(self, dim='ensemble', axis=None, **kwargs):
+    def split_mean_perts(self,
+                         dim: Union[str, Iterable[str]] = 'ensemble',
+                         axis: Union[int, Iterable[int]] = None,
+                         **kwargs: Dict) -> Tuple[xr.DataArray, xr.DataArray]:
         """
         Splits this :py:class:`~xarray.DataArray` into a mean array and a
         perturbations array by given dimension.

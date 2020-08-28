@@ -25,32 +25,62 @@
 
 # System modules
 import logging
+from typing import Union, Tuple, Any
 
 # External modules
 import torch.jit
-import xarray as xr
-import dask.array as da
+import numpy as np
 
 # Internal modules
 from ..utils import grid_to_array
 from .etkf_core import ETKFAnalyser, ETKFWeightsModule
+
+from pytassim.localization import BaseLocalization
 
 
 logger = logging.getLogger(__name__)
 
 
 class LETKFAnalyser(ETKFAnalyser):
-    def __init__(self, localization=None, inf_factor=1.0):
+    """
+    This analyser uses the etkf weight module and wraps in an outer loop the
+    localisation.
+    """
+    def __init__(
+            self,
+            localization: Union[None, BaseLocalization] = None,
+            inf_factor: Union[torch.Tensor, float, torch.nn.Parameter] = 1.0,
+    ):
         self._gen_weights = None
+        self._inf_factor = None
         self.localization = localization
         super().__init__(inf_factor)
 
+    def __str__(self) -> str:
+        return 'LETKFAnalyser({0:s}, {1})'.format(str(self.localization),
+                                                  self.inf_factor)
+
+    def __repr__(self) -> str:
+        return 'LETKFAnalyser({0:s})'.format(repr(self.localization))
+
     @property
-    def gen_weights(self):
+    def inf_factor(self) -> Union[float, torch.Tensor, torch.nn.Parameter]:
+        return self._inf_factor
+
+    @inf_factor.setter
+    def inf_factor(
+            self,
+            new_factor: Union[float, torch.Tensor, torch.nn.Parameter]
+    ):
+        self._inf_factor = new_factor
+        self.gen_weights = ETKFWeightsModule(new_factor)
+
+    @property
+    def gen_weights(self) -> ETKFWeightsModule:
         return self._gen_weights
 
     @gen_weights.setter
-    def gen_weights(self, new_module):
+    def gen_weights(self, new_module: ETKFWeightsModule):
         if new_module is None:
             self._gen_weights = None
         elif isinstance(new_module, ETKFWeightsModule):
@@ -59,7 +89,17 @@ class LETKFAnalyser(ETKFAnalyser):
             raise TypeError('Given weights module is not a valid '
                             '`ETKFWeightsModule or None!')
 
-    def _localise_obs(self, grid_point, normed_perts, normed_obs, obs_grid):
+    def _localise_obs(
+            self,
+            grid_point: Any,
+            normed_perts: torch.Tensor,
+            normed_obs: torch.Tensor,
+            obs_grid: np.ndarray
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Localises given observational quantities based on set localization
+        and given grid points.
+        """
         if self.localization is None:
             return normed_perts, normed_obs
         else:
@@ -73,8 +113,19 @@ class LETKFAnalyser(ETKFAnalyser):
             normed_obs = normed_obs[..., use_obs] * obs_weights
             return normed_perts, normed_obs
 
-    def get_analysis_perts(self, state_perts, normed_perts,
-                           normed_obs, state_grid, obs_grid):
+    def get_analysis_perts(
+            self,
+            state_perts: torch.Tensor,
+            normed_perts: torch.Tensor,
+            normed_obs: torch.Tensor,
+            state_grid: np.ndarray,
+            obs_grid: np.ndarray
+    ) -> torch.Tensor:
+        """
+        Estimates analysis perturbations based on set localization and given
+        quantities.
+        """
+        self._gen_weights = torch.jit.script(self._gen_weights)
         grid_index = grid_to_array(state_grid)
         analysis_perts = []
         for ind, grid_point in enumerate(grid_index):

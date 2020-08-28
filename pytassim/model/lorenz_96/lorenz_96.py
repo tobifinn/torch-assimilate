@@ -25,6 +25,7 @@
 
 # System modules
 import logging
+from typing import Union
 
 # External modules
 import torch
@@ -89,11 +90,20 @@ class Lorenz96(object):
         The forcing term in the equation. The default forcing of 8 leads to
         typical chaotic behaviour of the atmosphere.
     """
-    def __init__(self, forcing=8):
+    def __init__(
+            self,
+            forcing: Union[float, torch.Tensor, torch.nn.Parameter] = 8.
+    ):
         self.forcing = forcing
 
+    def __str__(self):
+        return 'Lorenz96(F={0})'.format(self.forcing)
+
+    def __repr__(self):
+        return 'Lorenz96'
+
     @staticmethod
-    def _calc_advection(state):
+    def _calc_advection(state: torch.Tensor) -> torch.Tensor:
         """
         This method calculates the advection term of the Lorenz '96 model. This
         term is given by
@@ -119,7 +129,7 @@ class Lorenz96(object):
         advection = diff * torch_roll(state, 1, axis=-1)
         return advection
 
-    def _calc_dissipation(self, state):
+    def _calc_dissipation(self, state: torch.Tensor) -> torch.Tensor:
         """
         This method calculates the dissipation term. The term is given by
 
@@ -142,7 +152,7 @@ class Lorenz96(object):
         dissipation = -state
         return dissipation
 
-    def _calc_forcing(self, state):
+    def _calc_forcing(self, state: torch.Tensor) -> torch.Tensor:
         """
         This method calculates the forcing. This returns set forcing, which
         a constant forcing in Lorenz '96 model. This method can be overwritten
@@ -168,7 +178,7 @@ class Lorenz96(object):
         forcing = self.forcing
         return forcing
 
-    def __call__(self, state):
+    def __call__(self, state: torch.Tensor) -> torch.Tensor:
         """
         Calculates the time-derivative :math:`\\frac{dx_{i}}{dt}` for given
         state.

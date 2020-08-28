@@ -67,6 +67,12 @@ class ModuleKernel(BaseKernel):
         super().__init__()
         self.add_module('transform', transform_module)
 
+    def __str__(self) -> str:
+        return 'ModuleKernel({0})'.format(str(self.transform))
+
+    def __repr__(self) -> str:
+        return 'ModuleKernel'
+
     def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         x_net = self.transform(x)
         y_net = self.transform(y)
