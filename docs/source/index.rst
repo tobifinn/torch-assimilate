@@ -74,7 +74,6 @@ Documentation
    user/transform
    user/obs_ops
    user/model
-   user/toolbox
 
 .. toctree::
    :maxdepth: 1

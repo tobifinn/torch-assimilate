@@ -11,6 +11,7 @@ listed.
 
    algorithms/etkf
    algorithms/letkf
+   algorithms/ketkf
 
 Neural assimilation
 -------------------

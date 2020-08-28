@@ -68,6 +68,7 @@ transform Kalman filter are implemented.
    :maxdepth: 1
 
    algorithms/etkf
+   algorithms/ketkf
 
 .. autosummary::
     pytassim.assimilation.filter.filter.FilterAssimilation

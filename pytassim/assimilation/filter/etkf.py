@@ -53,7 +53,6 @@ class ETKFBase(FilterAssimilation):
                          pre_transform=pre_transform,
                          post_transform=post_transform)
         self._name = 'Global ETKF'
-        self._analyser = None
         self._weights = None
         self.inf_factor = inf_factor
 
@@ -76,7 +75,7 @@ class ETKFBase(FilterAssimilation):
     def _normalise_obs(self, pseudo_obs, obs, cinv):
         pseudo_mean = pseudo_obs.mean(dim=-2, keepdim=True)
         normed_perts = self._mul_cinv(pseudo_obs-pseudo_mean, cinv)
-        normed_obs = self._mul_cinv(obs-pseudo_mean, cinv)
+        normed_obs = self._mul_cinv(obs.view(1, -1)-pseudo_mean, cinv)
         return normed_perts, normed_obs
 
     @abc.abstractmethod

@@ -42,6 +42,8 @@ logger = logging.getLogger(__name__)
 class LETKFBase(ETKFBase):
     def __init__(self, localization=None, inf_factor=1.0, smoother=True,
                  gpu=False, pre_transform=None, post_transform=None):
+        self._analyser = LETKFAnalyser(localization=localization,
+                                       inf_factor=inf_factor)
         super().__init__(inf_factor=inf_factor, smoother=smoother, gpu=gpu,
                          pre_transform=pre_transform,
                          post_transform=post_transform)
