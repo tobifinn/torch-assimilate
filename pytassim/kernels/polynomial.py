@@ -27,6 +27,7 @@
 import logging
 
 # External modules
+import torch
 
 # Internal modules
 from .base_kernels import BaseKernel
@@ -40,12 +41,33 @@ __all__ = ['PolyKernel']
 
 
 class PolyKernel(BaseKernel):
-    def __init__(self, degree=2., const=1.):
+    """
+    This polynomial kernel specifies a :math:`p` polynomial feature space,
+    constructed based on given data with constant value :math:`c`,
+
+
+    .. math::
+
+       K(x_i, x_j) = (x_i(x_j)^T + c)^p
+
+
+    Parameters
+    ----------
+    degree : torch.Tensor, optional
+        This specifies the degree of the polynomial. The default of 2
+        corresponds to a quadratic kernel.
+    const : torch.Tensor, optional
+        This constant value is used to shift the center of the kernel. The
+        default of 1 activates shifting of the kernel center.
+
+    """
+    def __init__(self, degree: torch.Tensor = torch.tensor(2.),
+                 const: torch.Tensor = torch.tensor(1.)):
         super().__init__()
         self.degree = degree
         self.const = const
 
-    def forward(self, x, y):
+    def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         xy = dot_product(x, y)
         k_mat = (xy + self.const).pow(self.degree)
         return k_mat

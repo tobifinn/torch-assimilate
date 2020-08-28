@@ -41,10 +41,27 @@ __all__ = ['ScaleKernel']
 
 
 class ScaleKernel(BaseKernel):
-    def __init__(self, scaling=0.):
+    """
+    This scale kernel specify a constant value :math:`c`, which can be used to
+    specify the output variance of the kernel or a constant shift,
+
+
+    .. math::
+
+       K(x_i, x_j) = c
+
+
+    Parameters
+    ----------
+    scaling : torch.Tensor, optional
+        This scaling factor specifies the constant value and is deactivated
+        in its default value of 0.
+
+    """
+    def __init__(self, scaling: torch.Tensor = torch.tensor(0.)):
         super().__init__()
         self.scaling = scaling
 
-    def forward(self, x, y):
+    def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         const_tensor = self.scaling * torch.ones((x.shape[0], y.shape[0]))
         return const_tensor
