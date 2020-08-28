@@ -70,6 +70,15 @@ class PeriodicKernel(BaseKernel):
         self.period = period
         self.lengthscale = lengthscale
 
+    def __str__(self) -> str:
+        return 'PeriodicKernel({0}, {1})'.format(
+            str(self.period), str(self.lengthscale)
+        )
+
+    def __repr__(self) -> str:
+        return 'Periodic({0}, {1})'.format(repr(self.period),
+                                           repr(self.lengthscale))
+
     def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         dist_mat = distance_matrix(x, y, 1.) * np.pi / self.period
         factor = -2 * torch.sin(-dist_mat).pow(2) / (self.lengthscale ** 2)

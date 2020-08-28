@@ -69,6 +69,15 @@ class RationalKernel(BaseKernel):
         self.lengthscale = lengthscale
         self.weighting = weighting
 
+    def __str__(self) -> str:
+        return 'RationalKernel({0}, {1})'.format(
+            str(self.lengthscale), str(self.weighting)
+        )
+
+    def __repr__(self) -> str:
+        return 'Rational({0}, {1})'.format(repr(self.lengthscale),
+                                           repr(self.weighting))
+
     def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         x_scaled = x.div(self.lengthscale)
         y_scaled = y.div(self.lengthscale)

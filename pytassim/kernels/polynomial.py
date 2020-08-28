@@ -67,6 +67,15 @@ class PolyKernel(BaseKernel):
         self.degree = degree
         self.const = const
 
+    def __str__(self) -> str:
+        return 'PolynomialKernel({0}, {1})'.format(
+            str(self.degree), str(self.const)
+        )
+
+    def __repr__(self) -> str:
+        return 'Polynomial({0}, {1})'.format(repr(self.degree),
+                                             repr(self.const))
+
     def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         xy = dot_product(x, y)
         k_mat = (xy + self.const).pow(self.degree)

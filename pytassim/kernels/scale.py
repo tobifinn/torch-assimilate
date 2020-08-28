@@ -62,6 +62,12 @@ class ScaleKernel(BaseKernel):
         super().__init__()
         self.scaling = scaling
 
+    def __str__(self) -> str:
+        return 'ScaleKernel({0})'.format(str(self.scaling))
+
+    def __repr__(self) -> str:
+        return repr(self.scaling)
+
     def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         const_tensor = torch.ones(x.shape[:-1] + (y.shape[-2], ))
         const_tensor = const_tensor * self.scaling
