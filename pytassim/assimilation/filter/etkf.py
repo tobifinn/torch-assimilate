@@ -50,6 +50,9 @@ __all__ = [
 
 
 class ETKFBase(FilterAssimilation):
+    """
+    The base object for the ensemble transform Kalman filter.
+    """
     def __init__(
             self,
             inf_factor: Union[float, torch.Tensor, torch.nn.Parameter] = 1.0,
