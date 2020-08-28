@@ -126,6 +126,13 @@ class KETKFAnalyser(ETKFAnalyser):
         super().__init__(inf_factor=inf_factor)
         self.kernel = kernel
 
+    def __str__(self) -> str:
+        return 'KETKFAnalyser({0:s}, {1})'.format(str(self.kernel),
+                                                  self.inf_factor)
+
+    def __repr__(self) -> str:
+        return 'KETKFAnalyser({0:s})'.format(repr(self.kernel))
+
     @property
     def inf_factor(self) -> Union[float, torch.Tensor, torch.nn.Parameter]:
         return self.gen_weights.inf_factor
@@ -135,16 +142,22 @@ class KETKFAnalyser(ETKFAnalyser):
             self,
             new_factor: Union[float, torch.Tensor, torch.nn.Parameter]
     ):
+        """
+        Sets a new inflation factor.
+        """
         self.gen_weights = KETKFWeightsModule(
             kernel=self.gen_weights.kernel, inf_factor=new_factor
         )
 
     @property
-    def kernel(self):
+    def kernel(self) -> Type[BaseKernel]:
         return self.gen_weights.kernel
 
     @kernel.setter
-    def kernel(self, new_kernel):
+    def kernel(self, new_kernel: Type[BaseKernel]):
+        """
+        Sets a new kernel.
+        """
         self.gen_weights = KETKFWeightsModule(
             kernel=new_kernel, inf_factor=self.gen_weights.inf_factor
         )
