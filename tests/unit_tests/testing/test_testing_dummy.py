@@ -68,8 +68,7 @@ class TestTestingUtilities(unittest.TestCase):
         pseudo_obs['time'] = self.obs.time.values
         pseudo_obs['obs_grid_1'] = self.obs.obs_grid_1.values
 
-        obs_inst = Observation(self.obs)
-        returned_pseudo_obs = utils.dummy_obs_operator(obs_inst, self.state)
+        returned_pseudo_obs = utils.dummy_obs_operator(self.obs, self.state)
 
         xr.testing.assert_equal(pseudo_obs, returned_pseudo_obs)
 
