@@ -44,4 +44,8 @@ class FilterAssimilation(BaseAssimilation):
     :py:class:`~pytassim.assimilation.base.BaseAssimilation` with different
     methods and attributes for a simplified filtering approach.
     """
-    pass
+    def __str__(self):
+        return 'FilterAssimilation'
+
+    def __repr__(self):
+        return 'FilterAssimilation'

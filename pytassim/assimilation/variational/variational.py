@@ -45,4 +45,8 @@ class VarAssimilation(BaseAssimilation):
     methods and attributes to simplify variational data assimilation
     prototyping.
     """
-    pass
+    def __str__(self) -> str:
+        return 'Variational'
+
+    def __repr__(self) -> str:
+        return 'Variational'
