@@ -104,7 +104,7 @@ pypi-upload:
         name: production
         url: https://pypi.org/project/torch-assimilate/
     script:
-        - twine upload -u "$PYPI_USERNAME" -p "$PYPI_PASSWORD" dist/*
+        - twine upload -u "__token__" -p "$PYPI_TOKEN" dist/*
     dependencies:
         - dist
     only:
@@ -117,7 +117,7 @@ pypi-test-upload:
         url: https://test.pypi.org/project/torch-assimilate/
     script:
         - >
-            twine upload -u "$PYPI_USERNAME" -p "$PYPI_PASSWORD"
+            twine upload -u "__tolen__ -p "$PYPI_TOKEN"
             --repository-url https://test.pypi.org/legacy/ dist/*
     dependencies:
         - dist
