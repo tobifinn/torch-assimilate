@@ -11,7 +11,7 @@ These are kernel instances, which are ready to use and compose.
     :undoc-members:
     :show-inheritance:
 
-.. automodule:: pytassim.kernels.nnet
+.. automodule:: pytassim.kernels.module_kernel
     :members:
     :undoc-members:
     :show-inheritance:
