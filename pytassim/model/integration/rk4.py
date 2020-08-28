@@ -25,6 +25,7 @@
 
 # System modules
 import logging
+from typing import Callable, Any
 
 # External modules
 
@@ -55,14 +56,21 @@ class RK4Integrator(BaseIntegrator):
         integration, while a negative shows a backward integration, which might
         be complicated for given model. Default is 0.05.
     """
-    def __init__(self, model, dt=0.05):
+    def __init__(self, model: Callable, dt: float = 0.05):
         super().__init__(model=model, dt=dt)
         self.steps = [0, self.dt / 2, self.dt / 2, self.dt]
         self.weights = [1, 2, 2, 1]
         self._weights_sum = sum(self.weights)
         self._weights = [w / self._weights_sum for w in self.weights]
 
-    def _calc_increment(self, state):
+    def __str__(self) -> str:
+        return 'RK4Integrator(model={0:s}, dt={1})'.format(str(self.model),
+                                                           self.dt)
+
+    def __repr__(self) -> str:
+        return 'RK4({0:s})'.format(repr(self.model))
+
+    def _calc_increment(self, state: Any) -> Any:
         """
         This method estimates the increment based estimated slope and set time
         step.
@@ -81,7 +89,7 @@ class RK4Integrator(BaseIntegrator):
         est_inc = self._estimate_slope(state) * self.dt
         return est_inc
 
-    def _estimate_slope(self, state):
+    def _estimate_slope(self, state: Any) -> Any:
         """
         This method estimates the slope based on given state. This slope is
         used to calculate the increment.

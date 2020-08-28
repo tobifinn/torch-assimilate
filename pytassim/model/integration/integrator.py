@@ -26,6 +26,7 @@
 # System modules
 import logging
 import abc
+from typing import Callable, Any
 
 # External modules
 
@@ -54,14 +55,14 @@ class BaseIntegrator(object):
         be complicated for given model. Default is 0.05.
     """
 
-    def __init__(self, model, dt=0.05):
+    def __init__(self, model: Callable, dt: float = 0.05):
         self._model = None
         self._dt = None
         self.model = model
         self.dt = dt
 
     @property
-    def model(self):
+    def model(self) -> Callable:
         """
         This model function takes a state and returns a new estimated state. The
         returned state should have the same shape as the input state. The model
@@ -71,14 +72,14 @@ class BaseIntegrator(object):
         return self._model
 
     @model.setter
-    def model(self, new_model):
+    def model(self, new_model: Callable):
         if callable(new_model):
             self._model = new_model
         else:
             raise TypeError('Given model is not callable!')
 
     @property
-    def dt(self):
+    def dt(self) -> float:
         """
         This integration time step specifies the step width for the integration
         and is unit less, and depends on model's time unit. A positive time step
@@ -88,7 +89,7 @@ class BaseIntegrator(object):
         return self._dt
 
     @dt.setter
-    def dt(self, new_dt):
+    def dt(self, new_dt: float):
         if not isinstance(new_dt, (float, int)):
             raise TypeError('Given time step is not a float!')
         elif new_dt == 0:
@@ -97,7 +98,7 @@ class BaseIntegrator(object):
             self._dt = new_dt
 
     @abc.abstractmethod
-    def _calc_increment(self, state):
+    def _calc_increment(self, state: Any) -> Any:
         """
         This method estimates the increment based on given state, set model and
         time step.
@@ -114,7 +115,7 @@ class BaseIntegrator(object):
         """
         pass
 
-    def integrate(self, state):
+    def integrate(self, state: Any) -> Any:
         """
         This method integrates given model by set time step. Given state is used
         as initial state and passed to model.
