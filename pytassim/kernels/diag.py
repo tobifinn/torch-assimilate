@@ -38,14 +38,18 @@ logger = logging.getLogger(__name__)
 
 
 class DiagKernel(BaseKernel):
-    def __init__(self, scaling=0.):
+    """
+    The diagonal kernel
+    """
+    def __init__(self, scaling: torch.Tensor = torch.tensor(0.)):
         super().__init__()
         self.scaling = scaling
 
-    def forward(self, x, y):
-        if x.shape[0] != y.shape[0]:
-            k_mat = torch.zeros(x.shape[0], y.shape[0])
+    def forward(self, x: torch.tensor, y: torch.tensor) -> torch.tensor:
+        if x.shape[-2] != y.shape[-2]:
+            k_mat = torch.zeros(x.shape[:-1] + (y.shape[-2],))
         else:
-            k_mat = torch.eye(x.shape[0]) * self.scaling
+            k_mat = torch.ones(x.shape[:-1])
+            k_mat = torch.diag_embed(k_mat) * self.scaling
         k_mat = k_mat.to(x)
         return k_mat

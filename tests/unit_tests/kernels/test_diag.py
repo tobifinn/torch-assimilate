@@ -62,6 +62,15 @@ class TestDiagKernel(unittest.TestCase):
         ret_mat = self.kernel(self.test_tensor, self.test_tensor)
         torch.testing.assert_allclose(torch.diag(ret_mat), self.kernel.scaling)
 
+    def test_works_with_multidim_input(self):
+        self.kernel.scaling = 2.
+        tensor = torch.zeros(5, 5, 10, 2).normal_()
+        right_mat = torch.diag_embed(
+            torch.full((5, 5, 10), self.kernel.scaling)
+        )
+        ret_mat = self.kernel(tensor, tensor)
+        torch.testing.assert_allclose(ret_mat, right_mat)
+
     def test_is_differentiable(self):
         self.kernel.scaling = torch.nn.Parameter(torch.zeros(10).normal_())
         self.assertIsNone(self.kernel.scaling.grad)
