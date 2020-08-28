@@ -64,7 +64,6 @@ Documentation
 
    start/overview
    start/installation
-   examples/index
 
 .. toctree::
    :maxdepth: 2
