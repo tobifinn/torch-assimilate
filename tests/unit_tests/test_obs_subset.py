@@ -160,48 +160,9 @@ class TestObsSubset(unittest.TestCase):
         del self.obs_ds['covariance']
         self.assertFalse(self.obs_ds.obs.valid)
 
-    def test_operator_returns_private_operator(self):
-        self.assertTrue(callable(self.obs_ds.obs.operator))
+    def test_operator_raises_notimplemented(self):
         with self.assertRaises(NotImplementedError):
-            self.obs_ds.obs.operator(1)
-
-    def test_operator_setter_sets_instance_method(self):
-        self.assertIsInstance(self.obs_ds.obs._operator, types.MethodType)
-        self.obs_ds.obs.operator = dummy_obs_operator
-        self.assertIsInstance(self.obs_ds.obs._operator, types.MethodType)
-
-    def test_operator_setter_sets_private_operator(self):
-        self.obs_ds.obs.operator = dummy_obs_operator
-        pseudo_obs = dummy_obs_operator(self.obs_ds.obs, self.state)
-        return_value = self.obs_ds.obs.operator(self.state)
-        xr.testing.assert_equal(pseudo_obs, return_value)
-
-    def test_operator_checks_if_callable(self):
-        with self.assertRaises(TypeError):
-            self.obs_ds.obs.operator = 1
-
-    def test_operator_checks_if_state_is_single_argument(self):
-        def obs_operator(cls, state, time):     # pragma: no cover
-            return state
-
-        with self.assertRaises(ValueError):
-            self.obs_ds.obs.operator = obs_operator
-
-        def obs_operator(cls):
-            return None
-
-        with self.assertRaises(ValueError):     # pragma: no cover
-            self.obs_ds.obs.operator = obs_operator
-
-    def test_operator_sets_only_instance(self):
-        obs_list = [self.obs_ds, self.obs_ds.copy()]
-        self.assertNotEqual(id(obs_list[0].obs), id(obs_list[-1].obs))
-        obs_list[-1].obs.operator = dummy_obs_operator
-        pseudo_obs = dummy_obs_operator(obs_list[-1].obs, self.state)
-        with self.assertRaises(NotImplementedError):
-            self.obs_ds.obs.operator(self.state)
-        returned_value = obs_list[-1].obs.operator(self.state)
-        xr.testing.assert_equal(returned_value, pseudo_obs)
+            _ = self.obs_ds.obs.operator(self.obs_ds, self.state)
 
 
 if __name__ == '__main__':
