@@ -44,12 +44,33 @@ __all__ = ['PeriodicKernel']
 
 
 class PeriodicKernel(BaseKernel):
-    def __init__(self, period=1., lengthscale=1.):
+    """
+    The periodic kernel specifies a periodic process with a given periodicity
+    :math:`p` and a lengthscale :math:`l` :cite:`duvenaud_automatic_2014`,
+
+
+    .. math::
+
+       K(x_i, x_j) = \\exp(-\\frac{2 \\sin^2(\\pi\\mid\\mid x_i - x_j
+       \\mid\\mid_1/p)}{l^2})
+
+
+    Parameters
+    ----------
+    period : torch.Tensor, optional
+        This specifies the periodicity of the kernel (default=1)
+    lengthscale : torch.Tensor, optional
+        This specifies the length scale, similar to the
+        :py:class:`pytassim.kernel.rbf.GaussKernel` (default=1)
+
+    """
+    def __init__(self, period: torch.Tensor = torch.tensor(1.),
+                 lengthscale: torch.Tensor = torch.tensor(1.)):
         super().__init__()
         self.period = period
         self.lengthscale = lengthscale
 
-    def forward(self, x, y):
+    def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         dist_mat = distance_matrix(x, y, 1.) * np.pi / self.period
         factor = -2 * torch.sin(-dist_mat).pow(2) / (self.lengthscale ** 2)
         return torch.exp(factor)

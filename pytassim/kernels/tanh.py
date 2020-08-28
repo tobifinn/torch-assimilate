@@ -64,6 +64,7 @@ class TanhKernel(BaseKernel):
         This constant intercept value is used to shift the output of the dot
         product, before the tanh function is applied. The default value of 0
         deactivates shifting.
+
     """
     def __init__(self, coeff: torch.Tensor = torch.tensor(1.),
                  const: torch.Tensor = torch.tensor(0.)):
