@@ -42,11 +42,28 @@ __all__ = ['OrnsteinUhlenbeckKernel']
 
 
 class OrnsteinUhlenbeckKernel(BaseKernel):
-    def __init__(self, lengthscale=1.):
+    """
+    This kernel specifies an Ornstein-Uhlenbeck random process, representing
+    a continuous random walk. The specified lengthscale :math:`l` specifies
+    the step length,
+
+    .. math::
+
+       K(x_i, x_j) = \\exp(-\\frac{\\mid\\mid x_i - x_j \\mid\\mid_1}{l})
+
+
+    Parameters
+    ----------
+    lengthscale : torch.Tensor, optional
+        This lengthscale is used to estimate this kernel. The
+        default value of 1 assumes that the input is already normalized.
+
+    """
+    def __init__(self, lengthscale: torch.Tensor = torch.tensor(1.)):
         super().__init__()
         self.lengthscale = lengthscale
 
-    def forward(self, x, y):
+    def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         abs_dist = distance_matrix(x, y, norm=1)
         factor = -abs_dist / self.lengthscale
         k_mat = torch.exp(factor)
