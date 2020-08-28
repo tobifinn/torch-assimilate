@@ -26,8 +26,10 @@
 # System modules
 import logging
 import abc
+from typing import Any, Tuple
 
 # External modules
+import numpy as np
 
 # Internal modules
 
@@ -48,7 +50,11 @@ class BaseLocalization(object):
         pass
 
     @abc.abstractmethod
-    def localize_obs(self, grid_ind, obs_grid):
+    def localize_obs(
+            self,
+            grid_ind: Any,
+            obs_grid: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         This method creates weights for observations based on given grid index
         and observation grid.
