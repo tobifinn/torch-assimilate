@@ -73,6 +73,13 @@ class TestScaleKernel(unittest.TestCase):
         ret_k = self.kernel(self.test_tensor, self.test_tensor[:2])
         torch.testing.assert_allclose(ret_k, right_k)
 
+    def test_works_with_multidim_input(self):
+        self.kernel.scaling = 2.
+        tensor = torch.zeros(5, 5, 10, 2).normal_()
+        right_mat = torch.ones(5, 5, 10, 10) * self.kernel.scaling
+        ret_mat = self.kernel(tensor, tensor)
+        torch.testing.assert_allclose(ret_mat, right_mat)
+
     def test_scale_is_differentiable(self):
         self.kernel.scaling = torch.nn.Parameter(torch.zeros(10, 1).normal_())
         self.assertIsNone(self.kernel.scaling.grad)
