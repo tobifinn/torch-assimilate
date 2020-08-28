@@ -39,7 +39,16 @@ logger = logging.getLogger(__name__)
 
 class DiagKernel(BaseKernel):
     """
-    The diagonal kernel
+    The diagonal kernel specifies a diagonal matrix, if the number of samples
+    for the given `x` and `y` is the same. If the numbers of samples differ,
+    then a zero matrix is returned. This type of Kernel can be used to
+    specify white noise for the observational uncertainty.
+
+    Parameters
+    ----------
+    scaling : torch.Tensor, optional
+        The diagonal matrix is multiplied with this scaling factor, which can
+        be used to specify a noise level (default=0.).
     """
     def __init__(self, scaling: torch.Tensor = torch.tensor(0.)):
         super().__init__()
