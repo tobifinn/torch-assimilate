@@ -26,26 +26,45 @@
 # System modules
 import logging
 import operator
+from typing import Union, Type, Iterable
 
 # External modules
-from distributed import Client
 import numpy as np
-import dask
 import torch
+import xarray as xr
+import pandas as pd
+
+import dask
 import dask.array as da
+from distributed import Client
+from distributed.deploy.cluster import Cluster
 
 # Internal modules
 from .etkf_core import CorrMixin, UnCorrMixin
 from .letkf import LETKFBase
+
+from pytassim.localization import BaseLocalization
+from pytassim.transform import BaseTransformer
 
 
 logger = logging.getLogger(__name__)
 
 
 class DistributedLETKFBase(LETKFBase):
-    def __init__(self, client=None, cluster=None, chunksize=10,
-                 localization=None, inf_factor=1.0, smoother=True,
-                 gpu=False, pre_transform=None, post_transform=None):
+    """
+    Base object for a distributed localised ensemble transform Kalman filter.
+    """
+    def __init__(
+            self,
+            client: Union[None, Client] = None,
+            cluster: Union[None, Type[Cluster]] = None,
+            chunksize: int = 10,
+            localization: Union[None, BaseLocalization] = None,
+            inf_factor: Union[torch.Tensor, float, torch.nn.Parameter] = 1.0,
+            smoother: bool = False, gpu: bool = False,
+            pre_transform: Union[None, Iterable[Type[BaseTransformer]]] = None,
+            post_transform: Union[None, Iterable[Type[BaseTransformer]]] = None
+    ):
         super().__init__(localization, inf_factor, smoother, gpu, pre_transform,
                          post_transform)
         self._name = 'Distributed LETKF'
@@ -56,14 +75,18 @@ class DistributedLETKFBase(LETKFBase):
         self.set_client_cluster(client=client, cluster=cluster)
 
     @staticmethod
-    def _validate_client(client):
+    def _validate_client(client) -> bool:
         return isinstance(client, Client)
 
     @staticmethod
-    def _validate_cluster(cluster):
+    def _validate_cluster(cluster) -> bool:
         return hasattr(cluster, "scheduler_address")
 
-    def _check_client_cluster(self, client, cluster):
+    def _check_client_cluster(
+            self,
+            client: Union[None, Client],
+            cluster: Union[None, Type[Cluster]],
+    ):
         not_valid_cluster = not self._validate_cluster(cluster)
         not_valid_client = not self._validate_client(client)
         if not_valid_client and not_valid_cluster:
@@ -72,14 +95,18 @@ class DistributedLETKFBase(LETKFBase):
             )
 
     @property
-    def cluster(self):
+    def cluster(self) -> Type[Cluster]:
         return self._cluster
 
     @property
-    def client(self):
+    def client(self) -> Client:
         return self._client
 
-    def set_client_cluster(self, client=None, cluster=None):
+    def set_client_cluster(
+            self,
+            client: Union[None, Client] = None,
+            cluster: Union[None, Type[Cluster]] = None,
+    ):
         """
         This method sets the client and cluster. If both are given and valid,
         then client has priority.
@@ -104,7 +131,13 @@ class DistributedLETKFBase(LETKFBase):
             self._cluster = cluster
             self._client = Client(cluster)
 
-    def update_state(self, state, observations, pseudo_state, analysis_time):
+    def update_state(
+            self,
+            state: xr.DataArray,
+            observations: Union[xr.Dataset, Iterable[xr.Dataset]],
+            pseudo_state: xr.DataArray,
+            analysis_time: pd.Timestamp
+    ) -> xr.DataArray:
         """
         This method updates the state based on given observations and analysis
         time. This method prepares different states, localize these states,
@@ -260,7 +293,11 @@ class DistributedLETKFCorr(CorrMixin, DistributedLETKFBase):
         or CPU (False): Default is None. For small models, estimation of the
         weights on CPU is faster than on GPU!.
     """
-    pass
+    def __str__(self):
+        return 'Correlated {0:s}'.format(str(super(DistributedLETKFBase)))
+
+    def __repr__(self):
+        return 'Corr{0:s}'.format(repr(super(DistributedLETKFBase)))
 
 
 class DistributedLETKFUncorr(UnCorrMixin, DistributedLETKFBase):
@@ -295,4 +332,8 @@ class DistributedLETKFUncorr(UnCorrMixin, DistributedLETKFBase):
         or CPU (False): Default is None. For small models, estimation of the
         weights on CPU is faster than on GPU!.
     """
-    pass
+    def __str__(self):
+        return 'Uncorrelated {0:s}'.format(str(super(DistributedLETKFBase)))
+
+    def __repr__(self):
+        return 'Uncorr{0:s}'.format(repr(super(DistributedLETKFBase)))
