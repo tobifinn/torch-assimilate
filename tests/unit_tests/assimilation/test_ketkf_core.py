@@ -85,6 +85,27 @@ class TestKETKFWeightsModule(unittest.TestCase):
         right_k = new_kernel(self.normed_perts, self.normed_obs)
         torch.testing.assert_allclose(ret_k, right_k)
 
+    def test_module_parameters_are_diffbar(self):
+        new_kernel = kernels.RBFKernel(gamma=torch.nn.Parameter(torch.ones(1)))
+        self.assertIsNone(new_kernel.gamma.grad)
+        self.module = KETKFWeightsModule(kernel=new_kernel)
+        ret_k = self.module._apply_kernel(self.normed_perts, self.normed_obs)
+        ret_k.mean().backward()
+        self.assertIsNotNone(new_kernel.gamma.grad)
+
+    def test_input_is_diffbar(self):
+        new_kernel = kernels.RBFKernel(gamma=1.)
+        normed_perts = torch.nn.Parameter(self.normed_perts.clone())
+        self.assertIsNone(normed_perts.grad)
+        self.module = KETKFWeightsModule(kernel=new_kernel)
+        ret_k = self.module._apply_kernel(normed_perts, self.normed_obs)
+        ret_k.mean().backward()
+        self.assertIsNotNone(normed_perts.grad)
+
+    def test_module_can_be_compiled(self):
+        new_kernel = kernels.RBFKernel(gamma=torch.tensor(1.))
+        _ = torch.jit.script(KETKFWeightsModule(kernel=new_kernel))
+
     def test_fordward_returns_weights(self):
         new_kernel = kernels.RBFKernel(gamma=10)
         self.module = KETKFWeightsModule(kernel=new_kernel)

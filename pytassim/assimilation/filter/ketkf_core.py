@@ -51,16 +51,18 @@ class KETKFWeightsModule(ETKFWeightsModule):
         reg_value = (ens_size-1) / self._inf_factor
 
         k_perts = self._apply_kernel(normed_perts, normed_perts)
-        k_part_mean = k_perts.mean(dim=-1, keepdims=True)
-        k_part_mean = k_part_mean - k_part_mean.mean(dim=-2, keepdims=True)
-        k_perts_centered = k_perts - k_perts.mean(dim=-2, keepdims=True) - \
-                           k_part_mean
+        k_part_mean = torch.mean(k_perts, dim=-1, keepdim=True)
+        k_part_mean = k_part_mean - torch.mean(k_part_mean, dim=-2,
+                                               keepdim=True)
+        k_perts_centered = k_perts - torch.mean(k_perts, dim=-2,
+                                                keepdim=True) - k_part_mean
 
         evals, evects, evals_inv = evd(k_perts_centered, reg_value)
         cov_analysed = rev_evd(evals_inv, evects)
 
         k_obs = self._apply_kernel(normed_perts, normed_obs)
-        k_obs_centered = k_obs - k_obs.mean(dim=-2, keepdims=True) - k_part_mean
+        k_obs_centered = k_obs - torch.mean(k_obs, dim=-2, keepdim=True) - \
+                         k_part_mean
         w_mean = torch.einsum(
             '...ij,...jk->...ik', cov_analysed, k_obs_centered
         )
