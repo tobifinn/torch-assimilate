@@ -37,37 +37,107 @@ logger = logging.getLogger(__name__)
 
 
 class BaseKernel(torch.nn.Module):
-    def __add__(self, other):
+    """
+    This kernel is the base kernel for all other kernel objects and used to
+    add mathematical operations like `__add__`, `__mul__` and `__power__`.
+    New kernels should be a child of this BaseKernel and have to overwrite
+    the `forward(self, x, y)` method.
+    """
+    def __add__(self, other: torch.nn.Module) -> torch.nn.Module:
         return AdditiveKernel(self, other)
 
-    def __mul__(self, other):
+    def __mul__(self, other: torch.nn.Module) -> torch.nn.Module:
         return MultiplicativeKernel(self, other)
 
-    def __pow__(self, other):
+    def __pow__(self, other: torch.nn.Module) -> torch.nn.Module:
         return PowerKernel(self, other)
 
     @abc.abstractmethod
-    def forward(self, x, y):
+    def forward(self, x: torch.tensor, y: torch.tensor) -> torch.tensor:
         pass
 
 
 class CompKernel(BaseKernel):
-    def __init__(self, kernel_1, kernel_2):
+    """
+    This composition kernel is used as base kernel for all types of
+    compositions, like addition or multiplication. This composition adds two
+    given kernels as :py:class:`torch.nn.Module`, which might be then used to
+    compose a new kernel from the given kernels.
+
+    Parameters
+    ----------
+    kernel_1 : child of :py:class:`pytassim.kernels.base_kernels.BaseKernel`
+        This is the first kernel, which is used to compose a given new kernel.
+    kernel_2 : child of :py:class:`pytassim.kernels.base_kernels.BaseKernel`
+        This is the second kernel, which is used to compose a given new kernel.
+
+    """
+    def __init__(self, kernel_1: BaseKernel, kernel_2: BaseKernel):
         super().__init__()
         self.add_module('kernel_1', kernel_1)
         self.add_module('kernel_2', kernel_2)
 
 
 class AdditiveKernel(CompKernel):
-    def forward(self, x, y):
+    """
+    The additive kernel adds the second given kernel to the first given kernel.
+
+    .. math::
+
+       K(x_i, x_j) = K_1(x_i, x_j) + K_2(x_i, x_j)
+
+
+    Parameters
+    ----------
+    kernel_1 : child of :py:class:`pytassim.kernels.base_kernels.BaseKernel`
+        This is the first kernel, which is used to compose a given new kernel.
+    kernel_2 : child of :py:class:`pytassim.kernels.base_kernels.BaseKernel`
+        This is the second kernel, which is used to compose a given new kernel.
+
+    """
+    def forward(self, x: torch.tensor, y: torch.tensor) -> torch.tensor:
         return self.kernel_1(x, y) + self.kernel_2(x, y)
 
 
 class MultiplicativeKernel(CompKernel):
-    def forward(self, x, y):
+    """
+    The multiplicative kernel multiplies the second given kernel with the first
+    given kernel.
+
+    .. math::
+
+       K(x_i, x_j) = K_1(x_i, x_j) * K_2(x_i, x_j)
+
+
+    Parameters
+    ----------
+    kernel_1 : child of :py:class:`pytassim.kernels.base_kernels.BaseKernel`
+        This is the first kernel, which is used to compose a given new kernel.
+    kernel_2 : child of :py:class:`pytassim.kernels.base_kernels.BaseKernel`
+        This is the second kernel, which is used to compose a given new kernel.
+
+    """
+    def forward(self, x: torch.tensor, y: torch.tensor) -> torch.tensor:
         return self.kernel_1(x, y) * self.kernel_2(x, y)
 
 
 class PowerKernel(CompKernel):
-    def forward(self, x, y):
+    """
+    The power kernel takes the first given kernel to the power of the second
+    given kernel.
+
+    .. math::
+
+       K(x_i, x_j) = K_1(x_i, x_j) ^ K_2(x_i, x_j)
+
+
+    Parameters
+    ----------
+    kernel_1 : child of :py:class:`pytassim.kernels.base_kernels.BaseKernel`
+        This is the first kernel, which is used to compose a given new kernel.
+    kernel_2 : child of :py:class:`pytassim.kernels.base_kernels.BaseKernel`
+        This is the second kernel, which is used to compose a given new kernel.
+
+    """
+    def forward(self, x: torch.tensor, y: torch.tensor) -> torch.tensor:
         return self.kernel_1(x, y).pow(self.kernel_2(x, y))
