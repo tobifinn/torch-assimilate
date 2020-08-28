@@ -120,7 +120,7 @@ class Normalizer(BaseTransformer):
             tmp_obs = obs.copy(deep=True)
             tmp_obs['observations'] -= self.obs_stat[k][0]
             tmp_obs['observations'] /= self.obs_stat[k][1]
-            tmp_obs.obs.operator = obs.obs.operator.__func__
+            tmp_obs.obs.operator = obs.obs.operator
             obs_list.append(tmp_obs)
         return background, obs_list, first_guess
 

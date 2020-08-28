@@ -92,7 +92,9 @@ class TestNormalizer(unittest.TestCase):
     def test_pre_normalize_sets_old_obs_operator(self):
         self.obs.obs.operator = dummy_obs_operator
         _, obs_normed, _ = self.norm.pre(self.state, (self.obs, ), self.state)
-        self.assertTrue(inspect.ismethod(obs_normed[0].obs.operator))
+        right_ret_value = dummy_obs_operator(self.obs, self.state)
+        ret_value = obs_normed[0].obs.operator(self.obs, self.state)
+        xr.testing.assert_identical(ret_value, right_ret_value)
 
     def test_post_normalize_analysis_based_on_ens(self):
         old_state = self.state.copy(deep=True)
