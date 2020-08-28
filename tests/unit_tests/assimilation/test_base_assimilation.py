@@ -240,7 +240,7 @@ class TestBaseAssimilation(unittest.TestCase):
                                                                obs_list)
         self.assertIsInstance(obs_equivalent, list)
         self.assertEqual(len(obs_equivalent), 1)
-        xr.testing.assert_equal(self.obs.obs.operator(self.state),
+        xr.testing.assert_equal(self.obs.obs.operator(self.obs, self.state),
                                 obs_equivalent[0])
 
     @patch('pytassim.assimilation.base.BaseAssimilation.update_state',
