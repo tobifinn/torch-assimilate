@@ -25,6 +25,7 @@
 
 # System modules
 import logging
+from typing import Type, Union, Tuple, Iterable
 
 # External modules
 import xarray as xr
@@ -36,12 +37,24 @@ from .etkf import ETKFBase
 from .etkf_core import CorrMixin, UnCorrMixin
 from .letkf_core import LETKFAnalyser
 
+from pytassim.localization.localization import BaseLocalization
+from pytassim.transform.base import BaseTransformer
+
 logger = logging.getLogger(__name__)
 
 
 class LETKFBase(ETKFBase):
-    def __init__(self, localization=None, inf_factor=1.0, smoother=True,
-                 gpu=False, pre_transform=None, post_transform=None):
+    """
+    The base class for the localised ensemble transform Kalman filter.
+    """
+    def __init__(
+            self,
+            localization: Union[None, BaseLocalization] = None,
+            inf_factor: Union[torch.Tensor, float, torch.nn.Parameter] = 1.0,
+            smoother: bool = False, gpu: bool = False,
+            pre_transform: Union[None, Iterable[Type[BaseTransformer]]] = None,
+            post_transform: Union[None, Iterable[Type[BaseTransformer]]] = None
+    ):
         self._analyser = LETKFAnalyser(localization=localization,
                                        inf_factor=inf_factor)
         super().__init__(inf_factor=inf_factor, smoother=smoother, gpu=gpu,
@@ -51,22 +64,38 @@ class LETKFBase(ETKFBase):
                                        inf_factor=inf_factor)
         self._name = 'Sequential LETKF'
 
+    def __str__(self):
+        return '{0:s}({1:s}, {2})'.format(self._name, str(self.localization),
+                                          self.inf_factor)
+
+    def __repr__(self):
+        return 'SeqLETKF({0:s})'.format(repr(self.localization))
+
     @property
-    def localization(self):
+    def localization(self) -> Type[BaseLocalization]:
         return self._analyser.localization
 
     @localization.setter
-    def localization(self, new_locs):
+    def localization(self, new_locs: Type[BaseLocalization]):
+        """
+        Sets a new localization.
+        """
         self._analyser = LETKFAnalyser(
             localization=new_locs, inf_factor=self.analyser.inf_factor
         )
 
     @property
-    def inf_factor(self):
+    def inf_factor(self) -> Union[float, torch.Tensor, torch.nn.Parameter]:
         return self._analyser.inf_factor
 
     @inf_factor.setter
-    def inf_factor(self, new_factor):
+    def inf_factor(
+            self,
+            new_factor: Union[float, torch.Tensor, torch.nn.Parameter]
+    ):
+        """
+        Sets a new inflation factor.
+        """
         if self.analyser is None:
             localization = None
         else:
@@ -114,7 +143,11 @@ class LETKFCorr(CorrMixin, LETKFBase):
         or CPU (False): Default is None. For small models, estimation of the
         weights on CPU is faster than on GPU!.
     """
-    pass
+    def __str__(self):
+        return 'Correlated {0:s}'.format(str(super(LETKFBase)))
+
+    def __repr__(self):
+        return 'Corr{0:s}'.format(repr(super(LETKFBase)))
 
 
 class LETKFUncorr(UnCorrMixin, LETKFBase):
@@ -155,4 +188,9 @@ class LETKFUncorr(UnCorrMixin, LETKFBase):
         or CPU (False): Default is None. For small models, estimation of the
         weights on CPU is faster than on GPU!.
     """
-    pass
+    def __str__(self):
+        return 'Uncorrelated {0:s}'.format(str(super(LETKFBase)))
+
+    def __repr__(self):
+        return 'Uncorr{0:s}'.format(repr(super(LETKFBase)))
+

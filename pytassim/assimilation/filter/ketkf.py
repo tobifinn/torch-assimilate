@@ -132,10 +132,10 @@ class KETKFCorr(CorrMixin, KETKFBase):
         weights on CPU is faster than on GPU!.
     """
     def __str__(self):
-        return 'Correlated {0:s}'.format(str(super(ETKFBase)))
+        return 'Correlated {0:s}'.format(str(super(KETKFBase)))
 
     def __repr__(self):
-        return 'Corr{0:s}'.format(repr(super(ETKFBase)))
+        return 'Corr{0:s}'.format(repr(super(KETKFBase)))
 
 
 class KETKFUncorr(UnCorrMixin, KETKFBase):
@@ -176,7 +176,7 @@ class KETKFUncorr(UnCorrMixin, KETKFBase):
         weights on CPU is faster than on GPU!.
     """
     def __str__(self):
-        return 'Uncorrelated {0:s}'.format(str(super(ETKFBase)))
+        return 'Uncorrelated {0:s}'.format(str(super(KETKFBase)))
 
     def __repr__(self):
-        return 'Uncorr{0:s}'.format(repr(super(ETKFBase)))
+        return 'Uncorr{0:s}'.format(repr(super(KETKFBase)))
