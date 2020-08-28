@@ -57,13 +57,13 @@ class ETKFWeightsModule(torch.nn.Module):
         self.inf_factor = inf_factor
 
     def __str__(self) -> str:
-        return 'ETKFWeightsModule({0})'.format(self.inf_factor.item())
+        return 'ETKFWeightsModule({0})'.format(self.inf_factor)
 
     def __repr__(self) -> str:
         return 'ETKFWeightsModule'
 
     @property
-    def inf_factor(self) -> torch.Tensor:
+    def inf_factor(self) -> Union[float, torch.Tensor, torch.nn.Parameter]:
         return self._inf_factor
 
     @inf_factor.setter
@@ -170,6 +170,10 @@ class ETKFWeightsModule(torch.nn.Module):
 
 
 class ETKFAnalyser(object):
+    """
+    Analyser to get analysis perturbations based on given background
+    perturbations and normalized observational quantities.
+    """
     def __init__(
             self,
             inf_factor: Union[float, torch.Tensor, torch.nn.Parameter] = 1.0
@@ -177,13 +181,13 @@ class ETKFAnalyser(object):
         self.inf_factor = inf_factor
 
     def __str__(self) -> str:
-        return 'ETKFAnalyser({0})'.format(self.inf_factor.item())
+        return 'ETKFAnalyser({0})'.format(self.inf_factor)
 
     def __repr__(self) -> str:
         return 'ETKFAnalyser'
 
     @property
-    def inf_factor(self) -> torch.Tensor:
+    def inf_factor(self) -> Union[float, torch.Tensor, torch.nn.Parameter]:
         return self.gen_weights.inf_factor
 
     @inf_factor.setter

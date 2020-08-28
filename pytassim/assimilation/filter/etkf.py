@@ -52,7 +52,7 @@ __all__ = [
 class ETKFBase(FilterAssimilation):
     def __init__(
             self,
-            inf_factor: float = 1.0,
+            inf_factor: Union[float, torch.Tensor, torch.nn.Parameter] = 1.0,
             smoother: bool = False, gpu: bool = False,
             pre_transform: Union[None, Iterable[BaseTransformer]] = None,
             post_transform: Union[None, Iterable[BaseTransformer]] = None
@@ -65,17 +65,20 @@ class ETKFBase(FilterAssimilation):
         self.inf_factor = inf_factor
 
     def __str__(self):
-        return 'Global ETKF({0})'.format(self.inf_factor.item())
+        return 'Global ETKF({0})'.format(self.inf_factor)
 
     def __repr__(self):
         return 'ETKF'
 
     @property
-    def inf_factor(self) -> torch.Tensor:
+    def inf_factor(self) -> Union[float, torch.Tensor, torch.nn.Parameter]:
         return self._analyser.inf_factor
 
     @inf_factor.setter
-    def inf_factor(self, new_factor: Union[float, torch.Tensor]):
+    def inf_factor(
+            self,
+            new_factor: Union[float, torch.Tensor, torch.nn.Parameter]
+    ):
         """
         Sets a new inflation factor.
         """
