@@ -42,12 +42,36 @@ __all__ = ['TanhKernel']
 
 
 class TanhKernel(BaseKernel):
-    def __init__(self, coeff=1., const=0.):
+    """
+    This tangens hyperbolicus kernel represents a multilayer perceptron
+    kernel and often also called sigmoid kernel :cite:`lin_study_2003`. The
+    dot product of the data is multiplied a coefficient :math:`\\alpha` and
+    an additional intercept constant :math:`c` is added, before the product
+    is transformed by a tanh function, which is a scaled sigmoid,
+
+
+    .. math::
+
+       K(x_i, x_j) = \\tanh(\\alpha x_i (x_j)^T + c)
+
+
+    Parameters
+    ----------
+    coeff : torch.Tensor, optional
+        This coefficient is used to scale the dot product output and is set
+        to 1, resulting in a not scaled dot product.
+    const : torch.Tensor, optional
+        This constant intercept value is used to shift the output of the dot
+        product, before the tanh function is applied. The default value of 0
+        deactivates shifting.
+    """
+    def __init__(self, coeff: torch.Tensor = torch.tensor(1.),
+                 const: torch.Tensor = torch.tensor(0.)):
         super().__init__()
         self.coeff = coeff
         self.const = const
 
-    def forward(self, x, y):
+    def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         xy = dot_product(x, y)
         logit = self.coeff * xy + self.const
         kernel_mat = torch.tanh(logit)
