@@ -37,6 +37,9 @@ from .base_kernels import BaseKernel
 logger = logging.getLogger(__name__)
 
 
+__all__ = ['DiagKernel']
+
+
 class DiagKernel(BaseKernel):
     """
     The diagonal kernel specifies a diagonal matrix, if the number of samples

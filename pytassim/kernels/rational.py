@@ -38,6 +38,9 @@ from .utils import euclidean_dist
 logger = logging.getLogger(__name__)
 
 
+__all__ = ['RationalKernel']
+
+
 class RationalKernel(BaseKernel):
     """
     The rational kernel is similar to apply radial basis function kernels

@@ -27,10 +27,9 @@
 import logging
 
 # External modules
+import torch
 
 # Internal modules
-from typing import Any
-
 from .base_kernels import BaseKernel
 from . import utils as kernel_utils
 
@@ -38,6 +37,25 @@ from . import utils as kernel_utils
 logger = logging.getLogger(__name__)
 
 
+__all__ = ['LinearKernel']
+
+
 class LinearKernel(BaseKernel):
-    def forward(self, x, y):
+    """
+    This linear kernel specifies a dot product between given matrices. The
+    linear kernel can be used to construct a Bayesian linear regression. The
+    kernelized ensemble transform Kalman filter (
+    :py:class:`pytassim.assimilation.filter.ketkf.KETKFUncorr`) with this
+    kernel reconstructs the standard ensemble transform Kalman filter (
+    :py:class:`pytassim.assimilation.filter.etkf.ETKFUncorr`). This kernel is
+    not stationary and degenerated, meaning that it is not translation-invariant
+    and might lead to inconsistent results in non-linear regimes.
+
+
+    .. math::
+
+       K(x_i, x_j) = x_i(x_j)^T
+
+    """
+    def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         return kernel_utils.dot_product(x, y)

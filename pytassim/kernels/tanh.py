@@ -38,6 +38,9 @@ from .utils import dot_product
 logger = logging.getLogger(__name__)
 
 
+__all__ = ['TanhKernel']
+
+
 class TanhKernel(BaseKernel):
     def __init__(self, coeff=1., const=0.):
         super().__init__()

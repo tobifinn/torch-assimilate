@@ -38,6 +38,9 @@ from .utils import distance_matrix
 logger = logging.getLogger(__name__)
 
 
+__all__ = ['OrnsteinUhlenbeckKernel']
+
+
 class OrnsteinUhlenbeckKernel(BaseKernel):
     def __init__(self, lengthscale=1.):
         super().__init__()

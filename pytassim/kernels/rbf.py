@@ -38,6 +38,9 @@ from .utils import euclidean_dist
 logger = logging.getLogger(__name__)
 
 
+__all__ = ['GaussKernel', 'RBFKernel']
+
+
 class GaussKernel(BaseKernel):
     """
     The Gaussian kernel is a type of radial basis function

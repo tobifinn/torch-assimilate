@@ -40,6 +40,9 @@ from .utils import distance_matrix
 logger = logging.getLogger(__name__)
 
 
+__all__ = ['PeriodicKernel']
+
+
 class PeriodicKernel(BaseKernel):
     def __init__(self, period=1., lengthscale=1.):
         super().__init__()

@@ -37,6 +37,9 @@ from .base_kernels import BaseKernel
 logger = logging.getLogger(__name__)
 
 
+__all__ = ['ScaleKernel']
+
+
 class ScaleKernel(BaseKernel):
     def __init__(self, scaling=0.):
         super().__init__()

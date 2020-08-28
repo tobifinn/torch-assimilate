@@ -36,6 +36,9 @@ from .utils import dot_product
 logger = logging.getLogger(__name__)
 
 
+__all__ = ['PolyKernel']
+
+
 class PolyKernel(BaseKernel):
     def __init__(self, degree=2., const=1.):
         super().__init__()
