@@ -37,6 +37,9 @@ from .etkf import ETKFBase
 logger = logging.getLogger(__name__)
 
 
+__all__ = ['KETKFCorr', 'KETKFUncorr']
+
+
 class KETKFBase(ETKFBase):
     def __init__(self, kernel, inf_factor=1.0, smoother=True, gpu=False,
                  pre_transform=None, post_transform=None):

@@ -4,42 +4,42 @@ torch-assimilate package
 Assimilation algorithms
 -----------------------
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    assimilation
 
 Localization
 ------------
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    localization
 
 Kernels
 -------
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    kernels
 
 Models
 ------
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    model
 
 Observation operators
 ---------------------
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    obs_ops
 
 Testing
 -------
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    testing
 
