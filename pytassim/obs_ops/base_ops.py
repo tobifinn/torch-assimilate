@@ -52,8 +52,12 @@ class BaseOperator(object):
         self.len_grid = len_grid
         self.random_state = random_state
 
-    def __call__(self, input_vals, *args, **kwargs):
-        return self.obs_op(input_vals, *args, **kwargs)
+    def __call__(self, obs_ds, input_vals, *args, **kwargs):
+        pseudo_obs = self.obs_op(input_vals, *args, **kwargs)
+        pseudo_obs = pseudo_obs.rename(grid='obs_grid_1')
+        pseudo_obs['time'] = obs_ds.time.values
+        pseudo_obs['obs_grid_1'] = obs_ds.obs_grid_1.values
+        return pseudo_obs
 
     @abc.abstractmethod
     def obs_op(self, in_array, *args, **kwargs):
@@ -62,13 +66,3 @@ class BaseOperator(object):
     @abc.abstractmethod
     def torch_operator(self):
         pass
-
-    @property
-    def get_obs_method(self):
-        def observation_operator(cls, state):
-            pseudo_obs = self.obs_op(state)
-            pseudo_obs = pseudo_obs.rename(grid='obs_grid_1')
-            pseudo_obs['time'] = cls.ds.time.values
-            pseudo_obs['obs_grid_1'] = cls.ds.obs_grid_1.values
-            return pseudo_obs
-        return observation_operator
