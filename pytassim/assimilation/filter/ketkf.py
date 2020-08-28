@@ -90,8 +90,7 @@ class KETKFCorr(CorrMixin, KETKFBase):
     kernel : child of :py:class:`pytassim.kernels.base_kernels.BaseKernel`
         This kernel is used to estimate the ensemble distance matrix.
         If no child of :py:class:`pytassim.kernels.base_kernels.BaseKernel`
-        is used, the kernel should have atleast a :py:func:`forward(self, x,
-        y)` method.
+        is used, the kernel should have atleast a :py:func:`forward` method.
     inf_factor : float, optional
         Multiplicative inflation factor :math:`\\rho``, which is applied to the
         background precision. An inflation factor greater one increases the
@@ -131,8 +130,7 @@ class KETKFUncorr(UnCorrMixin, KETKFBase):
     kernel : child of :py:class:`pytassim.kernels.base_kernels.BaseKernel`
         This kernel is used to estimate the ensemble distance matrix.
         If no child of :py:class:`pytassim.kernels.base_kernels.BaseKernel`
-        is used, the kernel should have atleast a :py:func:`forward(self, x,
-        y)` method.
+        is used, the kernel should have atleast a :py:func:`forward` method.
     inf_factor : float, optional
         Multiplicative inflation factor :math:`\\rho``, which is applied to the
         background precision. An inflation factor greater one increases the
