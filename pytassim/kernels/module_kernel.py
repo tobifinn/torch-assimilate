@@ -68,7 +68,7 @@ class ModuleKernel(BaseKernel):
         self.add_module('transform', transform_module)
 
     def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        x_net = self.net(x)
-        y_net = self.net(y)
+        x_net = self.transform(x)
+        y_net = self.transform(y)
         k_mat = dot_product(x_net, y_net)
         return k_mat

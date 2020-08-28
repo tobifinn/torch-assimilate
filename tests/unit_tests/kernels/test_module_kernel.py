@@ -55,8 +55,8 @@ class TestModuleKernel(unittest.TestCase):
 
     def test_sets_net(self):
         childs = dict(self.kernel.named_children())
-        self.assertIn('net', childs.keys())
-        self.assertEqual(childs['net'], self.small_nn)
+        self.assertIn('transform', childs.keys())
+        self.assertEqual(childs['transform'], self.small_nn)
 
     def test_uses_nn(self):
         nn_tensor = self.small_nn(self.tensor)
@@ -65,19 +65,19 @@ class TestModuleKernel(unittest.TestCase):
         ret_k = self.kernel(self.tensor, self.tensor[:2])
         torch.testing.assert_allclose(ret_k, dot_product)
 
-    @patch('pytassim.kernels.nnet.dot_product', return_value=None)
+    @patch('pytassim.kernels.module_kernel.dot_product', return_value=None)
     def test_uses_dot_product(self, dot_patch):
         _ = self.kernel(self.tensor, self.tensor)
         dot_patch.assert_called_once()
 
     def test_kernel_differentiable(self):
-        self.kernel.net.requires_grad_(True)
-        self.assertIsNone(self.kernel.net[0].weight.grad)
+        self.kernel.transform.requires_grad_(True)
+        self.assertIsNone(self.kernel.transform[0].weight.grad)
         k_mat = self.kernel(self.tensor, self.tensor[:5]).mean()
-        right_grad = grad(k_mat, self.kernel.net[0].weight,
+        right_grad = grad(k_mat, self.kernel.transform[0].weight,
                           retain_graph=True)[0]
         k_mat.backward()
-        torch.testing.assert_allclose(self.kernel.net[0].weight.grad,
+        torch.testing.assert_allclose(self.kernel.transform[0].weight.grad,
                                       right_grad)
 
 
