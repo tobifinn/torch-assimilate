@@ -1,0 +1,23 @@
+name: pytassim-dev
+channels:
+    - defaults
+dependencies:
+    - python=3.7
+    - setuptools
+    - coverage
+    - sphinx
+    - sphinx_rtd_theme
+    - xarray
+    - numpy
+    - scipy
+    - ipykernel
+    - tqdm
+    - pytables
+    - netcdf4
+    - pip
+    - dask
+    - pip:
+        - twine
+        - sphinxcontrib-bibtex
+        - sphinxcontrib-plantuml
+        - pybtex-apa-style

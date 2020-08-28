@@ -1,0 +1,125 @@
+image: registry.gitlab.com/tobifinn/torch-assimilate
+
+variables:
+    SPHINX_DOC_DIR: sphinx-doc
+    COVERAGE_STATIC_DIR: coverage-report
+    PAGES_DIR: public
+    DIST_DIR: dist
+    DEV_ENV_TEST: pytassim-dev-test
+    ENV_TEST: pytassim-test
+    DOCKER_REGISTRY: registry.gitlab.com
+
+stages:
+    - install
+    - test
+    - package
+    - deploy
+
+before_script:
+    - source activate pytassim-dev
+
+build-docker:
+    stage: install
+    image: docker:latest
+    variables:
+        DOCKER_DRIVER: overlay
+    services:
+        - docker:dind
+    before_script: []
+    script:
+        - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $DOCKER_REGISTRY
+        - docker build -t $DOCKER_REGISTRY/tobifinn/torch-assimilate .
+        - docker push $DOCKER_REGISTRY/tobifinn/torch-assimilate
+    when: manual
+
+check-envs:
+    stage: install
+    before_script:
+        - "conda remove --name $ENV_TEST --all || :"
+        - "conda remove --name $DEV_ENV_TEST --all || :"
+    after_script:
+        - "conda remove --name $ENV_TEST --all || :"
+        - "conda remove --name $DEV_ENV_TEST --all || :"
+    script:
+        - conda env create -f environment.yml --name $ENV_TEST
+        - conda env create -f dev_environment.yml --name $DEV_ENV_TEST
+
+install-pytassim:
+    stage: install
+    script:
+        - python setup.py install
+
+coverage:
+    stage: test
+    script:
+        - coverage run setup.py test
+        - coverage report
+        - coverage html
+        - mv htmlcov/ $COVERAGE_STATIC_DIR
+    coverage: '/TOTAL.*\s+(\d+\%)/'
+    artifacts:
+        paths:
+            - $COVERAGE_STATIC_DIR
+        expire_in: 1 week
+
+sphinx:
+    stage: package
+    script:
+        - make docs && make docs
+        - mv docs/build/html $SPHINX_DOC_DIR
+    artifacts:
+        paths:
+            - $SPHINX_DOC_DIR
+        expire_in: 1 week
+
+dist:
+    stage: package
+    dependencies: []
+    script:
+        - make dist
+    artifacts:
+        paths:
+            - dist/*
+        expire_in: 1 week
+
+pages:
+    before_script: []
+    stage: deploy
+    dependencies:
+        - sphinx
+        - coverage
+    script:
+        - rm -rf $PAGES_DIR/ # make sure there is not pages dir
+        - mv $SPHINX_DOC_DIR $PAGES_DIR/ # sphinx doc is index page
+        - mv $COVERAGE_STATIC_DIR $PAGES_DIR/ # put coverage report inside
+    artifacts:
+        paths:
+            - $PAGES_DIR/
+    only:
+        - dev
+
+pypi-upload:
+    stage: deploy
+    environment:
+        name: production
+        url: https://pypi.org/project/torch-assimilate/
+    script:
+        - twine upload -u "$PYPI_USERNAME" -p "$PYPI_PASSWORD" dist/*
+    dependencies:
+        - dist
+    only:
+        - master
+
+pypi-test-upload:
+    stage: deploy
+    environment:
+        name: testing
+        url: https://test.pypi.org/project/torch-assimilate/
+    script:
+        - >
+            twine upload -u "$PYPI_USERNAME" -p "$PYPI_PASSWORD"
+            --repository-url https://test.pypi.org/legacy/ dist/*
+    dependencies:
+        - dist
+    only:
+        - tag

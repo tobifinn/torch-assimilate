@@ -1,0 +1,328 @@
+
+@incollection{arakawa_computational_1977,
+  title = {Computational {{Design}} of the {{Basic Dynamical Processes}} of the {{UCLA General Circulation Model}}},
+  booktitle = {Methods in {{Computational Physics}}: {{Advances}} in {{Research}} and {{Applications}}},
+  author = {Arakawa, AKIO and Lamb, VIVIAN R.},
+  editor = {Chang, JULIUS},
+  year = {1977},
+  month = jan,
+  volume = {17},
+  pages = {173--265},
+  publisher = {{Elsevier}},
+  doi = {10.1016/B978-0-12-460817-7.50009-4},
+  series = {General {{Circulation Models}} of the {{Atmosphere}}}
+}
+
+@article{bishop_adaptive_2001,
+  title = {Adaptive {{Sampling}} with the {{Ensemble Transform Kalman Filter}}. {{Part I}}: {{Theoretical Aspects}}},
+  shorttitle = {Adaptive {{Sampling}} with the {{Ensemble Transform Kalman Filter}}. {{Part I}}},
+  author = {Bishop, Craig H. and Etherton, Brian J. and Majumdar, Sharanya J.},
+  year = {2001},
+  month = mar,
+  volume = {129},
+  pages = {420--436},
+  publisher = {{American Meteorological Society}},
+  issn = {0027-0644},
+  doi = {10.1175/1520-0493(2001)129<0420:ASWTET>2.0.CO;2},
+  abstract = {A suboptimal Kalman filter called the ensemble transform Kalman filter (ET KF) is introduced. Like other Kalman filters, it provides a framework for assimilating observations and also for estimating the effect of observations on forecast error covariance. It differs from other ensemble Kalman filters in that it uses ensemble transformation and a normalization to rapidly obtain the prediction error covariance matrix associated with a particular deployment of observational resources. This rapidity enables it to quickly assess the ability of a large number of future feasible sequences of observational networks to reduce forecast error variance. The ET KF was used by the National Centers for Environmental Prediction in the Winter Storm Reconnaissance missions of 1999 and 2000 to determine where aircraft should deploy dropwindsondes in order to improve 24\textendash 72-h forecasts over the continental United States. The ET KF may be applied to any well-constructed set of ensemble perturbations. The ET KF technique supercedes the ensemble transform (ET) targeting technique of Bishop and Toth. In the ET targeting formulation, the means by which observations reduced forecast error variance was not expressed mathematically. The mathematical representation of this process provided by the ET KF enables such things as the evaluation of the reduction in forecast error variance associated with individual flight tracks and assessments of the value of targeted observations that are distributed over significant time intervals. It also enables a serial targeting methodology whereby one can identify optimal observing sites given the location and error statistics of other observations. This allows the network designer to nonredundantly position targeted observations. Serial targeting can also be used to greatly reduce the computations required to identify optimal target sites. For these theoretical and practical reasons, the ET KF technique is more useful than the ET technique. The methodology is illustrated with observation system simulation experiments involving a barotropic numerical model of tropical cyclonelike vortices. These include preliminary empirical tests of ET KF predictions using ET KF, 3DVAR, and hybrid data assimilation schemes\textemdash the results of which look promising. To concisely describe the future feasible sequences of observations considered in adaptive sampling problems, an extension to Ide et al.'s unified notation for data assimilation is suggested.},
+  journal = {Mon. Wea. Rev.},
+  number = {3}
+}
+
+@article{buitinck_api_2013,
+  title = {{{API}} Design for Machine Learning Software: Experiences from the Scikit-Learn Project},
+  shorttitle = {{{API}} Design for Machine Learning Software},
+  author = {Buitinck, Lars and Louppe, Gilles and Blondel, Mathieu and Pedregosa, Fabian and Mueller, Andreas and Grisel, Olivier and Niculae, Vlad and Prettenhofer, Peter and Gramfort, Alexandre and Grobler, Jaques and Layton, Robert and Vanderplas, Jake and Joly, Arnaud and Holt, Brian and Varoquaux, Ga{\"e}l},
+  year = {2013},
+  month = sep,
+  abstract = {Scikit-learn is an increasingly popular machine learning li- brary. Written in Python, it is designed to be simple and efficient, accessible to non-experts, and reusable in various contexts. In this paper, we present and discuss our design choices for the application programming interface (API) of the project. In particular, we describe the simple and elegant interface shared by all learning and processing units in the library and then discuss its advantages in terms of composition and reusability. The paper also comments on implementation details specific to the Python ecosystem and analyzes obstacles faced by users and developers of the library.},
+  archivePrefix = {arXiv},
+  eprint = {1309.0238},
+  eprinttype = {arxiv},
+  journal = {ArXiv13090238 Cs},
+  primaryClass = {cs}
+}
+
+@misc{dask_development_team_dask_2016,
+  title = {Dask : {{Library}} for Dynamic Task Scheduling},
+  author = {{Dask Development Team}},
+  year = {2016}
+}
+
+@article{drineas_nystrom_2005,
+  title = {On the {{Nystr\"om}} Method for Approximating a {{Gram}} Matrix for Improved Kernel-Based Learning},
+  author = {Drineas, Petros and Mahoney, Michael W.},
+  year = {2005},
+  volume = {6},
+  pages = {2153--2175},
+  journal = {J. Mach. Learn. Res.},
+  number = {Dec}
+}
+
+@phdthesis{duvenaud_automatic_2014,
+  title = {Automatic Model Construction with {{Gaussian}} Processes},
+  author = {Duvenaud, David},
+  year = {2014},
+  month = nov,
+  doi = {10.17863/CAM.14087},
+  abstract = {This thesis develops a method for automatically constructing, visualizing and describing 
+a large class of models, useful for forecasting and finding structure in domains such 
+as time series, geological formations, and physical dynamics. These models, based on 
+Gaussian processes, can capture many types of statistical structure, such as periodicity, 
+changepoints, additivity, and symmetries. Such structure can be encoded through kernels, 
+which have historically been hand-chosen by experts. We show how to automate 
+this task, creating a system that explores an open-ended space of models and reports 
+the structures discovered. 
+ 
+To automatically construct Gaussian process models, we search over sums and products 
+of kernels, maximizing the approximate marginal likelihood. We show how any 
+model in this class can be automatically decomposed into qualitatively different parts, 
+and how each component can be visualized and described through text. We combine 
+these results into a procedure that, given a dataset, automatically constructs a model 
+along with a detailed report containing plots and generated text that illustrate the 
+structure discovered in the data. 
+ 
+The introductory chapters contain a tutorial showing how to express many types of 
+structure through kernels, and how adding and multiplying different kernels combines 
+their properties. Examples also show how symmetric kernels can produce priors over 
+topological manifolds such as cylinders, toruses, and M\"obius strips, as well as their 
+higher-dimensional generalizations. 
+ 
+This thesis also explores several extensions to Gaussian process models. First, building 
+on existing work that relates Gaussian processes and neural nets, we analyze natural 
+extensions of these models to deep kernels and deep Gaussian processes. Second, we examine 
+additive Gaussian processes, showing their relation to the regularization method 
+of dropout. Third, we combine Gaussian processes with the Dirichlet process to produce 
+the warped mixture model: a Bayesian clustering model having nonparametric cluster 
+shapes, and a corresponding latent space in which each cluster has an interpretable 
+parametric form.},
+  copyright = {Attribution-ShareAlike 2.0 UK: England \& Wales},
+  language = {en},
+  school = {University of Cambridge},
+  type = {Thesis}
+}
+
+@inproceedings{gardner_gpytorch_2018,
+  title = {{{GPyTorch}}: {{Blackbox Matrix}}-{{Matrix Gaussian Process Inference}} with {{GPU Acceleration}}},
+  shorttitle = {{{GPyTorch}}},
+  booktitle = {{{NeurIPS}}},
+  author = {Gardner, Jacob R. and Pleiss, Geoff and Weinberger, Kilian Q. and Bindel, David and Wilson, Andrew Gordon},
+  year = {2018}
+}
+
+@article{gaspari_construction_1999,
+  title = {Construction of Correlation Functions in Two and Three Dimensions},
+  author = {Gaspari, Gregory and Cohn, Stephen E.},
+  year = {1999},
+  month = jan,
+  volume = {125},
+  pages = {723--757},
+  issn = {1477-870X},
+  doi = {10.1002/qj.49712555417},
+  abstract = {This article focuses on the construction, directly in physical space, of simply parametrized covariance functions for data-assimilation applications. A self-contained, rigorous mathematical summary of relevant topics from correlation theory is provided as a foundation for this construction. Covariance and correlation functions are defined, and common notions of homogeneity and isotropy are clarified. Classical results are stated, and proven where instructive. Included are smoothness properties relevant to multivariate statistical-analysis algorithms where wind/wind and wind/mass correlation models are obtained by differentiating the correlation model of a mass variable. the Convolution Theorem is introduced as the primary tool used to construct classes of covariance and cross-covariance functions on three-dimensional Euclidean space R3. Among these are classes of compactly supported functions that restrict to covariance and cross-covariance functions on the unit sphere S2, and that vanish identically on subsets of positive measure on S2. It is shown that these covariance and cross-covariance functions on S2, referred to as being space-limited, cannot be obtained using truncated spectral expansions. Compactly supported and space-limited covariance functions determine sparse covariance matrices when evaluated on a grid, thereby easing computational burdens in atmospheric data-analysis algorithms. Convolution integrals leading to practical examples of compactly supported covariance and cross-covariance functions on R3 are reduced and evaluated. More specifically, suppose that gi and gj are radially symmetric functions defined on R3 such that gi(x) = 0 for |x| {$>$} di and gj(x) = 0 for |xv {$>$} dj, O {$<$} di,dj {$\leqq$}, where |. | denotes Euclidean distance in R3. the parameters di and dj are `cut-off' distances. Closed-form expressions are determined for classes of convolution cross-covariance functions Cij(x,y) := (gi * gj)(x-y), i {$\neq$} j, and convolution covariance functions Cii(x,y) := (gi * gi)(x-y), vanishing for |x - y| {$>$} di + dj and |x - y| {$>$} 2di, respectively, Additional covariance functions on R3 are constructed using convolutions over the real numbers R, rather than R3. Families of compactly supported approximants to standard second- and third-order autoregressive functions are constructed as illustrative examples. Compactly supported covariance functions of the form C(x,y) := Co(|x - y|), x,y {$\in$} R3, where the functions Co(r) for r {$\in$} R are 5th-order piecewise rational functions, are also constructed. These functions are used to develop space-limited product covariance functions B(x, y) C(x, y), x, y {$\in$} S2, approximating given covariance functions B(x, y) supported on all of S2 \texttimes{} S2.},
+  journal = {Q. J. R. Meteorol. Soc.},
+  language = {en},
+  number = {554}
+}
+
+@misc{han-chen_moden_2018,
+  title = {Moden {{Big Data Algorithms}}},
+  author = {{Han-Chen}, Daniel},
+  year = {2018},
+  month = nov,
+  howpublished = {https://github.com/danielhanchen/hyperlearn/blob/master/Modern\%20Big\%20Data\%20Algorithms.pdf}
+}
+
+@article{hoyer_xarray_2017,
+  title = {Xarray : {{N}}-{{D}} Labeled {{Arrays}} and {{Datasets}} in {{Python}}},
+  shorttitle = {Xarray},
+  author = {Hoyer, Stephan and Hamman, Joe},
+  year = {2017},
+  month = apr,
+  volume = {5},
+  pages = {10},
+  issn = {2049-9647},
+  doi = {10.5334/jors.148},
+  abstract = {xarray is an open source project and Python package that provides a toolkit and data structures for N-dimensional labeled arrays. Our approach combines an application programing interface (API) inspired by pandas with the Common Data Model for self-described scientific data. Key features of the xarray package include label-based indexing and arithmetic, interoperability with the core scientific Python packages (e.g., pandas, NumPy, Matplotlib), out-of-core computation on datasets that don't fit into memory, a wide range of serialization and input/output (I/O) options, and advanced multi-dimensional data manipulation tools such as group-by and resampling. xarray, as a data model and analytics toolkit, has been widely adopted in the geoscience community but is also used more broadly for multi-dimensional data analysis in physics, machine learning and finance.},
+  copyright = {Authors who publish with this journal agree to the following terms:    Authors retain copyright and grant the journal right of first publication with the work simultaneously licensed under a  Creative Commons Attribution License  that allows others to share the work with an acknowledgement of the work's authorship and initial publication in this journal.  Authors are able to enter into separate, additional contractual arrangements for the non-exclusive distribution of the journal's published version of the work (e.g., post it to an institutional repository or publish it in a book), with an acknowledgement of its initial publication in this journal.  Authors are permitted and encouraged to post their work online (e.g., in institutional repositories or on their website) prior to and during the submission process, as it can lead to productive exchanges, as well as earlier and greater citation of published work (See  The Effect of Open Access ).  All third-party images reproduced on this journal are shared under Educational Fair Use. For more information on  Educational Fair Use , please see  this useful checklist prepared by Columbia University Libraries .   All copyright  of third-party content posted here for research purposes belongs to its original owners.  Unless otherwise stated all references to characters and comic art presented on this journal are \textcopyright, \textregistered{} or \texttrademark{} of their respective owners. No challenge to any owner's rights is intended or should be inferred.},
+  journal = {J. Open Res. Softw.},
+  language = {en},
+  number = {1}
+}
+
+@article{hunt_efficient_2007,
+  title = {Efficient Data Assimilation for Spatiotemporal Chaos: {{A}} Local Ensemble Transform {{Kalman}} Filter},
+  shorttitle = {Efficient Data Assimilation for Spatiotemporal Chaos},
+  author = {Hunt, Brian R. and Kostelich, Eric J. and Szunyogh, Istvan},
+  year = {2007},
+  month = jun,
+  volume = {230},
+  pages = {112--126},
+  issn = {0167-2789},
+  doi = {10.1016/j.physd.2006.11.008},
+  abstract = {Data assimilation is an iterative approach to the problem of estimating the state of a dynamical system using both current and past observations of the system together with a model for the system's time evolution. Rather than solving the problem from scratch each time new observations become available, one uses the model to ``forecast'' the current state, using a prior state estimate (which incorporates information from past data) as the initial condition, then uses current data to correct the prior forecast to a current state estimate. This Bayesian approach is most effective when the uncertainty in both the observations and in the state estimate, as it evolves over time, are accurately quantified. In this article, we describe a practical method for data assimilation in large, spatiotemporally chaotic systems. The method is a type of ``ensemble Kalman filter'', in which the state estimate and its approximate uncertainty are represented at any given time by an ensemble of system states. We discuss both the mathematical basis of this approach and its implementation; our primary emphasis is on ease of use and computational speed rather than improving accuracy over previously published approaches to ensemble Kalman filtering. We include some numerical results demonstrating the efficiency and accuracy of our implementation for assimilating real atmospheric data with the global forecast model used by the US National Weather Service.},
+  journal = {Physica D: Nonlinear Phenomena},
+  number = {1},
+  series = {Data {{Assimilation}}}
+}
+
+@article{hunt_four-dimensional_2004,
+  title = {Four-Dimensional Ensemble {{Kalman}} Filtering},
+  author = {Hunt, B. R. and Kalnay, E. and Kostelich, E. J. and Ott, E. and Patil, D. J. and Sauer, T. and Szunyogh, I. and Yorke, J. A. and Zimin, A. V.},
+  year = {2004},
+  month = jan,
+  volume = {56},
+  pages = {273--277},
+  publisher = {{Taylor \& Francis}},
+  issn = {null},
+  doi = {10.3402/tellusa.v56i4.14424},
+  abstract = {Ensemble Kalman filteringwas developed as away to assimilate observed data to track the current state in a computational model. In this paper we showthat the ensemble approach makes possible an additional benefit: the timing of observations, whether they occur at the assimilation time or at some earlier or later time, can be effectively accounted for at low computational expense. In the case of linear dynamics, the technique is equivalent to instantaneously assimilating data as they are measured. The results of numerical tests of the technique on a simple model problem are shown.},
+  journal = {Tellus Dyn. Meteorol. Oceanogr.},
+  number = {4}
+}
+
+@article{lin_study_2003,
+  title = {A Study on Sigmoid Kernels for {{SVM}} and the Training of Non-{{PSD}} Kernels by {{SMO}}-Type Methods},
+  author = {Lin, Hsuan-Tien and Lin, Chih-Jen},
+  year = {2003},
+  volume = {3},
+  pages = {16},
+  journal = {Submitt. Neural Comput.},
+  number = {1-32}
+}
+
+@article{lorenz_irregularity_1984,
+  title = {Irregularity : A Fundamental Property of the Atmosphere},
+  shorttitle = {Irregularity},
+  author = {Lorenz, Edward N.},
+  year = {1984},
+  month = mar,
+  volume = {36A},
+  pages = {98--110},
+  issn = {1600-0870},
+  doi = {10.1111/j.1600-0870.1984.tb00230.x},
+  abstract = {Some early ideas concerning the general circulation of the atmosphere are reviewed. A model of the general circulation, consisting of three ordinary differential equations, is introduced. For different intensities of the axially symmetric and asymmetric thermal forcing, the equations may possess one or two stable steady-state solutions, one or two stable periodic solutions, or irregular (aperiodic) solutions. Qualitative reasoning which has been applied to the real atmosphere may sometimes be applied to the model, and checked for soundness by comparing the conclusions with numerical solutions. The implications of irregularity for the atmosphere and for atmospheric science are discussed.},
+  copyright = {1984 Blackwell Munksgaard},
+  journal = {Tellus A},
+  language = {en},
+  number = {2}
+}
+
+@article{lorenz_optimal_1998,
+  title = {Optimal {{Sites}} for {{Supplementary Weather Observations}}: {{Simulation}} with a {{Small Model}}},
+  shorttitle = {Optimal {{Sites}} for {{Supplementary Weather Observations}}},
+  author = {Lorenz, Edward N. and Emanuel, Kerry A.},
+  year = {1998},
+  month = feb,
+  volume = {55},
+  pages = {399--414},
+  issn = {0022-4928, 1520-0469},
+  doi = {10.1175/1520-0469(1998)055<0399:OSFSWO>2.0.CO;2},
+  abstract = {Anticipating the opportunity to make supplementary observations at locations that can depend upon the current weather situation, the question is posed as to what strategy should be adopted to select the locations, if the greatest improvement in analyses and forecasts is to be realized. To seek a preliminary answer, the authors introduce a model consisting of 40 ordinary differential equations, with the dependent variables representing values of some atmospheric quantity at 40 sites spaced equally about a latitude circle. The equations contain quadratic, linear, and constant terms representing advection, dissipation, and external forcing. Numerical integration indicates that small errors (differences between solutions) tend to double in about 2 days. Localized errors tend to spread eastward as they grow, encircling the globe after about 14 days.},
+  journal = {J. Atmospheric Sci.},
+  language = {en},
+  number = {3}
+}
+
+@inproceedings{lorenz_predictability_1996,
+  title = {Predictability : {{A}} Problem Partly Solved},
+  booktitle = {Seminar on {{Predictability}}, {{Vol}}. {{I}}, {{ECMWF}}},
+  author = {Lorenz, Edward N},
+  year = {1996},
+  publisher = {{ECMWF}}
+}
+
+@article{oleson_k._w._improvements_2008,
+  title = {Improvements to the {{Community Land Model}} and Their Impact on the Hydrological Cycle},
+  author = {{Oleson K. W.} and {Niu G.-Y.} and {Yang Z.-L.} and {Lawrence D. M.} and {Thornton P. E.} and {Lawrence P. J.} and {St\"ockli R.} and {Dickinson R. E.} and {Bonan G. B.} and {Levis S.} and {Dai A.} and {Qian T.}},
+  year = {2008},
+  volume = {113},
+  issn = {0148-0227},
+  doi = {10.1029/2007JG000563},
+  abstract = {The Community Land Model version 3 (CLM3) is the land component of the Community Climate System Model (CCSM). CLM3 has energy and water biases resulting from deficiencies in some of its canopy and soil parameterizations related to hydrological processes. Recent research by the community that utilizes CLM3 and the family of CCSM models has indicated several promising approaches to alleviating these biases. This paper describes the implementation of a selected set of these parameterizations and their effects on the simulated hydrological cycle. The modifications consist of surface data sets based on Moderate Resolution Imaging Spectroradiometer products, new parameterizations for canopy integration, canopy interception, frozen soil, soil water availability, and soil evaporation, a TOPMODEL-based model for surface and subsurface runoff, a groundwater model for determining water table depth, and the introduction of a factor to simulate nitrogen limitation on plant productivity. The results from a set of offline simulations were compared with observed data for runoff, river discharge, soil moisture, and total water storage to assess the performance of the new model (referred to as CLM3.5). CLM3.5 exhibits significant improvements in its partitioning of global evapotranspiration (ET) which result in wetter soils, less plant water stress, increased transpiration and photosynthesis, and an improved annual cycle of total water storage. Phase and amplitude of the runoff annual cycle is generally improved. Dramatic improvements in vegetation biogeography result when CLM3.5 is coupled to a dynamic global vegetation model. Lower than observed soil moisture variability in the rooting zone is noted as a remaining deficiency.},
+  journal = {Journal of Geophysical Research: Biogeosciences},
+  keywords = {hydrology,land surface model,land-atmosphere exchange},
+  number = {G1}
+}
+
+@techreport{oleson_technical_2004,
+  title = {Technical {{Description}} of the {{Community Land Model}} ({{CLM}})},
+  author = {Oleson, Keith and Dai, Yongjiu and Bonan, B. and Bosilovichm, Mike and Dickinson, Robert and Dirmeyer, Paul and Hoffman, Forrest and Houser, Paul and Levis, Samuel and Niu, Guo-Yue and Thornton, Peter and Vertenstein, Mariana and Yang, Zong-Liang and Zeng, Xubin},
+  year = {2004},
+  institution = {{National Center for Atmospheric Research}},
+  language = {en}
+}
+
+@article{paszke_automatic_2017,
+  title = {Automatic Differentiation in {{PyTorch}}},
+  author = {Paszke, Adam and Gross, Sam and Chintala, Soumith and Chanan, Gregory and Yang, Edward and DeVito, Zachary and Lin, Zeming and Desmaison, Alban and Antiga, Luca and Lerer, Adam},
+  year = {2017},
+  month = oct,
+  abstract = {In this article, we describe an automatic differentiation module of PyTorch \textemdash{} a library designed to enable rapid research on machine learning models. It builds upon a few projects, most notably Lua...},
+  journal = {Conf. Neural Inf. Process. Syst. 2017}
+}
+
+@article{pedregosa_scikit-learn_2011,
+  title = {Scikit-Learn: {{Machine Learning}} in {{Python}}},
+  shorttitle = {Scikit-Learn},
+  author = {Pedregosa, Fabian and Varoquaux, Ga{\"e}l and Gramfort, Alexandre and Michel, Vincent and Thirion, Bertrand and Grisel, Olivier and Blondel, Mathieu and Prettenhofer, Peter and Weiss, Ron and Dubourg, Vincent and Vanderplas, Jake and Passos, Alexandre and Cournapeau, David and Brucher, Matthieu and Perrot, Matthieu and Duchesnay, {\'E}douard},
+  year = {2011},
+  volume = {12},
+  pages = {2825--2830},
+  abstract = {Scikit-learn is a Python module integrating a wide range of state-of-the-art machine learning algorithms for medium-scale supervised and unsupervised problems. This package focuses on bringing machine learning to non-specialists using a general-purpose high-level language.  Emphasis is put on ease of use, performance, documentation, and API consistency.  It has minimal dependencies and is distributed under the simplified BSD license, encouraging its use in both academic and commercial settings.  Source code, binaries, and documentation can be downloaded from http://scikit-learn.sourceforge.net.},
+  journal = {J. Mach. Learn. Res.},
+  number = {85}
+}
+
+@inproceedings{rahimi_random_2008,
+  title = {Random Features for Large-Scale Kernel Machines},
+  booktitle = {Advances in Neural Information Processing Systems},
+  author = {Rahimi, Ali and Recht, Benjamin},
+  year = {2008},
+  pages = {1177--1184}
+}
+
+@incollection{rasmussen_gaussian_2004,
+  title = {Gaussian {{Processes}} in {{Machine Learning}}},
+  booktitle = {Advanced {{Lectures}} on {{Machine Learning}}: {{ML Summer Schools}} 2003, {{Canberra}}, {{Australia}}, {{February}} 2 - 14, 2003, {{T\"ubingen}}, {{Germany}}, {{August}} 4 - 16, 2003, {{Revised Lectures}}},
+  author = {Rasmussen, Carl Edward},
+  editor = {Bousquet, Olivier and {von Luxburg}, Ulrike and R{\"a}tsch, Gunnar},
+  year = {2004},
+  pages = {63--71},
+  publisher = {{Springer}},
+  address = {{Berlin, Heidelberg}},
+  doi = {10.1007/978-3-540-28650-9_4},
+  abstract = {We give a basic introduction to Gaussian Process regression models. We focus on understanding the role of the stochastic process and how it is used to define a distribution over functions. We present the simple equations for incorporating training data and examine how to learn the hyperparameters using the marginal likelihood. We explain the practical advantages of Gaussian Process and end with conclusions and a look at the current trends in GP work.},
+  isbn = {978-3-540-28650-9},
+  language = {en},
+  series = {Lecture {{Notes}} in {{Computer Science}}}
+}
+
+@inproceedings{rocklin_dask_2015,
+  title = {Dask : {{Parallel Computation}} with {{Blocked}} Algorithms and {{Task Scheduling}}},
+  shorttitle = {Dask},
+  booktitle = {Python in {{Science Conference}}},
+  author = {Rocklin, Matthew},
+  year = {2015},
+  pages = {126--132},
+  address = {{Austin, Texas}},
+  doi = {10.25080/Majora-7b98e3ed-013},
+  abstract = {Dask enables parallel and out-of-core computation. We couple blocked algorithms with dynamic and memory aware task scheduling to achieve a parallel and out-of-core NumPy clone. We show how this extends the effective scale of modern hardware to larger datasets and discuss how these ideas can be more broadly applied to other parallel collections.},
+  language = {en}
+}
+
+@article{shrestha_scale-consistent_2014,
+  title = {A {{Scale}}-{{Consistent Terrestrial Systems Modeling Platform Based}} on {{COSMO}}, {{CLM}}, and {{ParFlow}}},
+  author = {Shrestha, P. and Sulis, M. and Masbou, M. and Kollet, S. and Simmer, C.},
+  year = {2014},
+  month = apr,
+  volume = {142},
+  pages = {3466--3483},
+  issn = {0027-0644},
+  doi = {10.1175/MWR-D-14-00029.1},
+  abstract = {A highly modular and scale-consistent Terrestrial Systems Modeling Platform (TerrSysMP) is presented. The modeling platform consists of an atmospheric model (Consortium for Small-Scale Modeling; COSMO), a land surface model (the NCAR Community Land Model, version 3.5; CLM3.5), and a 3D variably saturated groundwater flow model (ParFlow). An external coupler (Ocean Atmosphere Sea Ice Soil, version 3.0; OASIS3) with multiple executable approaches is employed to couple the three independently developed component models, which intrinsically allows for a separation of temporal\textendash spatial modeling scales and the coupling frequencies between the component models.Idealized TerrSysMP simulations are presented, which focus on the interaction of key hydrologic processes, like runoff production (excess rainfall and saturation) at different hydrological modeling scales and the drawdown of the water table through groundwater pumping, with processes in the atmospheric boundary layer. The results show a strong linkage between integrated surface\textendash groundwater dynamics, biogeophysical processes, and boundary layer evolution. The use of the mosaic approach for the hydrological component model (to resolve subgrid-scale topography) impacts simulated runoff production, soil moisture redistribution, and boundary layer evolution, which demonstrates the importance of hydrological modeling scales and thus the advantages of the coupling approach used in this study.Real data simulations were carried out with TerrSysMP over the Rur catchment in Germany. The inclusion of the integrated surface\textendash groundwater flow model results in systematic patterns in the root zone soil moisture, which influence exchange flux distributions and the ensuing atmospheric boundary layer development. In a first comparison to observations, the 3D model compared to the 1D model shows slightly improved predictions of surface fluxes and a strong sensitivity to the initial soil moisture content.},
+  journal = {Mon. Wea. Rev.},
+  number = {9}
+}
+
+
