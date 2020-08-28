@@ -174,7 +174,7 @@ class BaseAssimilation(object):
         filtered_observations = []
         for obs in observations:
             try:
-                obs_equivalent.append(obs.obs.operator(pseudo_state))
+                obs_equivalent.append(obs.obs.operator(obs, pseudo_state))
                 filtered_observations.append(obs)
             except NotImplementedError:
                 pass
@@ -325,8 +325,12 @@ class BaseAssimilation(object):
             logger.info('Assimilation in non-smoother mode')
             pseudo_state = pseudo_state.sel(time=[analysis_time, ])
             back_state = state.sel(time=[analysis_time, ])
-            observations = [obs.sel(time=[analysis_time, ])
-                            for obs in observations]
+            sel_obs = []
+            for obs in observations:
+                tmp_obs = obs.sel(time=[analysis_time, ])
+                tmp_obs.obs.operator = obs.obs.operator
+                sel_obs.append(tmp_obs)
+            observations = sel_obs
         if self.pre_transform:
             for trans in self.pre_transform:
                 back_state, observations, pseudo_state = trans.pre(
