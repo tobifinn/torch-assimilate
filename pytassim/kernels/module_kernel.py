@@ -27,6 +27,7 @@
 import logging
 
 # External modules
+import torch.nn
 
 # Internal modules
 from .base_kernels import BaseKernel
@@ -51,14 +52,22 @@ class ModuleKernel(BaseKernel):
 
        K(x_i, x_j) = \\phi(x_i)(\\phi(x_y))^T.
 
+    This kernel can be used to implement random fourier features
+    :cite:`rahimi_random_2008`, instances of the Nystrom method
+    :cite:`drineas_nystrom_2005` or feature extraction with neural networks.
 
+    Parameters
+    ----------
+    transform_module : :py:class:`torch.nn.Module`
+        This transform module is used to transform given data into a new
+        feature space.
 
     """
-    def __init__(self, net):
+    def __init__(self, transform_module: torch.nn.Module):
         super().__init__()
-        self.add_module('net', net)
+        self.add_module('transform', transform_module)
 
-    def forward(self, x, y):
+    def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         x_net = self.net(x)
         y_net = self.net(y)
         k_mat = dot_product(x_net, y_net)
