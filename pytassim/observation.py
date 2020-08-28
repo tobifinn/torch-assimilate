@@ -29,6 +29,7 @@ import types
 from inspect import signature
 
 # External modules
+import xarray as xr
 from xarray import register_dataset_accessor
 
 # Internal modules
@@ -82,11 +83,17 @@ class Observation(object):
     **To use this observation subset, you need to overwrite the observation
     operator**
     """
-    def __init__(self, xr_ds):
+    def __init__(self, xr_ds: xr.Dataset):
         self.ds = xr_ds
 
+    def __str__(self):
+        return 'Obs dataset ({0})'.format(str(self.ds))
+
+    def __repr__(self):
+        return 'Observation'
+
     @property
-    def correlated(self):
+    def correlated(self) -> bool:
         """
         Checks if the observations are correlated based on the dimensions of
         given dataset.
@@ -100,7 +107,7 @@ class Observation(object):
         return correlated
 
     @property
-    def _valid_dims(self):
+    def _valid_dims(self) -> bool:
         """
         Checks if ``time``, ``obs_grid_1`` are available within the
         :py:class:`~xarray.Dataset` and if ``time``, ``obs_grid_1`` and
@@ -128,7 +135,7 @@ class Observation(object):
         return valid_dims
 
     @property
-    def _valid_obs(self):
+    def _valid_obs(self) -> bool:
         """
         Checks if dimensions of the ``observation``
         :py:class:`~xarray.DataArray` within the set dataset are valid.
@@ -143,7 +150,7 @@ class Observation(object):
         return valid_obs
 
     @property
-    def _valid_cov_uncorr(self):
+    def _valid_cov_uncorr(self) -> bool:
         """
         Checks if shape and dimensions of the uncorrelated ``covariance``
         :py:class:`~xarray.DataArray` within the set dataset are valid.
@@ -163,7 +170,7 @@ class Observation(object):
         return valid_cov
 
     @property
-    def _valid_cov_corr(self):
+    def _valid_cov_corr(self) -> bool:
         """
         Checks if shape and dimensions of the correlated ``covariance``
         :py:class:`~xarray.DataArray` within the set dataset are valid.
@@ -191,7 +198,7 @@ class Observation(object):
         return valid_cov
 
     @property
-    def _valid_arrays(self):
+    def _valid_arrays(self) -> bool:
         """
         Checks if ``observations`` and ``covariance``
         :py:class:`~xarray.DataArray`s within the set dataset are valid.
@@ -211,7 +218,7 @@ class Observation(object):
         return valid_array
 
     @property
-    def valid(self):
+    def valid(self) -> bool:
         """
         Checks if set :py:class:`~xarray.Dataset` is valid.
 
@@ -225,7 +232,7 @@ class Observation(object):
             valid_ds = True
         return valid_ds
 
-    def _operator(self, state):
+    def _operator(self, state: xr.DataArray):
         raise NotImplementedError('No observation operator is set!')
 
     @property
