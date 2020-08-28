@@ -232,35 +232,6 @@ class Observation(object):
             valid_ds = True
         return valid_ds
 
-    def _operator(self, state: xr.DataArray):
+    @staticmethod
+    def operator(obs_ds: xr.Dataset, state: xr.DataArray) -> xr.DataArray:
         raise NotImplementedError('No observation operator is set!')
-
-    @property
-    def operator(self):
-        """
-        This method is used as observation operator within the assimilation
-        algorithms. **If you overwrite this method, please take care of the
-        in- and output!**
-
-        Parameters
-        ----------
-        state : :py:class:`~xarray.DataArray`
-            The pseudo observations are created based on this state. The given
-            state needs to be valid.
-
-        Returns
-        -------
-        pseudo_obs : :py:class:`~xarray.DataArray`
-            The created pseudo observations based on the given state and this
-            observation operator. The last two dimensions are the same
-            dimensions as the ``observations`` :py:class:`~xarray.DataArray`
-            in set observation subset.
-        """
-        return self._operator
-
-    @operator.setter
-    def operator(self, new_operator):
-        if len(signature(new_operator).parameters) != 2:
-            raise ValueError('Only ``self`` and ``state`` should be arguments '
-                             'within the observation operator!')
-        self._operator = types.MethodType(new_operator, self)
