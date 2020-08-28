@@ -118,7 +118,7 @@ class TestRBFKernel(unittest.TestCase):
     def test_lengthscale_returns_gamma_lengthscale(self):
         self.kernel.gamma = torch.tensor(0.1)
         self.assertEqual(
-            self.kernel._lengthscale,
+            self.kernel._get_lengthscale(),
             (0.5/torch.tensor(0.1)).sqrt()
         )
 
