@@ -12,7 +12,7 @@ import glob
 # Internal modules
 
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 BASE = path.abspath(path.dirname(__file__))
 
