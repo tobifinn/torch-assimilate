@@ -116,9 +116,8 @@ pypi-test-upload:
         name: testing
         url: https://test.pypi.org/project/torch-assimilate/
     script:
-        - >
-            twine upload -u "__tolen__ -p "$PYPI_TOKEN"
-            --repository-url https://test.pypi.org/legacy/ dist/*
+        - twine upload -u "__token__" -p "$PYPI_TEST_TOKEN" --repository-url
+                https://test.pypi.org/legacy/ dist/*
     dependencies:
         - dist
     only:
