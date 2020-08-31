@@ -83,7 +83,7 @@ via conda (recommended):
     pip install .
 
 via pip (latest pypi-test):
-^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. code:: sh
 
     pip install --index-url https://test.pypi.org/simple/ torch-assimilate
