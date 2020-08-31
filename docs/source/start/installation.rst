@@ -21,9 +21,16 @@ via conda (recommended):
     conda install pytorch torchvision cpuonly -c pytorch
     pip install .
 
-via pip (latest pypi-test):
+via pip (latest dev-version):
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. code:: sh
 
     pip install --index-url https://test.pypi.org/simple/ torch-assimilate
+    pip install torch==1.6.0+cpu torchvision==0.7.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
+
+via pip (latest master):
+^^^^^^^^^^^^^^^^^^^^^^^^
+.. code:: sh
+
+    pip install torch-assimilate
     pip install torch==1.6.0+cpu torchvision==0.7.0+cpu -f https://download.pytorch.org/whl/torch_stable.html

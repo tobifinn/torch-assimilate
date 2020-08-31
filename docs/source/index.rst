@@ -29,7 +29,7 @@ PyTorch based data assimilation package
     :alt: Documentation Status
 .. |quality| image:: https://img.shields.io/badge/quality-codeclimate-brightgreen.svg
     :target: https://tobifinn.gitlab.io/torch-assimilate/coverage-report/codeclimate.html
-.. |pypi| image:: https://img.shields.io/badge/pypi-unavailable-lightgrey.svg
+.. |pypi| image:: https://img.shields.io/badge/pypi-online-brightgreen.svg
     :target: https://pypi.org/project/torch-assimilate/
 .. |pypi-test| image:: https://img.shields.io/badge/pypi_test-online-brightgreen.svg
     :target: https://test.pypi.org/project/torch-assimilate/
