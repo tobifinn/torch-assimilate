@@ -48,7 +48,7 @@ class PolyKernel(BaseKernel):
 
     .. math::
 
-       K(x_i, x_j) = (x_i(x_j)^T + c)^p
+       K(x_i, x_j) = ({(x_i)}^{T} x_j + c)^{p}
 
 
     Parameters
