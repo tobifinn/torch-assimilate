@@ -45,16 +45,19 @@ observations into numerical weather model data.
 
 This package is constructed for efficient and parallelized data assimilation in
 python. The central entity of this package are the data assimilation methods
-optimized in PyTorch :cite:`paszke_automatic_2017`. For data in- and output
-xarray :cite:`hoyer_xarray_2017` is used.
-Originally. this package can be used for offline data assimilation.
+optimized in PyTorch :cite:`paszke_automatic_2017`. Furthermore, some
+algorithms are parallelized with dask
+:cite:`dask_development_team_dask_2016` and allow a distributed computing with
+many cores. For data in-  and output xarray :cite:`hoyer_xarray_2017` is used.
+Originally, this package can be used for offline data assimilation.
 
-In the future, different data assimilation methods, like
-ensemble Kalman filters, particle filters, variational data assimilation and neural assimilation will
-be added.
+In the future, different data assimilation methods, like ensemble Kalman
+filters, particle filters, variational data assimilation and neural assimilation
+will be added.
 
-This package is developed for a PhD-thesis about nonlinear methods in data
-assimilation at the "Universität Hamburg".
+This package is developed for a PhD-thesis about nonlinear methods in
+coupled data assimilation at the "Universität Hamburg", "Universität Bonn"
+and the Max Planck Institute for Meteorology.
 
 Documentation
 -------------
