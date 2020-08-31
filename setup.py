@@ -25,8 +25,9 @@ setup(
     version=__version__,
 
     description='torch-assimilate is a data assimilation package based on '
-                'PyTorch',
+                'PyTorch, xarray and dask',
     long_description=long_description,
+    long_description_content_type="text/rst",
 
     url='https://gitlab.com/tobifinn/torch-assimilate',
 
