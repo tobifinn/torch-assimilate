@@ -52,7 +52,7 @@ class TanhKernel(BaseKernel):
 
     .. math::
 
-       K(x_i, x_j) = \\tanh(\\alpha x_i (x_j)^T + c)
+       K(x_i, x_j) = \\tanh(\\alpha {(x_i)}^{T} x_j + c)
 
 
     Parameters
