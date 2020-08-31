@@ -63,7 +63,7 @@ class DiagKernel(BaseKernel):
     def __repr__(self) -> str:
         return 'Diag({0})'.format(repr(self.scaling))
 
-    def forward(self, x: torch.tensor, y: torch.tensor) -> torch.tensor:
+    def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         if x.shape[-2] != y.shape[-2]:
             k_mat = torch.zeros(x.shape[:-1] + (y.shape[-2],))
         else:

@@ -53,7 +53,7 @@ class BaseKernel(torch.nn.Module):
         return PowerKernel(self, other)
 
     @abc.abstractmethod
-    def forward(self, x: torch.tensor, y: torch.tensor) -> torch.tensor:
+    def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         pass
 
 
@@ -101,7 +101,7 @@ class AdditiveKernel(CompKernel):
     def __repr__(self) -> str:
         return "{0:s}+{1:s}".format(repr(self.kernel_1), repr(self.kernel_2))
 
-    def forward(self, x: torch.tensor, y: torch.tensor) -> torch.tensor:
+    def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         return self.kernel_1(x, y) + self.kernel_2(x, y)
 
 
@@ -129,7 +129,7 @@ class MultiplicativeKernel(CompKernel):
     def __repr__(self) -> str:
         return "{0:s}*{1:s}".format(repr(self.kernel_1), repr(self.kernel_2))
 
-    def forward(self, x: torch.tensor, y: torch.tensor) -> torch.tensor:
+    def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         return self.kernel_1(x, y) * self.kernel_2(x, y)
 
 
@@ -157,6 +157,5 @@ class PowerKernel(CompKernel):
     def __repr__(self) -> str:
         return "{0:s}^{1:s}".format(repr(self.kernel_1), repr(self.kernel_2))
 
-
-    def forward(self, x: torch.tensor, y: torch.tensor) -> torch.tensor:
+    def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         return self.kernel_1(x, y).pow(self.kernel_2(x, y))
