@@ -140,7 +140,7 @@ class PowerKernel(CompKernel):
 
     .. math::
 
-       K(x_i, x_j) = K_1(x_i, x_j) ^ K_2(x_i, x_j)
+       K(x_i, x_j) = {K_1(x_i, x_j)}^{K_2(x_i, x_j)}
 
 
     Parameters

@@ -12,7 +12,7 @@ import glob
 # Internal modules
 
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 BASE = path.abspath(path.dirname(__file__))
 
@@ -25,8 +25,9 @@ setup(
     version=__version__,
 
     description='torch-assimilate is a data assimilation package based on '
-                'PyTorch',
+                'PyTorch, xarray and dask',
     long_description=long_description,
+    long_description_content_type="text/rst",
 
     url='https://gitlab.com/tobifinn/torch-assimilate',
 

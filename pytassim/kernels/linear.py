@@ -54,7 +54,7 @@ class LinearKernel(BaseKernel):
 
     .. math::
 
-       K(x_i, x_j) = x_i(x_j)^T
+       K(x_i, x_j) = {(x_i)}^{T} x_j
 
     """
     def __str__(self) -> str:

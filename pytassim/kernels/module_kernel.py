@@ -50,7 +50,7 @@ class ModuleKernel(BaseKernel):
 
     .. math::
 
-       K(x_i, x_j) = \\phi(x_i)(\\phi(x_y))^T.
+       K(x_i, x_j) = {(\\phi(x_i))}^{T} \\phi(x_y).
 
     This kernel can be used to implement random fourier features
     :cite:`rahimi_random_2008`, instances of the Nystrom method
