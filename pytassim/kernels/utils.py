@@ -25,6 +25,7 @@
 
 # System modules
 import logging
+from typing import Union
 
 # External modules
 import torch
@@ -61,7 +62,7 @@ def dot_product(
 def distance_matrix(
         x: torch.Tensor,
         y: torch.Tensor,
-        norm: float = 2.
+        norm: Union[int, float] = 2.
 ) -> torch.Tensor:
     """
     The distance matrix between given tensors defined via the p-norm distance.
@@ -72,7 +73,7 @@ def distance_matrix(
         The first input to the kernel.
     y : :py:class:`torch.Tensor` (..., n_samples_y, n_features)
         The second input to the kernel.
-    norm : :py:class:`float`
+    norm : float or int
         The norm of this distance (default=2.0).
 
     Returns
