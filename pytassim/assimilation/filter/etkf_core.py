@@ -208,7 +208,7 @@ class ETKFAnalyser(object):
         """
         Multiply given ensemble perturbations with ensemble weights.
         """
-        ana_perts = torch.einsum('...ig,ij->...jg', perts, weights)
+        ana_perts = torch.einsum('...ig,...ij->...jg', perts, weights)
         return ana_perts
 
     def get_analysis_perts(
