@@ -35,7 +35,8 @@ import pandas as pd
 import torch
 
 # Internal modules
-from .etkf_core import ETKFAnalyser, CorrMixin, UnCorrMixin
+from .etkf_core import ETKFAnalyser
+from pytassim.assimilation.filter.mixins import CorrMixin, UnCorrMixin
 from .filter import FilterAssimilation
 from pytassim.transform import BaseTransformer
 

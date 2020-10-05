@@ -25,15 +25,12 @@
 
 # System modules
 import logging
-from typing import Union, Tuple, Iterable
+from typing import Union, Tuple
 
 # External modules
 import numpy as np
 import torch
 import torch.sparse
-import scipy.linalg
-import xarray as xr
-import dask.array as da
 
 # Internal modules
 from ..utils import evd, rev_evd
@@ -241,77 +238,3 @@ class ETKFAnalyser(object):
     ) -> torch.Tensor:
         return self.get_analysis_perts(state_perts, normed_perts, normed_obs,
                                        state_grid, obs_grid)
-
-
-class CorrMixin(object):
-    _correlated = True
-
-    @staticmethod
-    def _get_obs_cov(observations: Iterable[xr.Dataset]) -> np.ndarray:
-        """
-        Get the observational covariance from given observations.
-        """
-        cov_stacked_list = []
-        for obs in observations:
-            len_time = len(obs.time)
-            stacked_cov = [obs['covariance'].values] * len_time
-            stacked_cov = scipy.linalg.block_diag(*stacked_cov)
-            cov_stacked_list.append(stacked_cov)
-        obs_cov = scipy.linalg.block_diag(*cov_stacked_list)
-        return obs_cov
-
-    @staticmethod
-    def _get_chol_inverse(cov: torch.Tensor) -> torch.Tensor:
-        """
-        Decomposes given covariance with cholesky decomposition and returns the
-        inverse of the cholesky decomposition.
-        """
-        chol_decomp = torch.cholesky(cov)
-        chol_inv = chol_decomp.inverse()
-        return chol_inv
-
-    @staticmethod
-    def _mul_cinv(state: torch.Tensor, cinv: torch.Tensor) -> torch.Tensor:
-        """
-        Multiplies given tensor with given inverse of the cholesky decomposed
-        covariance matrix.
-        """
-        normed_state = torch.mm(state, cinv)
-        return normed_state
-
-
-class UnCorrMixin(object):
-    _correlated = False
-
-    @staticmethod
-    def _get_obs_cov(observations: Iterable[xr.Dataset]) -> np.ndarray:
-        """
-        Get the observational covariance from given observations.
-        """
-        cov_stacked_list = []
-        for obs in observations:
-            len_time = len(obs.time)
-            stacked_cov = [obs['covariance'].values] * len_time
-            stacked_cov = np.concatenate(stacked_cov)
-            cov_stacked_list.append(stacked_cov)
-        obs_cov = np.concatenate(cov_stacked_list)
-        return obs_cov
-
-    @staticmethod
-    def _get_chol_inverse(cov: torch.Tensor) -> torch.Tensor:
-        """
-        Decomposes given covariance with cholesky decomposition and returns the
-        inverse of the cholesky decomposition.
-        """
-        chol_decomp = cov.sqrt()
-        chol_inv = 1 / chol_decomp
-        return chol_inv
-
-    @staticmethod
-    def _mul_cinv(state: torch.Tensor, cinv: torch.Tensor) -> torch.Tensor:
-        """
-        Multiplies given tensor with given inverse of the cholesky decomposed
-        covariance matrix.
-        """
-        normed_state = state * cinv
-        return normed_state
