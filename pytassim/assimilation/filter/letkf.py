@@ -34,7 +34,7 @@ import torch
 
 # Internal modules
 from .etkf import ETKFBase
-from .etkf_core import CorrMixin, UnCorrMixin
+from pytassim.assimilation.filter.mixins import CorrMixin, UnCorrMixin
 from .letkf_core import LETKFAnalyser
 
 from pytassim.localization.localization import BaseLocalization

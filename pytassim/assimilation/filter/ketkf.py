@@ -32,7 +32,7 @@ import torch
 
 # Internal modules
 from .ketkf_core import KETKFAnalyser
-from .etkf_core import CorrMixin, UnCorrMixin
+from pytassim.assimilation.filter.mixins import CorrMixin, UnCorrMixin
 from .etkf import ETKFBase
 
 from pytassim.kernels.base_kernels import BaseKernel
