@@ -80,15 +80,25 @@ class UnCorrMixin(object):
     _correlated = False
 
     @staticmethod
-    def _get_obs_cov(observations: Iterable[xr.Dataset]) -> np.ndarray:
+    def _get_block_cov_wo_time(obs):
+        len_time = len(obs.time)
+        stacked_cov = [obs['covariance'].values] * len_time
+        stacked_cov = np.concatenate(stacked_cov)
+        return stacked_cov
+
+    def _get_obs_cov(self, observations: Iterable[xr.Dataset]) -> np.ndarray:
         """
         Get the observational covariance from given observations.
         """
         cov_stacked_list = []
         for obs in observations:
-            len_time = len(obs.time)
-            stacked_cov = [obs['covariance'].values] * len_time
-            stacked_cov = np.concatenate(stacked_cov)
+            if 'time' in obs['covariance'].dims:
+                stacked_cov = obs['covariance'].stack(
+                    obs_id=('time', 'obs_grid_1')
+                )
+                stacked_cov = stacked_cov.values
+            else:
+                stacked_cov = self._get_block_cov_wo_time(obs)
             cov_stacked_list.append(stacked_cov)
         obs_cov = np.concatenate(cov_stacked_list)
         return obs_cov
