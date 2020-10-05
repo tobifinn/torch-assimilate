@@ -43,15 +43,43 @@ class CorrMixin(object):
     _correlated = True
 
     @staticmethod
-    def _get_obs_cov(observations: Iterable[xr.Dataset]) -> np.ndarray:
+    def _get_block_cov_with_time(obs):
+        """
+        Get stacked covariance from observations with time dimension in
+        covariance.
+        """
+        stacked_cov = obs['covariance'].expand_dims(
+            time_2=obs['covariance'].indexes['time']
+        )
+        stacked_cov = stacked_cov.stack(
+            obs_id_1=('time', 'obs_grid_1')
+        )
+        stacked_cov = stacked_cov.stack(
+            obs_id_2=('time_2', 'obs_grid_2')
+        )
+        return stacked_cov.values
+
+    @staticmethod
+    def _get_block_cov_wo_time(obs):
+        """
+        Get stacked covariance from observations without time dimension in
+        covariance.
+        """
+        len_time = len(obs.time)
+        stacked_cov = [obs['covariance'].values] * len_time
+        stacked_cov = scipy.linalg.block_diag(*stacked_cov)
+        return stacked_cov
+
+    def _get_obs_cov(self, observations: Iterable[xr.Dataset]) -> np.ndarray:
         """
         Get the observational covariance from given observations.
         """
         cov_stacked_list = []
         for obs in observations:
-            len_time = len(obs.time)
-            stacked_cov = [obs['covariance'].values] * len_time
-            stacked_cov = scipy.linalg.block_diag(*stacked_cov)
+            if 'time' in obs['covariance'].dims:
+                stacked_cov = self._get_block_cov_with_time(obs)
+            else:
+                stacked_cov = self._get_block_cov_wo_time(obs)
             cov_stacked_list.append(stacked_cov)
         obs_cov = scipy.linalg.block_diag(*cov_stacked_list)
         return obs_cov
@@ -81,9 +109,25 @@ class UnCorrMixin(object):
 
     @staticmethod
     def _get_block_cov_wo_time(obs):
+        """
+        Get stacked covariance from observations without time dimension in
+        covariance.
+        """
         len_time = len(obs.time)
         stacked_cov = [obs['covariance'].values] * len_time
         stacked_cov = np.concatenate(stacked_cov)
+        return stacked_cov
+
+    @staticmethod
+    def _get_block_cov_with_time(obs):
+        """
+        Get stacked covariance from observations with time dimension in
+        covariance.
+        """
+        stacked_cov = obs['covariance'].stack(
+            obs_id=('time', 'obs_grid_1')
+        )
+        stacked_cov = stacked_cov.values
         return stacked_cov
 
     def _get_obs_cov(self, observations: Iterable[xr.Dataset]) -> np.ndarray:
@@ -93,10 +137,7 @@ class UnCorrMixin(object):
         cov_stacked_list = []
         for obs in observations:
             if 'time' in obs['covariance'].dims:
-                stacked_cov = obs['covariance'].stack(
-                    obs_id=('time', 'obs_grid_1')
-                )
-                stacked_cov = stacked_cov.values
+                stacked_cov = self._get_block_cov_with_time(obs)
             else:
                 stacked_cov = self._get_block_cov_wo_time(obs)
             cov_stacked_list.append(stacked_cov)

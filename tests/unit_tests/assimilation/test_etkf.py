@@ -115,6 +115,27 @@ class TestETKFCorr(unittest.TestCase):
         )
         np.testing.assert_equal(returned_cov, block_diag)
 
+    def test_prepare_obs_returns_obs_cov_matrix_with_time(self):
+        self.obs['covariance'] = self.obs['covariance'].expand_dims(
+            time=self.obs['time'], axis=0
+        )
+        stacked_cov = self.obs['covariance'].expand_dims(
+            time_2=self.obs['covariance'].indexes['time']
+        )
+        stacked_cov = stacked_cov.stack(
+            obs_id_1=('time', 'obs_grid_1')
+        )
+        stacked_cov = stacked_cov.stack(
+            obs_id_2=('time_2', 'obs_grid_2')
+        )
+        block_diag = scipy.linalg.block_diag(
+            stacked_cov.values, stacked_cov.values
+        )
+        returned_cov = self.algorithm._get_obs_cov(
+            (self.obs, self.obs)
+        )
+        np.testing.assert_equal(returned_cov, block_diag)
+
     def test_prepare_obs_works_for_single_obs(self):
         obs_stacked = self.obs['observations'].stack(
             obs_id=('time', 'obs_grid_1')
@@ -340,6 +361,19 @@ class TestETKFCorr(unittest.TestCase):
         assimilated_state = self.algorithm.assimilate(self.state, obs_tuple,
                                                       None, ana_time)
         self.assertFalse(np.any(np.isnan(assimilated_state.values)))
+
+    def test_algorithm_works_time(self):
+        ana_time = self.state.time[-1].values
+        obs_tuple = (self.obs, self.obs.copy())
+        no_time = self.algorithm.assimilate(self.state, obs_tuple, None,
+                                            ana_time)
+        self.obs['covariance'] = self.obs['covariance'].expand_dims(
+            time=self.obs['time']
+        )
+        obs_tuple = (self.obs, self.obs.copy())
+        with_time = self.algorithm.assimilate(self.state, obs_tuple,
+                                              None, ana_time)
+        xr.testing.assert_identical(with_time, no_time)
 
 
 class TestETKFUncorr(unittest.TestCase):
