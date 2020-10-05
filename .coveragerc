@@ -22,8 +22,9 @@ exclude_lines =
     logger.warning
     logger.error
 
+ignore_errors = True
+
 [run]
     omit = tests/*
 
 
-ignore_errors = True
