@@ -116,6 +116,33 @@ class TestObsSubset(unittest.TestCase):
         )
         self.assertTrue(self.obs_ds.obs._valid_cov_uncorr)
 
+    def test_valid_cov_uncorr_works_for_time_dimension_first(self):
+        self.obs_ds['covariance'] = xr.DataArray(
+            np.diag(self.obs_ds['covariance'].values),
+            coords={
+                'obs_grid_1': self.obs_ds.obs_grid_1
+            },
+            dims=['obs_grid_1']
+        )
+        self.obs_ds['covariance'] = self.obs_ds['covariance'].expand_dims(
+            time=self.obs_ds['time'], axis=0
+        )
+        self.assertTrue(self.obs_ds.obs._valid_cov_uncorr)
+        self.obs_ds['covariance'] = self.obs_ds['covariance'].transpose(
+            'obs_grid_1', 'time'
+        )
+        self.assertFalse(self.obs_ds.obs._valid_cov_uncorr)
+
+    def test_valid_cov_corr_works_for_time_dimension_first(self):
+        self.obs_ds['covariance'] = self.obs_ds['covariance'].expand_dims(
+            time=self.obs_ds['time'], axis=0
+        )
+        self.assertTrue(self.obs_ds.obs._valid_cov_corr)
+        self.obs_ds['covariance'] = self.obs_ds['covariance'].transpose(
+            'obs_grid_1', 'obs_grid_2', 'time'
+        )
+        self.assertFalse(self.obs_ds.obs._valid_cov_corr)
+
     def test_correlated_property_checks_if_obs_grid_2_available(self):
         self.assertTrue(self.obs_ds.obs.correlated)
         self.obs_ds['covariance'] = xr.DataArray(
