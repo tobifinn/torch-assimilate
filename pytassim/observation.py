@@ -160,11 +160,15 @@ class Observation(object):
         valid_cov : bool
             If the ``covariance`` :py:class:`~xarray.DataArray` is valid.
         """
-        dim_order = ('obs_grid_1',)
-        checked_dims = dim_order == self.ds['covariance'].dims
-
         obs_grid_len = self.ds['observations'].shape[-1]
-        valid_shape = (obs_grid_len,)
+        if 'time' in self.ds['covariance'].dims:
+            dim_order = ('time', 'obs_grid_1')
+            valid_shape = (self.ds['time'].shape[0], obs_grid_len)
+        else:
+            dim_order = ('obs_grid_1',)
+            valid_shape = (obs_grid_len,)
+
+        checked_dims = dim_order == self.ds['covariance'].dims
         checked_shape = valid_shape == self.ds['covariance'].shape
         valid_cov = checked_dims and checked_shape
         return valid_cov
@@ -180,11 +184,16 @@ class Observation(object):
         valid_cov : bool
             If the ``covariance`` :py:class:`~xarray.DataArray` is valid.
         """
-        dim_order = ('obs_grid_1', 'obs_grid_2')
-        checked_dims = dim_order == self.ds['covariance'].dims[-2:]
-
         obs_grid_len = self.ds['observations'].shape[-1]
-        valid_shape = (obs_grid_len, obs_grid_len)
+
+        if 'time' in self.ds['covariance'].dims:
+            dim_order = ('time', 'obs_grid_1', 'obs_grid_2')
+            valid_shape = (self.ds['time'].shape[0], obs_grid_len, obs_grid_len)
+        else:
+            dim_order = ('obs_grid_1', 'obs_grid_2')
+            valid_shape = (obs_grid_len, obs_grid_len)
+
+        checked_dims = dim_order == self.ds['covariance'].dims
         checked_shape = valid_shape == self.ds['covariance'].shape
 
         try:
