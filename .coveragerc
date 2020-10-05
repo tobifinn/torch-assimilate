@@ -23,3 +23,8 @@ exclude_lines =
     logger.error
 
 ignore_errors = True
+
+[run]
+    omit = tests/*
+
+
