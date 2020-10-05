@@ -40,7 +40,7 @@ from distributed import Client
 from distributed.deploy.cluster import Cluster
 
 # Internal modules
-from .etkf_core import CorrMixin, UnCorrMixin
+from pytassim.assimilation.filter import CorrMixin, UnCorrMixin
 from .letkf import LETKFBase
 
 from pytassim.localization import BaseLocalization
