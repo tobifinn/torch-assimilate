@@ -33,6 +33,7 @@ import warnings
 import xarray as xr
 import numpy as np
 import pandas as pd
+import torch
 
 # Internal modules
 from pytassim.interface.base import BaseAssimilation
@@ -59,6 +60,30 @@ class TestBaseAssimilation(unittest.TestCase):
         self.state = xr.open_dataarray(state_path)
         obs_path = os.path.join(DATA_PATH, 'test_single_obs.nc')
         self.obs = xr.open_dataset(obs_path)
+
+    def test_dtype_returns_private_dtype(self):
+        self.algorithm._dtype = torch.int
+        self.assertEqual(self.algorithm.dtype, torch.int)
+
+    def test_dtype_sets_private_dtype(self):
+        self.algorithm._dtype = None
+        self.algorithm.dtype = torch.int
+        self.assertEqual(self.algorithm._dtype, torch.int)
+
+    def test_dtype_raises_type_error_if_not_pytorch_dtype(self):
+        with self.assertRaises(TypeError):
+            self.algorithm.dtype = 123
+
+    def test_device_returns_torch_device(self):
+        self.assertIsInstance(self.algorithm._device, torch.device)
+
+    def test_device_returns_gpu_if_gpu_true(self):
+        self.algorithm.gpu = True
+        self.assertEqual(self.algorithm._device, torch.device('cuda'))
+
+    def test_device_returns_cpu_if_gpu_false(self):
+        self.algorithm.gpu = False
+        self.assertEqual(self.algorithm._device, torch.device('cpu'))
 
     def test_validate_state_calls_valid_from_state(self):
         with patch('pytassim.state.ModelState.valid',
