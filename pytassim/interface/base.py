@@ -62,11 +62,12 @@ class BaseAssimilation(object):
             pre_transform: Union[None, Iterable[BaseTransformer]] = None,
             post_transform: Union[None, Iterable[BaseTransformer]] = None
     ):
+        self._dtype = torch.float32
         self.smoother = smoother
         self.gpu = gpu
         self.pre_transform = pre_transform
         self.post_transform = post_transform
-        self.dtype = torch.double
+        self.dtype = torch.float64
 
     def __str__(self):
         return 'BaseAssimilation'
@@ -75,7 +76,21 @@ class BaseAssimilation(object):
         return 'BaseAssimilation'
 
     @property
-    def device(self) -> torch.device:
+    def dtype(self) -> torch.dtype:
+        return self._dtype
+
+    @dtype.setter
+    def dtype(self, new_type):
+        if isinstance(new_type, torch.dtype):
+            self._dtype = new_type
+        else:
+            raise TypeError(
+                'Given object is not a valid torch.dtype, '
+                'instead it has as type: {0}'.format(type(new_type))
+            )
+
+    @property
+    def _device(self) -> torch.device:
         return torch.device("cuda" if self.gpu else "cpu")
 
     def _states_to_torch(
