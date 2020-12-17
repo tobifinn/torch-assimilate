@@ -114,9 +114,7 @@ class BaseAssimilation(object):
                       '\n{0:s}'
             raise ObservationError(err_msg.format(str(observation)))
 
-    def _validate_observations(
-            self, observations: Union[xr.Dataset, Iterable[xr.Dataset]]
-    ):
+    def _validate_observations(self, observations: Iterable[xr.Dataset]):
         for obs in observations:
             self._validate_single_obs(obs)
 
