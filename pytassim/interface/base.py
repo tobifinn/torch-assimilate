@@ -188,7 +188,7 @@ class BaseAssimilation(object):
     def update_state(
             self,
             state: xr.DataArray,
-            observations: Union[xr.Dataset, Iterable[xr.Dataset]],
+            observations: Iterable[xr.Dataset],
             pseudo_state: Union[xr.DataArray, None],
             analysis_time: pd.Timestamp
     ) -> xr.DataArray:
@@ -204,14 +204,8 @@ class BaseAssimilation(object):
             ``observation``. This :py:class:`~xarray.DataArray` should have
             four coordinates, which are specified in
             :py:class:`pytassim.state.ModelState`.
-        observations : :py:class:`xarray.Dataset` or \
-        iterable(:py:class:`xarray.Dataset`)
-            These observations are used to update given state. An iterable of
-            many :py:class:`xarray.Dataset` can be used to assimilate different
-            variables. For the observation state, these observations are
-            stacked such that the observation state contains all observations.
-            The :py:class:`xarray.Dataset` are validated with
-            :py:class:`pytassim.observation.Observation.valid`
+        observations : iterable(:py:class:`xarray.Dataset`)
+            These observations are used to update given state.
         pseudo_state : :py:class:`xarray.DataArray`
             This state is used to generate an observation-equivalent. This
              :py:class:`~xarray.DataArray` should have four coordinates, which
