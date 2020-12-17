@@ -74,6 +74,10 @@ class BaseAssimilation(object):
     def __repr__(self):
         return 'BaseAssimilation'
 
+    @property
+    def device(self) -> torch.device:
+        return torch.device("cuda" if self.gpu else "cpu")
+
     def _states_to_torch(
             self,
             *states: Tuple[np.ndarray]
