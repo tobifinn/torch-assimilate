@@ -194,7 +194,7 @@ class BaseAssimilation(object):
                 obs['obs_grid_1'] = pd.Index(
                     obs.indexes['obs_grid_1'].values, tupleize_cols=False
                 )
-            stacked_obs = obs['observations'].stack(
+            stacked_obs = obs.stack(
                 obs_id=('time', 'obs_grid_1')
             )
             stacked_observations.append(stacked_obs)

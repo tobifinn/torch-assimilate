@@ -156,6 +156,32 @@ class TestBaseAssimilation(unittest.TestCase):
         xr.testing.assert_equal(self.obs.obs.operator(self.obs, self.state),
                                 obs_equivalent[0])
 
+    def test_obs_stacks_observations(self):
+        stacked_obs = self.obs['observations'].stack(
+            obs_id=['time', 'obs_grid_1']
+        )
+        stacked_obs = xr.concat((stacked_obs, stacked_obs), dim='obs_id')
+        obs_list = [
+            self.obs['observations'],
+            self.obs['observations']
+        ]
+        returned_stacked_obs = self.algorithm._stack_obs(obs_list)
+        xr.testing.assert_identical(stacked_obs, returned_stacked_obs)
+
+    def test_obs_drops_multiindex_grid_if_multiindex(self):
+        self.obs['obs_grid_1'] = pd.MultiIndex.from_product(
+            [self.obs.indexes['obs_grid_1'], [0]],
+            names=['test', 'test_1']
+        )
+        stacked_obs = self.obs['observations'].copy(deep=True)
+        stacked_obs['obs_grid_1'] = pd.Index(
+            stacked_obs.indexes['obs_grid_1'].values,
+            tupleize_cols=False
+        )
+        stacked_obs = stacked_obs.stack(obs_id=['time', 'obs_grid_1'])
+        returned_obs = self.algorithm._stack_obs([self.obs['observations']])
+        xr.testing.assert_identical(returned_obs, stacked_obs)
+
     def test_assimilate_wo_obs_returns_state(self):
         with self.assertWarns(UserWarning):
             analysis = self.algorithm.assimilate(self.state, ())
