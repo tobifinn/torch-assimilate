@@ -31,6 +31,8 @@ from inspect import signature
 # External modules
 import xarray as xr
 from xarray import register_dataset_accessor
+import dask.array as da
+import numpy as np
 
 # Internal modules
 
@@ -240,6 +242,31 @@ class Observation(object):
         if self._valid_dims and self._valid_arrays:
             valid_ds = True
         return valid_ds
+
+    @property
+    def _uncorr_chol_inverse(self) -> np.ndarray:
+        cov_square_root = da.sqrt(self.ds['covariance'])
+        cov_chol_inv = 1 / cov_square_root
+        return cov_chol_inv
+
+    @property
+    def _corr_chol_inverse(self):
+        try:
+            chol_decomp = da.linalg.cholesky(self.ds['covariance'].data,
+                                             lower=True)
+            cov_chol_inv = da.linalg.inv(chol_decomp)
+        except AttributeError:
+            chol_decomp = np.linalg.cholesky(self.ds['covariance'].data)
+            cov_chol_inv = np.linalg.inv(chol_decomp)
+        cov_chol_inv = self.ds['covariance'].copy(data=cov_chol_inv)
+        return cov_chol_inv
+
+    @property
+    def cov_chol_inverse(self):
+        if self.correlated:
+            return self._corr_chol_inverse
+        else:
+            return self._uncorr_chol_inverse
 
     @staticmethod
     def operator(obs_ds: xr.Dataset, state: xr.DataArray) -> xr.DataArray:
