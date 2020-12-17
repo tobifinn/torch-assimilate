@@ -93,15 +93,6 @@ class BaseAssimilation(object):
     def _device(self) -> torch.device:
         return torch.device("cuda" if self.gpu else "cpu")
 
-    def _states_to_torch(
-            self,
-            *states: Tuple[np.ndarray]
-    ) -> Tuple[torch.Tensor]:
-        torch_states = [torch.from_numpy(s).to(self.dtype) for s in states]
-        if self.gpu:
-            torch_states = [s.cuda() for s in torch_states]
-        return torch_states
-
     @staticmethod
     def _validate_state(state: xr.DataArray):
         if not isinstance(state, xr.DataArray):
@@ -113,7 +104,8 @@ class BaseAssimilation(object):
             err_msg = '*** Given state is not a valid state ***\n{0:s}'
             raise StateError(err_msg.format(str(state)))
 
-    def _validate_single_obs(self, observation: xr.Dataset):
+    @staticmethod
+    def _validate_single_obs(observation: xr.Dataset):
         if not isinstance(observation, xr.Dataset):
             raise TypeError('*** Given observation is not a valid'
                             '``xarray.Dataset`` ***\n{0:s}'.format(observation))
@@ -121,23 +113,12 @@ class BaseAssimilation(object):
             err_msg = '*** Given observation is not a valid observation ***' \
                       '\n{0:s}'
             raise ObservationError(err_msg.format(str(observation)))
-        if observation.obs.correlated != self._correlated:
-            err_msg = '*** The correlation of the observation {0:s} is not ' \
-                      'the same as the asked correlation of this ' \
-                      'assimilation algorithm (asked: {1:s}, actual: {2:s}) ***'
-            raise ObservationError(
-                err_msg.format(str(observation), str(self._correlated),
-                               str(observation.obs.correlated))
-            )
 
     def _validate_observations(
             self, observations: Union[xr.Dataset, Iterable[xr.Dataset]]
     ):
-        if isinstance(observations, (list, set, tuple)):
-            for obs in observations:
-                self._validate_single_obs(obs)
-        else:
-            self._validate_single_obs(observations)
+        for obs in observations:
+            self._validate_single_obs(obs)
 
     @staticmethod
     def _get_analysis_time(
