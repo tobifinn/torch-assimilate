@@ -90,7 +90,7 @@ class BaseAssimilation(object):
             )
 
     @property
-    def _device(self) -> torch.device:
+    def device(self) -> torch.device:
         return torch.device("cuda" if self.gpu else "cpu")
 
     @staticmethod

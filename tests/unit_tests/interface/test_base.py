@@ -75,15 +75,15 @@ class TestBaseAssimilation(unittest.TestCase):
             self.algorithm.dtype = 123
 
     def test_device_returns_torch_device(self):
-        self.assertIsInstance(self.algorithm._device, torch.device)
+        self.assertIsInstance(self.algorithm.device, torch.device)
 
     def test_device_returns_gpu_if_gpu_true(self):
         self.algorithm.gpu = True
-        self.assertEqual(self.algorithm._device, torch.device('cuda'))
+        self.assertEqual(self.algorithm.device, torch.device('cuda'))
 
     def test_device_returns_cpu_if_gpu_false(self):
         self.algorithm.gpu = False
-        self.assertEqual(self.algorithm._device, torch.device('cpu'))
+        self.assertEqual(self.algorithm.device, torch.device('cpu'))
 
     def test_validate_state_calls_valid_from_state(self):
         with patch('pytassim.state.ModelState.valid',
