@@ -213,6 +213,24 @@ class TestObsSubset(unittest.TestCase):
         ret_chol_inv = self.obs_ds.obs._corr_chol_inverse
         np.testing.assert_array_equal(ret_chol_inv, chol_inv)
 
+    def test_corr_normalize(self):
+        normalized_obs = xr.dot(
+            self.obs_ds['observations'], self.obs_ds.obs._corr_chol_inverse,
+            dims='obs_grid_1'
+        )
+        normalized_obs = normalized_obs.rename({'obs_grid_2': 'obs_grid_1'})
+        ret_obs = self.obs_ds.obs.mul_rcinv(self.obs_ds['observations'])
+        xr.testing.assert_equal(ret_obs, normalized_obs)
+
+    def test_uncorr_normalize(self):
+        cov_values = np.diagonal(self.obs_ds['covariance'])
+        self.obs_ds['covariance'] = self.obs_ds['covariance'].isel(obs_grid_2=0)
+        self.obs_ds['covariance'].values = cov_values
+        chol_inv = 1 / np.sqrt(self.obs_ds['covariance'])
+        normalized_obs = self.obs_ds['observations'] * chol_inv
+        ret_obs = self.obs_ds.obs.mul_rcinv(self.obs_ds['observations'])
+        xr.testing.assert_equal(ret_obs, normalized_obs)
+
     def test_corr_chol_inverse_works_with_dask_array(self):
         chol_inv = np.linalg.inv(np.linalg.cholesky(self.obs_ds['covariance']))
         chunked_obs = self.obs_ds.chunk({'obs_grid_1': 20, 'obs_grid_2': 20})

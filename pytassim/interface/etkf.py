@@ -95,8 +95,8 @@ class ETKF(FilterAssimilation):
             )
             curr_innov = filtered_obs[k]['observations']-curr_mean
             curr_cinv = filtered_obs[k].obs.get_chol_inverse()
-            curr_innov = filtered_obs[k].obs.normalize(curr_innov, curr_cinv)
-            curr_perts = filtered_obs[k].obs.normalize(curr_perts, curr_cinv)
+            curr_innov = filtered_obs[k].obs.mul_rcinv(curr_innov, curr_cinv)
+            curr_perts = filtered_obs[k].obs.mul_rcinv(curr_perts, curr_cinv)
             innovations.append(curr_innov)
             ens_obs_perts.append(curr_perts)
         innovations = self._stack_obs(innovations)

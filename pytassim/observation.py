@@ -261,12 +261,20 @@ class Observation(object):
         cov_chol_inv = self.ds['covariance'].copy(data=cov_chol_inv)
         return cov_chol_inv
 
-    @property
-    def cov_chol_inverse(self):
+    def _corr_normalize(self, value):
+        normalized = xr.dot(value, self._corr_chol_inverse, dims='obs_grid_1')
+        normalized = normalized.rename({'obs_grid_2': 'obs_grid_1'})
+        return normalized
+
+    def _uncorr_normalize(self, value):
+        normalized = value * self._uncorr_chol_inverse
+        return normalized
+
+    def mul_rcinv(self, value):
         if self.correlated:
-            return self._corr_chol_inverse
+            return self._corr_normalize(value)
         else:
-            return self._uncorr_chol_inverse
+            return self._uncorr_normalize(value)
 
     @staticmethod
     def operator(obs_ds: xr.Dataset, state: xr.DataArray) -> xr.DataArray:
