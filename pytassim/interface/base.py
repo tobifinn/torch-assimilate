@@ -204,6 +204,23 @@ class BaseAssimilation(object):
         return obs_equivalent, filtered_observations
 
     @staticmethod
+    def _stack_obs(
+            observations: List[xr.DataArray]
+    ) -> xr.DataArray:
+        stacked_observations = []
+        for obs in observations:
+            if isinstance(obs.indexes['obs_grid_1'], pd.MultiIndex):
+                obs['obs_grid_1'] = pd.Index(
+                    obs.indexes['obs_grid_1'].values, tupleize_cols=False
+                )
+            stacked_obs = obs['observations'].stack(
+                obs_id=('time', 'obs_grid_1')
+            )
+            stacked_observations.append(stacked_obs)
+        stacked_observations = xr.concat(stacked_observations, dim='obs_id')
+        return stacked_observations
+
+    @staticmethod
     def _apply_weights(
             state: xr.DataArray,
             weights: xr.DataArray
