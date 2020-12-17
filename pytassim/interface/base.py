@@ -189,7 +189,7 @@ class BaseAssimilation(object):
             self,
             state: xr.DataArray,
             observations: Union[xr.Dataset, Iterable[xr.Dataset]],
-            pseudo_state: xr.DataArray,
+            pseudo_state: Union[xr.DataArray, None],
             analysis_time: pd.Timestamp
     ) -> xr.DataArray:
         """
