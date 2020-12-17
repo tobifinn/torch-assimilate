@@ -184,6 +184,17 @@ class BaseAssimilation(object):
                 pass
         return obs_equivalent, filtered_observations
 
+    @staticmethod
+    def _apply_weights(
+            state: xr.DataArray,
+            weights: xr.DataArray
+    ) -> xr.DataArray:
+        state_mean, state_perts = state.state.split_mean_perts(dim='ensemble')
+        analysis_perts = xr.dot(state_perts, weights, dims='ensemble')
+        analysis_perts = analysis_perts.rename({'ensemble_new': 'ensemble'})
+        analysis = state_mean + analysis_perts
+        return analysis
+
     @abc.abstractmethod
     def update_state(
             self,
