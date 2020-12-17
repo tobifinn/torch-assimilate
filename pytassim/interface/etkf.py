@@ -81,7 +81,7 @@ class ETKF(FilterAssimilation):
         self._core_module = ETKFModule(inf_factor=new_factor)
 
     @abc.abstractmethod
-    def _get_weights(
+    def _estimate_weights(
             self,
             state: xr.DataArray,
             filtered_obs: List[xr.Dataset],

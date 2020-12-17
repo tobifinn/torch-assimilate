@@ -46,7 +46,7 @@ class FilterAssimilation(BaseAssimilation):
         return state, pseudo_state, observations
 
     @abc.abstractmethod
-    def _get_weights(
+    def _estimate_weights(
             self,
             state: xr.DataArray,
             filtered_obs: List[xr.DataArray],
@@ -72,6 +72,6 @@ class FilterAssimilation(BaseAssimilation):
 
         ens_obs, filtered_obs = self._apply_obs_operator(pseudo_state,
                                                          observations)
-        weights = self._get_weights(state, filtered_obs, ens_obs)
+        weights = self._estimate_weights(state, filtered_obs, ens_obs)
         analysis = self._apply_weights(state, weights)
         return analysis
