@@ -105,18 +105,18 @@ class BaseAssimilation(object):
             raise StateError(err_msg.format(str(state)))
 
     @staticmethod
-    def _validate_single_obs(observation: xr.Dataset):
-        if not isinstance(observation, xr.Dataset):
-            raise TypeError('*** Given observation is not a valid'
-                            '``xarray.Dataset`` ***\n{0:s}'.format(observation))
-        if not observation.obs.valid:
-            err_msg = '*** Given observation is not a valid observation ***' \
-                      '\n{0:s}'
-            raise ObservationError(err_msg.format(str(observation)))
-
-    def _validate_observations(self, observations: Iterable[xr.Dataset]):
+    def _validate_observations(observations: Iterable[xr.Dataset]):
         for obs in observations:
-            self._validate_single_obs(obs)
+            if not isinstance(obs, xr.Dataset):
+                raise TypeError(
+                    '*** Given observation is not a valid ``xarray.Dataset`` '
+                    '***\n{0:s}'.format(obs)
+                )
+            if not obs.obs.valid:
+                raise ObservationError(
+                    '*** Given observation is not a valid observation ***\n'
+                    '{0:s}'.format(str(obs))
+                )
 
     @staticmethod
     def _get_analysis_time(
