@@ -105,8 +105,10 @@ class BaseAssimilation(object):
     @staticmethod
     def _validate_state(state: xr.DataArray):
         if not isinstance(state, xr.DataArray):
-            raise TypeError('*** Given state is not a valid '
-                            '``xarray.DataArray`` ***\n{0:s}'.format(state))
+            raise TypeError(
+                '*** Given state is not a valid ``xarray.DataArray`` ***\n'
+                '{0}'.format(type(state))
+            )
         if not state.state.valid:
             err_msg = '*** Given state is not a valid state ***\n{0:s}'
             raise StateError(err_msg.format(str(state)))
