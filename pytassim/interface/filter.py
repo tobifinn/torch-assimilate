@@ -43,7 +43,7 @@ class FilterAssimilation(BaseAssimilation):
             tmp_obs.obs.operator = obs.obs.operator
             sel_obs.append(tmp_obs)
         observations = sel_obs
-        return state, pseudo_state, observations
+        return state, observations, pseudo_state
 
     @abc.abstractmethod
     def _estimate_weights(
@@ -69,7 +69,6 @@ class FilterAssimilation(BaseAssimilation):
             state, observations, pseudo_state = self._slice_analysis(
                 analysis_time, state, observations, pseudo_state
             )
-
         ens_obs, filtered_obs = self._apply_obs_operator(pseudo_state,
                                                          observations)
         weights = self._estimate_weights(state, filtered_obs, ens_obs)

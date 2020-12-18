@@ -40,8 +40,12 @@ def etkf_function(
         device: torch.device,
         dtype: torch.dtype
 ) -> np.ndarray:
+    obs_size = innovations.shape[0]
+    ens_size = ens_obs_perts.shape[0]
     torch_innovations = torch.from_numpy(innovations).to(dtype).to(device)
     torch_perts = torch.from_numpy(ens_obs_perts).to(dtype).to(device)
+    torch_innovations = torch_innovations.view(1, obs_size)
+    torch_perts = torch_perts.view(ens_size, obs_size)
     torch_weights = core_module(torch_perts, torch_innovations)[0]
     weights = torch_weights.numpy().astype(innovations.dtype)
     return weights
@@ -94,9 +98,8 @@ class ETKF(FilterAssimilation):
                 dim='ensemble'
             )
             curr_innov = filtered_obs[k]['observations']-curr_mean
-            curr_cinv = filtered_obs[k].obs.get_chol_inverse()
-            curr_innov = filtered_obs[k].obs.mul_rcinv(curr_innov, curr_cinv)
-            curr_perts = filtered_obs[k].obs.mul_rcinv(curr_perts, curr_cinv)
+            curr_innov = filtered_obs[k].obs.mul_rcinv(curr_innov)
+            curr_perts = filtered_obs[k].obs.mul_rcinv(curr_perts)
             innovations.append(curr_innov)
             ens_obs_perts.append(curr_perts)
         innovations = self._stack_obs(innovations)
