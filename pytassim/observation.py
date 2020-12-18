@@ -262,8 +262,8 @@ class Observation(object):
     def _corr_chol_inverse(self):
         if 'time' in self.ds['covariance'].dims:
             cov_chol_inv = []
-            for t in self.ds.indexes['time']:
-                curr_cov = self.ds['covariance'].sel(time=t)
+            for curr_t in range(len(self.ds['covariance'].time)):
+                curr_cov = self.ds['covariance'][curr_t]
                 curr_chol_inv = self._single_corr_chol_inv(curr_cov)
                 cov_chol_inv.append(curr_chol_inv)
             cov_chol_inv = xr.concat(cov_chol_inv, dim='time')
