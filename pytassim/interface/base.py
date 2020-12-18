@@ -35,11 +35,8 @@ from typing import Union, Iterable, Tuple, Any, List
 import xarray as xr
 import pandas as pd
 import torch
-import numpy as np
 
 # Internal modules
-from .utils import grid_to_array
-
 from pytassim.state import StateError
 from pytassim.observation import ObservationError
 from pytassim.transform import BaseTransformer
