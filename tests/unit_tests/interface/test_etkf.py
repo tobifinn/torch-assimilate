@@ -81,6 +81,20 @@ class TestETKF(unittest.TestCase):
                                                       None, ana_time)
         self.assertFalse(np.any(np.isnan(assimilated_state.values)))
 
+    def test_algorithm_works_dask(self):
+        ana_time = self.state.time[-1].values
+        obs_tuple = (self.obs, self.obs.copy())
+        analysis = self.algorithm.assimilate(self.state, obs_tuple, None,
+                                             ana_time)
+        chunked_state = self.state.chunk({'grid': 1})
+        chunked_analysis = self.algorithm.assimilate(
+            chunked_state, obs_tuple, None, ana_time
+        )
+        chunked_analysis = chunked_analysis.load()
+        np.testing.assert_allclose(
+            chunked_analysis.values, analysis.values, rtol=1E-10, atol=1E-10
+        )
+
     def test_algorithm_works_time(self):
         ana_time = self.state.time[-1].values
         obs_tuple = (self.obs, self.obs.copy())
@@ -93,6 +107,39 @@ class TestETKF(unittest.TestCase):
         with_time = self.algorithm.assimilate(self.state, obs_tuple,
                                               None, ana_time)
         xr.testing.assert_identical(with_time, no_time)
+
+    def test_etkf_returns_right_analysis(self):
+        sliced_state = self.state.isel(time=[0])
+        sliced_obs = self.obs.isel(time=[0])
+        sliced_obs.obs.operator = self.obs.obs.operator
+        ens_obs = sliced_obs.obs.operator(sliced_obs, sliced_state)
+        ens_mean, ens_perts = ens_obs.state.split_mean_perts()
+        innovation = sliced_obs['observations']-ens_mean
+
+        norm_innov = sliced_obs.obs.mul_rcinv(innovation)
+        norm_innov = torch.from_numpy(norm_innov.values).to(
+            self.algorithm.dtype
+        ).view(1, -1)
+
+        norm_perts = sliced_obs.obs.mul_rcinv(ens_perts)
+        norm_perts = norm_perts.transpose('ensemble', 'time', 'obs_grid_1')
+        norm_perts = torch.from_numpy(norm_perts.values).to(
+            self.algorithm.dtype
+        ).view(10, -1)
+
+        weights = self.algorithm.module(norm_perts, norm_innov)[0].numpy()
+        weights = xr.DataArray(
+            weights,
+            coords={
+                'ensemble': self.state.indexes['ensemble'],
+                'ensemble_new': self.state.indexes['ensemble']
+            },
+            dims=['ensemble', 'ensemble_new']
+        )
+        analysis = self.algorithm._apply_weights(sliced_state, weights)
+        ret_analysis = self.algorithm.assimilate(state=sliced_state,
+                                                 observations=sliced_obs)
+        xr.testing.assert_identical(analysis, ret_analysis)
 
     def test_filter_uses_state_as_pseudo_state_if_no_pseudo(self):
         right_analysis = self.algorithm.assimilate(self.state, self.obs,

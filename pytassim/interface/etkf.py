@@ -113,11 +113,11 @@ class ETKF(FilterAssimilation):
             dask='parallelized',
             output_core_dims=[['ensemble', 'ensemble_new']],
             output_dtypes=[float],
-            output_sizes={'ensemble_new': len(state['ensemble'])},
+            output_sizes={'ensemble_new': len(ens_obs_perts['ensemble'])},
             kwargs={
                 'core_module': self._core_module,
                 'device': self.device,
-                'dtype': self._dtype
+                'dtype': self.dtype
             }
         )
         return weights
