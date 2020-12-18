@@ -35,6 +35,7 @@ import dask.array as da
 import numpy as np
 
 # Internal modules
+from .utilities import lazy_property
 
 
 logger = logging.getLogger(__name__)
@@ -87,6 +88,7 @@ class Observation(object):
     """
     def __init__(self, xr_ds: xr.Dataset):
         self.ds = xr_ds
+        self._r_cinv = None
 
     def __str__(self):
         return 'Obs dataset ({0})'.format(str(self.ds))
@@ -243,13 +245,13 @@ class Observation(object):
             valid_ds = True
         return valid_ds
 
-    @property
+    @lazy_property('r_cinv')
     def _uncorr_chol_inverse(self) -> np.ndarray:
         cov_square_root = da.sqrt(self.ds['covariance'])
         cov_chol_inv = 1 / cov_square_root
         return cov_chol_inv
 
-    @property
+    @lazy_property('r_cinv')
     def _corr_chol_inverse(self):
         try:
             chol_decomp = da.linalg.cholesky(self.ds['covariance'].data,
