@@ -123,8 +123,8 @@ class GaspariCohn(BaseLocalization):
         """
         weights = np.ones((obs_grid.shape[0]), dtype=float)
         dist = np.atleast_2d(self.dist_func(grid_ind, obs_grid))
-        for i, d in enumerate(dist):
-            dist_radius = d / self.radius[i]
+        for i in range(dist.shape[-1]):
+            dist_radius = dist[:, i] / self.radius[i]
             conds = [dist_radius < thres for thres in self._thres]
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
