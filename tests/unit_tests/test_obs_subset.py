@@ -208,10 +208,41 @@ class TestObsSubset(unittest.TestCase):
         ret_chol_inv = chunked_obs.obs._uncorr_chol_inverse
         np.testing.assert_array_equal(ret_chol_inv, chol_inv)
 
+    def test_uncorr_chol_inverse_uses_r_cinv(self):
+        self.obs_ds.obs._r_cinv = np.arange(10)
+        np.testing.assert_array_equal(
+            np.arange(10), self.obs_ds.obs._uncorr_chol_inverse
+        )
+
+    def test_uncorr_chol_inverse_sets_r_cinv(self):
+        self.obs_ds.obs._r_cinv = None
+        cov_values = np.diagonal(self.obs_ds['covariance'])
+        self.obs_ds['covariance'] = self.obs_ds['covariance'].isel(obs_grid_2=0)
+        self.obs_ds['covariance'].values = cov_values
+        ret_chol_inv = self.obs_ds.obs._uncorr_chol_inverse
+        np.testing.assert_array_equal(ret_chol_inv, self.obs_ds.obs._r_cinv)
+
     def test_corr_chol_inverse_returns_squarerrot(self):
         chol_inv = np.linalg.inv(np.linalg.cholesky(self.obs_ds['covariance']))
         ret_chol_inv = self.obs_ds.obs._corr_chol_inverse
         np.testing.assert_array_equal(ret_chol_inv, chol_inv)
+
+    def test_corr_chol_inverse_works_with_dask_array(self):
+        chol_inv = np.linalg.inv(np.linalg.cholesky(self.obs_ds['covariance']))
+        chunked_obs = self.obs_ds.chunk({'obs_grid_1': 20, 'obs_grid_2': 20})
+        ret_chol_inv = chunked_obs.obs._corr_chol_inverse
+        np.testing.assert_array_equal(ret_chol_inv, chol_inv)
+
+    def test_corr_chol_inverse_uses_r_cinv(self):
+        self.obs_ds.obs._r_cinv = np.arange(10)
+        np.testing.assert_array_equal(
+            np.arange(10), self.obs_ds.obs._corr_chol_inverse
+        )
+
+    def test_corr_chol_inverse_sets_r_cinv(self):
+        self.obs_ds.obs._r_cinv = None
+        ret_chol_inv = self.obs_ds.obs._corr_chol_inverse
+        np.testing.assert_array_equal(ret_chol_inv, self.obs_ds.obs._r_cinv)
 
     def test_corr_normalize(self):
         normalized_obs = xr.dot(
@@ -230,13 +261,6 @@ class TestObsSubset(unittest.TestCase):
         normalized_obs = self.obs_ds['observations'] * chol_inv
         ret_obs = self.obs_ds.obs.mul_rcinv(self.obs_ds['observations'])
         xr.testing.assert_equal(ret_obs, normalized_obs)
-
-    def test_corr_chol_inverse_works_with_dask_array(self):
-        chol_inv = np.linalg.inv(np.linalg.cholesky(self.obs_ds['covariance']))
-        chunked_obs = self.obs_ds.chunk({'obs_grid_1': 20, 'obs_grid_2': 20})
-        ret_chol_inv = chunked_obs.obs._corr_chol_inverse
-        np.testing.assert_array_equal(ret_chol_inv, chol_inv)
-
 
 if __name__ == '__main__':
     unittest.main()
