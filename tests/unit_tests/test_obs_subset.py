@@ -229,9 +229,13 @@ class TestObsSubset(unittest.TestCase):
 
     def test_corr_chol_inverse_works_with_dask_array(self):
         chol_inv = np.linalg.inv(np.linalg.cholesky(self.obs_ds['covariance']))
-        chunked_obs = self.obs_ds.chunk({'obs_grid_1': 20, 'obs_grid_2': 20})
+        chol_inv = self.obs_ds['covariance'].copy(data=chol_inv)
+        chunked_obs = xr.open_mfdataset(
+            os.path.join(DATA_PATH, 'test_single_obs.nc'),
+            chunks={'obs_grid_1': 20, 'obs_grid_2': 20}
+        )
         ret_chol_inv = chunked_obs.obs._corr_chol_inverse
-        np.testing.assert_array_equal(ret_chol_inv, chol_inv)
+        xr.testing.assert_identical(chol_inv, ret_chol_inv)
 
     def test_corr_chol_inverse_uses_r_cinv(self):
         self.obs_ds.obs._r_cinv = np.arange(10)
@@ -261,6 +265,7 @@ class TestObsSubset(unittest.TestCase):
         normalized_obs = self.obs_ds['observations'] * chol_inv
         ret_obs = self.obs_ds.obs.mul_rcinv(self.obs_ds['observations'])
         xr.testing.assert_equal(ret_obs, normalized_obs)
+
 
 if __name__ == '__main__':
     unittest.main()

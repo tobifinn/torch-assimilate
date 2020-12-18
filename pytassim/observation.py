@@ -253,13 +253,8 @@ class Observation(object):
 
     @lazy_property('r_cinv')
     def _corr_chol_inverse(self):
-        try:
-            chol_decomp = da.linalg.cholesky(self.ds['covariance'].data,
-                                             lower=True)
-            cov_chol_inv = da.linalg.inv(chol_decomp)
-        except AttributeError:
-            chol_decomp = np.linalg.cholesky(self.ds['covariance'].data)
-            cov_chol_inv = np.linalg.inv(chol_decomp)
+        chol_decomp = np.linalg.cholesky(self.ds['covariance'].data)
+        cov_chol_inv = np.linalg.inv(chol_decomp)
         cov_chol_inv = self.ds['covariance'].copy(data=cov_chol_inv)
         return cov_chol_inv
 
