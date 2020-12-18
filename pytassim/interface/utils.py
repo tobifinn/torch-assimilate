@@ -38,7 +38,7 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
-def grid_to_array(
+def index_to_array(
         index: Any
 ) -> np.ndarray:
     """
