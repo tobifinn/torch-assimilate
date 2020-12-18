@@ -28,7 +28,7 @@ import logging
 from typing import Tuple, Any
 
 # External modules
-import torch
+import pandas as pd
 import dask.array as da
 import numpy as np
 
@@ -36,6 +36,11 @@ import numpy as np
 
 
 logger = logging.getLogger(__name__)
+
+
+def datetimeindex_to_float(index: Any) -> pd.Index:
+    float_index = pd.to_numeric(index, downcast='float')
+    return float_index
 
 
 def index_to_array(

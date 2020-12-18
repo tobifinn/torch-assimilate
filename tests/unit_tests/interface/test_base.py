@@ -37,6 +37,7 @@ import torch
 
 # Internal modules
 from pytassim.interface.base import BaseAssimilation
+from pytassim.interface.utils import datetimeindex_to_float
 from pytassim.state import StateError
 from pytassim.observation import ObservationError
 from pytassim.testing import dummy_obs_operator
@@ -158,7 +159,10 @@ class TestBaseAssimilation(unittest.TestCase):
                                 obs_equivalent[0])
 
     def test_obs_stacks_observations(self):
-        stacked_obs = self.obs['observations'].stack(
+        stacked_obs = self.obs.assign_coords(
+            time=datetimeindex_to_float(self.obs.indexes['time'])
+        )
+        stacked_obs = stacked_obs['observations'].stack(
             obs_id=['time', 'obs_grid_1']
         )
         stacked_obs = xr.concat((stacked_obs, stacked_obs), dim='obs_id')
@@ -178,6 +182,9 @@ class TestBaseAssimilation(unittest.TestCase):
         stacked_obs['obs_grid_1'] = pd.Index(
             stacked_obs.indexes['obs_grid_1'].values,
             tupleize_cols=False
+        )
+        stacked_obs['time'] = datetimeindex_to_float(
+            stacked_obs.indexes['time']
         )
         stacked_obs = stacked_obs.stack(obs_id=['time', 'obs_grid_1'])
         returned_obs = self.algorithm._stack_obs([self.obs['observations']])

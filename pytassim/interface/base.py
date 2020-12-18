@@ -37,6 +37,7 @@ import pandas as pd
 import torch
 
 # Internal modules
+from .utils import datetimeindex_to_float
 from pytassim.state import StateError
 from pytassim.observation import ObservationError
 from pytassim.transform import BaseTransformer
@@ -192,10 +193,9 @@ class BaseAssimilation(object):
                 obs['obs_grid_1'] = pd.Index(
                     obs.indexes['obs_grid_1'].values, tupleize_cols=False
                 )
-            stacked_obs['time'] = pd.to_numeric(
-                stacked_obs.indexes['time'], downcast='float'
-            )
-            stacked_obs = stacked_obs.stack(
+            time_float_index = datetimeindex_to_float(obs.indexes['time'])
+            obs = obs.assign_coords(time=time_float_index)
+            stacked_obs = obs.stack(
                 obs_id=('time', 'obs_grid_1')
             )
             stacked_observations.append(stacked_obs)
