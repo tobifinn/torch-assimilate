@@ -55,6 +55,7 @@ class NewAssimilation(BaseAssimilation):
 
 class TestBaseAssimilation(unittest.TestCase):
     def setUp(self):
+        self.rnd = np.random.RandomState(42)
         self.algorithm = NewAssimilation()
         state_path = os.path.join(DATA_PATH, 'test_state.nc')
         self.state = xr.open_dataarray(state_path)
@@ -186,6 +187,79 @@ class TestBaseAssimilation(unittest.TestCase):
         with self.assertWarns(UserWarning):
             analysis = self.algorithm.assimilate(self.state, ())
         xr.testing.assert_identical(analysis, self.state)
+
+    def test_assimilate_validates_state(self):
+        with self.assertRaises(TypeError):
+            self.algorithm.assimilate(self.state.values, (self.obs, ))
+
+    def test_assimilate_validates_obs(self):
+        with self.assertRaises(TypeError):
+            self.algorithm.assimilate(
+                self.state, (self.obs['observations'], )
+            )
+
+    def test_assimilate_validates_analysis(self):
+        def update_state(state, obs, pseudo_state=None, analysis_time=None):
+            return state.values
+        self.algorithm.update_state = update_state
+        with self.assertRaises(TypeError):
+            self.algorithm.assimilate(self.state, self.obs)
+
+    def test_assimilate_uses_get_analysis_time(self):
+        def update_state(state, obs, pseudo_state, analysis_time):
+            analysis = state.sel(time=[analysis_time])
+            return analysis
+        self.algorithm.update_state = update_state
+        ret_time = self.algorithm._get_analysis_time(self.state, None)
+        sliced_state = self.state.sel(time=[ret_time])
+        ret_analysis = self.algorithm.assimilate(
+            self.state, (self.obs, ), analysis_time=None
+        )
+        xr.testing.assert_identical(sliced_state, ret_analysis)
+
+    def test_pre_transform_iterates_through_pre(self):
+        class PreTransform(object):
+            @staticmethod
+            def pre(state, obs, pseudo_state):
+                return state.isel(time=[-1]), obs, pseudo_state
+        self.algorithm.pre_transform = [PreTransform()]
+        sliced_state = self.state.isel(time=[-1])
+        ret_analysis = self.algorithm.assimilate(
+            self.state, (self.obs, ), analysis_time=None
+        )
+        xr.testing.assert_identical(sliced_state, ret_analysis)
+
+    def test_post_transform_iterates_through_post(self):
+        class PostTransform(object):
+            @staticmethod
+            def post(analysis, state, obs, pseudo_state):
+                return analysis.isel(time=[0])
+        self.algorithm.post_transform = [PostTransform()]
+        sliced_state = self.state.isel(time=[0])
+        ret_analysis = self.algorithm.assimilate(
+            self.state, (self.obs, ), analysis_time=None
+        )
+        xr.testing.assert_identical(sliced_state, ret_analysis)
+
+    def test_apply_weights_applies_weights_along_ensemble(self):
+        weights = self.rnd.binomial(n=1, p=0.5, size=(10, 10, 40))
+        weights = weights / (weights.sum(axis=0, keepdims=True) + 1E-9)
+        weights = xr.DataArray(
+            weights,
+            coords={
+                'ensemble': self.state.indexes['ensemble'],
+                'ensemble_new': self.state.indexes['ensemble'],
+                'grid': self.state.indexes['grid']
+            },
+            dims=['ensemble', 'ensemble_new', 'grid']
+        )
+        state_mean, state_perts = self.state.state.split_mean_perts()
+        analysis = state_mean + (state_perts * weights).sum('ensemble')
+        analysis = analysis.rename({'ensemble_new': 'ensemble'})
+        analysis['ensemble'] = self.state.indexes['ensemble']
+        analysis = analysis.transpose(*self.state.dims)
+        ret_analysis = self.algorithm._apply_weights(self.state, weights)
+        xr.testing.assert_identical(analysis, ret_analysis)
 
 
 if __name__ == '__main__':

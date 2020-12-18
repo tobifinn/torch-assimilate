@@ -208,8 +208,10 @@ class BaseAssimilation(object):
     ) -> xr.DataArray:
         state_mean, state_perts = state.state.split_mean_perts(dim='ensemble')
         analysis_perts = xr.dot(state_perts, weights, dims='ensemble')
-        analysis_perts = analysis_perts.rename({'ensemble_new': 'ensemble'})
         analysis = state_mean + analysis_perts
+        analysis = analysis.rename({'ensemble_new': 'ensemble'})
+        analysis['ensemble'] = state_perts.indexes['ensemble']
+        analysis = analysis.transpose(*state_perts.dims)
         return analysis
 
     @abc.abstractmethod
@@ -321,7 +323,7 @@ class BaseAssimilation(object):
             )
         if self.pre_transform:
             for trans in self.pre_transform:
-                back_state, observations, pseudo_state = trans.pre(
+                state, observations, pseudo_state = trans.pre(
                     state, observations, pseudo_state
                 )
         logger.info('Finished with general preparation')
