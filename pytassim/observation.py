@@ -251,11 +251,26 @@ class Observation(object):
         cov_chol_inv = 1 / cov_square_root
         return cov_chol_inv
 
+    @staticmethod
+    def _single_corr_chol_inv(array: xr.DataArray) -> xr.DataArray:
+        chol = np.linalg.cholesky(array.data)
+        chol_inv = np.linalg.inv(chol)
+        chol_inv = array.copy(data=chol_inv)
+        return chol_inv
+
     @lazy_property('r_cinv')
     def _corr_chol_inverse(self):
-        chol_decomp = np.linalg.cholesky(self.ds['covariance'].data)
-        cov_chol_inv = np.linalg.inv(chol_decomp)
-        cov_chol_inv = self.ds['covariance'].copy(data=cov_chol_inv)
+        if 'time' in self.ds['covariance'].dims:
+            cov_chol_inv = []
+            for t in self.ds.indexes['time']:
+                curr_cov = self.ds['covariance'].sel(time=t)
+                curr_chol_inv = self._single_corr_chol_inv(curr_cov)
+                cov_chol_inv.append(curr_chol_inv)
+            cov_chol_inv = xr.concat(cov_chol_inv, dim='time')
+        else:
+            chol_decomp = np.linalg.cholesky(self.ds['covariance'].data)
+            cov_chol_inv = np.linalg.inv(chol_decomp)
+            cov_chol_inv = self.ds['covariance'].copy(data=cov_chol_inv)
         return cov_chol_inv
 
     def _corr_normalize(self, value):

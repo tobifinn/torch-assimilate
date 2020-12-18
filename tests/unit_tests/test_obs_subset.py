@@ -237,6 +237,23 @@ class TestObsSubset(unittest.TestCase):
         ret_chol_inv = chunked_obs.obs._corr_chol_inverse
         xr.testing.assert_identical(chol_inv, ret_chol_inv)
 
+    def test_corr_chol_inverse_works_with_dask_array_and_time(self):
+        chol_inv = np.linalg.inv(np.linalg.cholesky(self.obs_ds['covariance']))
+        chol_inv = self.obs_ds['covariance'].copy(data=chol_inv)
+
+        cov_values = self.obs_ds['covariance'].values
+        cov_time = cov_values[None, :, :].repeat(
+            len(self.obs_ds['time']), axis=0
+        )
+        self.obs_ds['covariance'] = xr.DataArray(
+            cov_time,
+            coords=self.obs_ds.coords,
+            dims=['time', 'obs_grid_1', 'obs_grid_2']
+        )
+        chunked_obs = self.obs_ds.chunk({'obs_grid_1': 10, 'obs_grid_2': 10})
+        ret_chol_inv = chunked_obs.obs._corr_chol_inverse.mean('time')
+        xr.testing.assert_identical(chol_inv, ret_chol_inv)
+
     def test_corr_chol_inverse_uses_r_cinv(self):
         self.obs_ds.obs._r_cinv = np.arange(10)
         np.testing.assert_array_equal(
