@@ -27,7 +27,7 @@ import unittest
 import logging
 import os
 from unittest.mock import patch, PropertyMock
-import warnings
+import datetime
 
 # External modules
 import xarray as xr
@@ -37,7 +37,8 @@ import torch
 
 # Internal modules
 from pytassim.interface.base import BaseAssimilation
-from pytassim.interface.utils import multiindex_to_frame
+from pytassim.utilities.pandas import multiindex_to_frame, \
+    dtindex_to_total_seconds
 from pytassim.state import StateError
 from pytassim.observation import ObservationError
 from pytassim.testing import dummy_obs_operator
@@ -159,7 +160,10 @@ class TestBaseAssimilation(unittest.TestCase):
                                 obs_equivalent[0])
 
     def test_obs_stacks_observations(self):
-        stacked_obs = self.obs['observations'].stack(
+        stacked_obs = self.obs['observations'].assign_coords(
+            time=dtindex_to_total_seconds(self.obs.indexes['time'])
+        )
+        stacked_obs = stacked_obs.stack(
             obs_id=['time', 'obs_grid_1']
         )
         stacked_obs = xr.concat((stacked_obs, stacked_obs), dim='obs_id')
@@ -170,15 +174,28 @@ class TestBaseAssimilation(unittest.TestCase):
         returned_stacked_obs = self.algorithm._stack_obs(obs_list)
         xr.testing.assert_identical(stacked_obs, returned_stacked_obs)
 
+    def test_time_is_converted_into_unix(self):
+        time_index = self.obs.indexes['time'].to_pydatetime()
+        time_index = [i-datetime.datetime(1970, 1, 1) for i in time_index]
+        time_index = [t.total_seconds() for t in time_index]
+        returned_stacked_obs = self.algorithm._stack_obs(
+            [self.obs['observations']]
+        )
+        returned_time_index = list(np.unique(returned_stacked_obs['time']))
+        self.assertListEqual(time_index, returned_time_index)
+
     def test_obs_drops_multiindex_grid_if_multiindex(self):
         self.obs['obs_grid_1'] = pd.MultiIndex.from_product(
             [self.obs.indexes['obs_grid_1'], [0]],
             names=['test', 'test_1']
         )
-        stacked_obs = self.obs['observations'].copy(deep=True)
-        stacked_obs['obs_grid_1'] = pd.Index(
-            stacked_obs.indexes['obs_grid_1'].values,
-            tupleize_cols=False
+        stacked_obs = self.obs['observations'].assign_coords(
+            time=dtindex_to_total_seconds(self.obs.indexes['time'])
+        )
+        stacked_obs = stacked_obs.assign_coords(
+            obs_grid_1=pd.Index(
+                stacked_obs.indexes['obs_grid_1'].values, tupleize_cols=False
+            )
         )
         stacked_obs = stacked_obs.stack(obs_id=['time', 'obs_grid_1'])
         stacked_obs_index = multiindex_to_frame(stacked_obs.indexes['obs_id'])

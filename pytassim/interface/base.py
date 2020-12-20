@@ -40,6 +40,7 @@ import torch
 from pytassim.state import StateError
 from pytassim.observation import ObservationError
 from pytassim.transform import BaseTransformer
+from pytassim.utilities.pandas import dtindex_to_total_seconds
 
 
 logger = logging.getLogger(__name__)
@@ -187,7 +188,10 @@ class BaseAssimilation(object):
     ) -> xr.DataArray:
         stacked_observations = []
         for obs in observations:
-            stacked_obs = obs.state.stack(
+            stacked_obs = obs.assign_coords(
+                time=dtindex_to_total_seconds(obs.indexes['time'])
+            )
+            stacked_obs = stacked_obs.state.stack(
                     obs_id=('time', 'obs_grid_1')
             )
             stacked_observations.append(stacked_obs)
