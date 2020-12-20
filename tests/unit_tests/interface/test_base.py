@@ -37,7 +37,7 @@ import torch
 
 # Internal modules
 from pytassim.interface.base import BaseAssimilation
-from pytassim.interface.utils import datetimeindex_to_float
+from pytassim.interface.utils import multiindex_to_frame
 from pytassim.state import StateError
 from pytassim.observation import ObservationError
 from pytassim.testing import dummy_obs_operator
@@ -159,10 +159,7 @@ class TestBaseAssimilation(unittest.TestCase):
                                 obs_equivalent[0])
 
     def test_obs_stacks_observations(self):
-        stacked_obs = self.obs.assign_coords(
-            time=datetimeindex_to_float(self.obs.indexes['time'])
-        )
-        stacked_obs = stacked_obs['observations'].stack(
+        stacked_obs = self.obs['observations'].stack(
             obs_id=['time', 'obs_grid_1']
         )
         stacked_obs = xr.concat((stacked_obs, stacked_obs), dim='obs_id')
@@ -183,10 +180,16 @@ class TestBaseAssimilation(unittest.TestCase):
             stacked_obs.indexes['obs_grid_1'].values,
             tupleize_cols=False
         )
-        stacked_obs['time'] = datetimeindex_to_float(
-            stacked_obs.indexes['time']
-        )
         stacked_obs = stacked_obs.stack(obs_id=['time', 'obs_grid_1'])
+        stacked_obs_index = multiindex_to_frame(stacked_obs.indexes['obs_id'])
+        obs_grid_index = pd.MultiIndex.from_tuples(
+            stacked_obs_index['obs_grid_1'],
+            names=self.obs.indexes['obs_grid_1'].names
+        )
+        grid_frame = multiindex_to_frame(obs_grid_index)
+        stacked_obs_index = stacked_obs_index.drop('obs_grid_1', axis=1)
+        stacked_obs_index = pd.concat([stacked_obs_index, grid_frame], axis=1)
+        stacked_obs['obs_id'] = pd.MultiIndex.from_frame(stacked_obs_index)
         returned_obs = self.algorithm._stack_obs([self.obs['observations']])
         xr.testing.assert_identical(returned_obs, stacked_obs)
 
