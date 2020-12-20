@@ -84,26 +84,15 @@ class ETKF(FilterAssimilation):
     def inf_factor(self, new_factor):
         self._core_module = ETKFModule(inf_factor=new_factor)
 
-    @abc.abstractmethod
     def _estimate_weights(
             self,
             state: xr.DataArray,
             filtered_obs: List[xr.Dataset],
             ens_obs: List[xr.DataArray]
     ) -> xr.DataArray:
-        innovations = []
-        ens_obs_perts = []
-        for k, curr_ens in enumerate(ens_obs):
-            curr_mean, curr_perts = curr_ens.state.split_mean_perts(
-                dim='ensemble'
-            )
-            curr_innov = filtered_obs[k]['observations']-curr_mean
-            curr_innov = filtered_obs[k].obs.mul_rcinv(curr_innov)
-            curr_perts = filtered_obs[k].obs.mul_rcinv(curr_perts)
-            innovations.append(curr_innov)
-            ens_obs_perts.append(curr_perts)
-        innovations = self._stack_obs(innovations)
-        ens_obs_perts = self._stack_obs(ens_obs_perts)
+        innovations, ens_obs_perts = self._get_obs_space_variables(
+            ens_obs, filtered_obs
+        )
 
         weights = xr.apply_ufunc(
             etkf_function,
