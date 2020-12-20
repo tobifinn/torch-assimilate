@@ -37,7 +37,6 @@ import pandas as pd
 import torch
 
 # Internal modules
-from .utils import multiindex_to_frame
 from pytassim.state import StateError
 from pytassim.observation import ObservationError
 from pytassim.transform import BaseTransformer
