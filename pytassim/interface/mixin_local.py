@@ -57,10 +57,11 @@ class DomainLocalizedMixin(object):
 
     def localization_decorator(self, func):
         def wrapper(grid_info, *args, obs_info=None, **kwargs):
-            luse, lweights = self.localization.localize_obs(
-                grid_info, obs_info
-            )
-            lweights = lweights[luse]
-            args = [arg[..., luse]*lweights for arg in args]
+            if self.localization is not None:
+                luse, lweights = self.localization.localize_obs(
+                    grid_info, obs_info
+                )
+                lweights = lweights[luse]
+                args = [arg[..., luse]*lweights for arg in args]
             return func(*args, **kwargs)
         return wrapper
