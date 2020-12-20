@@ -22,6 +22,26 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
+def dtindex_to_total_seconds(index: pd.DatetimeIndex) -> pd.Index:
+    """
+    Function to convert a `pandas.DatetimeIndex` into a `pd.Index` with the
+    total seconds since 1970-01-01 (unix time) as float values.
+
+    Parameters
+    ----------
+    index : pd.DatetimeIndex
+        This index is converted into a float index.
+
+    Returns
+    -------
+    total_seconds : pd.Index
+        The converted index with the unix time as value.
+    """
+    index_diff = index - pd.Timestamp(1970, 1, 1)
+    total_seconds = index_diff.total_seconds()
+    return total_seconds
+
+
 def multiindex_to_frame(multiindex: pd.MultiIndex) -> pd.DataFrame:
     """
     Function to convert a `pandas.MultiIndex` into a `pandas.DataFrame`.
