@@ -188,13 +188,10 @@ class BaseAssimilation(object):
     ) -> xr.DataArray:
         stacked_observations = []
         for obs in observations:
-            stacked_obs = obs.copy()
             if isinstance(obs.indexes['obs_grid_1'], pd.MultiIndex):
                 obs['obs_grid_1'] = pd.Index(
                     obs.indexes['obs_grid_1'].values, tupleize_cols=False
                 )
-            time_float_index = datetimeindex_to_float(obs.indexes['time'])
-            obs = obs.assign_coords(time=time_float_index)
             stacked_obs = obs.stack(
                 obs_id=('time', 'obs_grid_1')
             )
