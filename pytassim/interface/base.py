@@ -211,21 +211,25 @@ class BaseAssimilation(object):
         analysis = analysis.transpose(*state_perts.dims)
         return analysis
 
-    @staticmethod
-    @abc.abstractmethod
-    def _get_innovations(
+    def _get_obs_space_variables(
+            self,
             ens_obs: List[xr.DataArray],
             observations: List[xr.Dataset],
-    ) -> xr.DataArray:
-        pass
-
-    @staticmethod
-    @abc.abstractmethod
-    def _get_ens_obs_perts(
-            ens_obs: List[xr.DataArray],
-            observations: List[xr.Dataset]
-    ) -> xr.DataArray:
-        pass
+    ) -> Tuple[xr.DataArray, xr.DataArray]:
+        innovations = []
+        ens_obs_perts = []
+        for k, curr_ens in enumerate(ens_obs):
+            curr_mean, curr_perts = curr_ens.state.split_mean_perts(
+                dim='ensemble'
+            )
+            curr_innov = observations[k]['observations']-curr_mean
+            curr_innov = observations[k].obs.mul_rcinv(curr_innov)
+            curr_perts = observations[k].obs.mul_rcinv(curr_perts)
+            innovations.append(curr_innov)
+            ens_obs_perts.append(curr_perts)
+        innovations = self._stack_obs(innovations)
+        ens_obs_perts = self._stack_obs(ens_obs_perts)
+        return innovations, ens_obs_perts
 
     @abc.abstractmethod
     def update_state(

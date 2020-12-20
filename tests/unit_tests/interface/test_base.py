@@ -210,6 +210,23 @@ class TestBaseAssimilation(unittest.TestCase):
         returned_obs = self.algorithm._stack_obs([self.obs['observations']])
         xr.testing.assert_identical(returned_obs, stacked_obs)
 
+    def test_get_innov_perts_returns_meaninnov_perts(self):
+        ens_obs = dummy_obs_operator(self.obs, self.state)
+        curr_mean, ens_obs_perts = ens_obs.state.split_mean_perts(
+            dim='ensemble'
+        )
+        innovations = self.obs['observations']-curr_mean
+        innovations = self.obs.obs.mul_rcinv(innovations)
+        ens_obs_perts = self.obs.obs.mul_rcinv(ens_obs_perts)
+        innovations = self.algorithm._stack_obs([innovations])
+        ens_obs_perts = self.algorithm._stack_obs([ens_obs_perts])
+
+        ret_innov, ret_perts = self.algorithm._get_obs_space_variables(
+            [ens_obs], [self.obs]
+        )
+        xr.testing.assert_identical(innovations, ret_innov)
+        xr.testing.assert_identical(ens_obs_perts, ret_perts)
+
     def test_assimilate_wo_obs_returns_state(self):
         with self.assertWarns(UserWarning):
             analysis = self.algorithm.assimilate(self.state, ())
