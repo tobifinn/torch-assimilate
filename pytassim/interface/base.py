@@ -211,6 +211,22 @@ class BaseAssimilation(object):
         analysis = analysis.transpose(*state_perts.dims)
         return analysis
 
+    @staticmethod
+    @abc.abstractmethod
+    def _get_innovations(
+            ens_obs: List[xr.DataArray],
+            observations: List[xr.Dataset],
+    ) -> xr.DataArray:
+        pass
+
+    @staticmethod
+    @abc.abstractmethod
+    def _get_ens_obs_perts(
+            ens_obs: List[xr.DataArray],
+            observations: List[xr.Dataset]
+    ) -> xr.DataArray:
+        pass
+
     @abc.abstractmethod
     def update_state(
             self,
