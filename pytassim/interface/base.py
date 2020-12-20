@@ -37,7 +37,7 @@ import pandas as pd
 import torch
 
 # Internal modules
-from .utils import datetimeindex_to_float
+from .utils import multiindex_to_frame
 from pytassim.state import StateError
 from pytassim.observation import ObservationError
 from pytassim.transform import BaseTransformer
@@ -183,18 +183,38 @@ class BaseAssimilation(object):
         return obs_equivalent, filtered_observations
 
     @staticmethod
+    def _stack_multigrid_obs(observation: xr.DataArray) -> xr.DataArray:
+        stacked_obs = observation.assign_coords(
+            obs_grid_1=pd.Index(
+                observation.indexes['obs_grid_1'].values, tupleize_cols=False
+            )
+        )
+        stacked_obs = stacked_obs.stack(
+            obs_id=('time', 'obs_grid_1')
+        )
+        index_frame = multiindex_to_frame(stacked_obs.indexes['obs_id'])
+        grid_index = pd.MultiIndex.from_tuples(
+            index_frame['obs_grid_1'],
+            names=observation.indexes['obs_grid_1'].names
+        )
+        grid_frame = multiindex_to_frame(grid_index)
+        index_frame = index_frame.drop('obs_grid_1', axis=1)
+        index_frame = pd.concat([index_frame, grid_frame], axis=1)
+        stacked_obs['obs_id'] = pd.MultiIndex.from_frame(index_frame)
+        return stacked_obs
+
     def _stack_obs(
+            self,
             observations: List[xr.DataArray]
     ) -> xr.DataArray:
         stacked_observations = []
         for obs in observations:
             if isinstance(obs.indexes['obs_grid_1'], pd.MultiIndex):
-                obs['obs_grid_1'] = pd.Index(
-                    obs.indexes['obs_grid_1'].values, tupleize_cols=False
+                stacked_obs = self._stack_multigrid_obs(obs)
+            else:
+                stacked_obs = obs.stack(
+                    obs_id=('time', 'obs_grid_1')
                 )
-            stacked_obs = obs.stack(
-                obs_id=('time', 'obs_grid_1')
-            )
             stacked_observations.append(stacked_obs)
         stacked_observations = xr.concat(stacked_observations, dim='obs_id')
         return stacked_observations
