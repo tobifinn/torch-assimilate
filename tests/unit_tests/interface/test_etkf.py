@@ -70,9 +70,20 @@ class TestETKF(unittest.TestCase):
 
     def test_inf_factor_sets_core_module(self):
         old_id = id(self.algorithm._core_module)
-        self.algorithm.inf_factor = 3.2
+        self.algorithm.inf_factor = torch.tensor(3.2)
         self.assertNotEqual(id(self.algorithm._core_module), old_id)
-        self.assertEqual(self.algorithm._core_module.inf_factor, 3.2)
+        torch.testing.assert_allclose(self.algorithm.module.inf_factor,
+                                      3.2)
+
+    def test_inf_factor_can_set_parameter(self):
+        new_inf_factor = torch.nn.Parameter(torch.tensor(3.2))
+        self.algorithm.inf_factor = new_inf_factor
+        self.assertEqual(self.algorithm.module.inf_factor, new_inf_factor)
+
+    def test_float_inf_factor_gets_converted_into_tensor(self):
+        self.algorithm.inf_factor = 3.2
+        self.assertIsInstance(self.algorithm.module.inf_factor, torch.Tensor)
+        torch.testing.assert_allclose(self.algorithm.module.inf_factor, 3.2)
 
     def test_algorithm_works(self):
         ana_time = self.state.time[-1].values
