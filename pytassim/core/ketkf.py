@@ -72,7 +72,7 @@ class KETKFModule(ETKFModule):
         given perturbations and observations.
         """
         ens_size = normed_perts.shape[0]
-        reg_value = (ens_size-1) / self._inf_factor
+        reg_value = (ens_size-1) / self.inf_factor
 
         k_perts = self._apply_kernel(normed_perts, normed_perts)
         k_partial_mean = torch.mean(k_perts, dim=-1, keepdim=True)
