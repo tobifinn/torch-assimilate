@@ -41,7 +41,7 @@ class KETKF(ETKF):
     Furthermore, this implementation allows filtering in time and ensemble
     smoothing, similar to :cite:`hunt_four-dimensional_2004`. This ETKF
     implementation is less efficient for a linear kernel than
-    :py:class:`pytassim.assimilation.filter.etkf.ETKFCorr`, which should be
+    :py:class:`pytassim.interface.filter.etkf.ETKF`, which should be
     then used instead.
 
     Parameters
@@ -86,7 +86,7 @@ class KETKF(ETKF):
         self.kernel = kernel
 
     def __str__(self):
-        return 'Global KETKF(gamma={0}, kernel={1})'.format(
+        return 'Global KETKF(rho={0}, kernel={1})'.format(
             str(self.inf_factor), str(self.kernel)
         )
 

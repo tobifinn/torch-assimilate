@@ -86,7 +86,7 @@ class LETKF(ETKF, DomainLocalizedMixin):
         self.chunksize = chunksize
 
     def __str__(self):
-        return 'Localized ETKF(gamma={0}, loc={1})'.format(
+        return 'Localized ETKF(rho={0}, loc={1})'.format(
             str(self.inf_factor), str(self.localization)
         )
 
