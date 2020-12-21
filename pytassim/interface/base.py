@@ -35,6 +35,7 @@ from typing import Union, Iterable, Tuple, Any, List
 import xarray as xr
 import pandas as pd
 import torch
+import numpy as np
 
 # Internal modules
 from pytassim.state import StateError
@@ -207,7 +208,7 @@ class BaseAssimilation(object):
         analysis_perts = xr.dot(state_perts, weights, dims='ensemble')
         analysis = state_mean + analysis_perts
         analysis = analysis.rename({'ensemble_new': 'ensemble'})
-        analysis['ensemble'] = state_perts.indexes['ensemble']
+        analysis['ensemble'] = np.arange(len(analysis['ensemble']))
         analysis = analysis.transpose(*state_perts.dims)
         return analysis
 
