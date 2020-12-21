@@ -34,7 +34,7 @@ import pandas as pd
 
 # Internal modules
 from pytassim.observation import Observation
-from pytassim.assimilation.base import BaseAssimilation
+from pytassim.interface.base import BaseAssimilation
 import pytassim.testing.dummy as utils
 
 

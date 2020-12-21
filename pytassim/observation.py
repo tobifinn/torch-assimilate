@@ -31,8 +31,11 @@ from inspect import signature
 # External modules
 import xarray as xr
 from xarray import register_dataset_accessor
+import dask.array as da
+import numpy as np
 
 # Internal modules
+from .utilities import lazy_property
 
 
 logger = logging.getLogger(__name__)
@@ -85,6 +88,7 @@ class Observation(object):
     """
     def __init__(self, xr_ds: xr.Dataset):
         self.ds = xr_ds
+        self._r_cinv = None
 
     def __str__(self):
         return 'Obs dataset ({0})'.format(str(self.ds))
@@ -240,6 +244,49 @@ class Observation(object):
         if self._valid_dims and self._valid_arrays:
             valid_ds = True
         return valid_ds
+
+    @lazy_property('r_cinv')
+    def _uncorr_chol_inverse(self) -> np.ndarray:
+        cov_square_root = da.sqrt(self.ds['covariance'])
+        cov_chol_inv = 1 / cov_square_root
+        return cov_chol_inv
+
+    @staticmethod
+    def _single_corr_chol_inv(array: xr.DataArray) -> xr.DataArray:
+        chol = np.linalg.cholesky(array.data)
+        chol_inv = np.linalg.inv(chol)
+        chol_inv = array.copy(data=chol_inv)
+        return chol_inv
+
+    @lazy_property('r_cinv')
+    def _corr_chol_inverse(self):
+        if 'time' in self.ds['covariance'].dims:
+            cov_chol_inv = []
+            for curr_t in range(len(self.ds['covariance'].time)):
+                curr_cov = self.ds['covariance'][curr_t]
+                curr_chol_inv = self._single_corr_chol_inv(curr_cov)
+                cov_chol_inv.append(curr_chol_inv)
+            cov_chol_inv = xr.concat(cov_chol_inv, dim='time')
+        else:
+            chol_decomp = np.linalg.cholesky(self.ds['covariance'].data)
+            cov_chol_inv = np.linalg.inv(chol_decomp)
+            cov_chol_inv = self.ds['covariance'].copy(data=cov_chol_inv)
+        return cov_chol_inv
+
+    def _corr_normalize(self, value):
+        normalized = xr.dot(value, self._corr_chol_inverse, dims='obs_grid_1')
+        normalized = normalized.rename({'obs_grid_2': 'obs_grid_1'})
+        return normalized
+
+    def _uncorr_normalize(self, value):
+        normalized = value * self._uncorr_chol_inverse
+        return normalized
+
+    def mul_rcinv(self, value):
+        if self.correlated:
+            return self._corr_normalize(value)
+        else:
+            return self._uncorr_normalize(value)
 
     @staticmethod
     def operator(obs_ds: xr.Dataset, state: xr.DataArray) -> xr.DataArray:

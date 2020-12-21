@@ -1,12 +1,14 @@
 Ensemble transform Kalman filter (ETKF)
----------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. automodule:: pytassim.assimilation.filter.etkf
+The xarray/dask-interface implementation:
+.. autoclass:: pytassim.interface.etkf.ETKF
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: pytassim.assimilation.filter.etkf_core
+The core module:
+.. autoclass:: pytassim.core.etkf.ETKFModule
    :members:
    :undoc-members:
    :show-inheritance:

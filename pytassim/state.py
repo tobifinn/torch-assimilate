@@ -25,13 +25,17 @@
 
 # System modules
 import logging
-from typing import Union, Iterable, Dict, Tuple
+from typing import Union, Iterable, Dict, Tuple, Mapping, Sequence, Hashable
 
 # External modules
 import xarray as xr
 from xarray import register_dataarray_accessor
+from xarray.core.utils import either_dict_or_kwargs
+
+import pandas as pd
 
 # Internal modules
+from .utilities.pandas import multiindex_to_frame
 
 
 logger = logging.getLogger(__name__)
@@ -156,3 +160,63 @@ class ModelState(object):
         mean = self.array.mean(dim=dim, axis=axis, **kwargs)
         perts = self.array - mean
         return mean, perts
+
+    def stack(
+            self,
+            dimensions: Mapping[Hashable, Sequence[Hashable]] = None,
+            **dimensions_kwargs: Sequence[Hashable],
+    ):
+        """
+        An edited stack method, which handles `pd.MultiIndex` based dimensions.
+
+        Parameters
+        ----------
+        dimensions : mapping of hashable to sequence of hashable
+            Mapping of the form `new_name=(dim1, dim2, ...)`.
+            Names of new dimensions, and the existing dimensions that they
+            replace. An ellipsis (`...`) will be replaced by all unlisted
+            dimensions. Passing a list containing an ellipsis
+            (`stacked_dim=[...]`) will stack over all dimensions.
+        **dimensions_kwargs
+            The keyword arguments form of ``dimensions``.
+            One of dimensions or dimensions_kwargs must be provided.
+        Returns
+        -------
+        stacked : DataArray
+            DataArray with stacked data.
+        """
+        stacked = self.array.copy()
+        dimensions = either_dict_or_kwargs(dimensions, dimensions_kwargs,
+                                           'stack')
+        dimensions_to_check = set([
+            value for value_list in dimensions.values() for value in value_list
+        ])
+        if '...' in dimensions_to_check:
+            dimensions_to_check = self.array.dims
+        dims_with_multiindex = [
+            dim for dim in dimensions_to_check
+            if isinstance(self.array.indexes[dim], pd.MultiIndex)
+        ]
+        dims_to_replace = {
+            dim: pd.Index(self.array.indexes[dim].values, tupleize_cols=False)
+            for dim in dims_with_multiindex
+        }
+        stacked = stacked.assign_coords(dims_to_replace)
+        stacked = stacked.stack(dimensions)
+        for dim in dimensions.keys():
+            dim_index_frame = multiindex_to_frame(stacked.indexes[dim])
+            dim_multiindex_col = [
+                d for d in dim_index_frame.columns if d in dims_with_multiindex
+            ]
+            for col in dim_multiindex_col:
+                col_index = pd.MultiIndex.from_tuples(
+                    dim_index_frame[col],
+                    names=self.array.indexes[col].names
+                )
+                col_frame = multiindex_to_frame(col_index)
+                dim_index_frame = dim_index_frame.drop(col, axis=1)
+                dim_index_frame = pd.concat(
+                    [dim_index_frame, col_frame], axis=1
+                )
+            stacked[dim] = pd.MultiIndex.from_frame(dim_index_frame)
+        return stacked
