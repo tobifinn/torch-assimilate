@@ -18,7 +18,7 @@ As forgetting factor in time, an inflation factor can be chosen. This inflation
 factor is used to artificially inflate the background weights and leads to an
 inflated analysis ensemble.
 
-There are also implementations of the ETKF for both interfaces – the
+There will be also implementations of the ETKF for both interfaces – the
 Xarray/Dask interface and the Light interface.
 
 .. autosummary::
