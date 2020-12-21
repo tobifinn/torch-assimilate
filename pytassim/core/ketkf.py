@@ -42,7 +42,7 @@ class KETKFModule(ETKFModule):
     """
     def __init__(
             self,
-            kernel: Type[BaseKernel],
+            kernel: BaseKernel,
             inf_factor: Union[float, torch.Tensor, torch.nn.Parameter]
                       = torch.tensor(1.0)
     ):
