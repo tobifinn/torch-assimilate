@@ -63,7 +63,6 @@ class ETKF(FilterAssimilation):
         super().__init__(smoother=smoother, gpu=gpu,
                          pre_transform=pre_transform,
                          post_transform=post_transform)
-        self._core_module = None
         self.inf_factor = inf_factor
 
     def __str__(self):
