@@ -54,6 +54,16 @@ class LKETKF(LETKF):
         )
         self.kernel = kernel
 
+    def __str__(self):
+        return 'Localized KETKF(gamma={0}, loc={1}, kernel={2})'.format(
+            str(self.inf_factor), str(self.localization), str(self.kernel)
+        )
+
+    def __repr__(self):
+        return 'LKETKF({0},{1},{2})'.format(
+            repr(self.inf_factor), repr(self.localization), repr(self.kernel)
+        )
+
     @property
     def inf_factor(self):
         return self._core_module.inf_factor

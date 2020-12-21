@@ -66,10 +66,10 @@ class ETKF(FilterAssimilation):
         self.inf_factor = inf_factor
 
     def __str__(self):
-        return 'Global ETKF({0})'.format(self.inf_factor)
+        return 'Global ETKF(gamma={0})'.format(str(self.inf_factor))
 
     def __repr__(self):
-        return 'ETKF'
+        return 'ETKF({0})'.format(repr(self.inf_factor))
 
     @property
     def module(self):
