@@ -1,12 +1,14 @@
 Kernelized Ensemble Transform Kalman filter (KETKF)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. automodule:: pytassim.assimilation.filter.ketkf
+The xarray/dask-interface implementation:
+.. autoclass:: pytassim.interface.ketkf.KETKF
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: pytassim.assimilation.filter.ketkf_core
+The core module:
+.. autoclass:: pytassim.core.ketkf.KETKFModule
    :members:
    :undoc-members:
    :show-inheritance:

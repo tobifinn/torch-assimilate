@@ -1,17 +1,14 @@
 Localized ensemble transform Kalman filter (LETKF)
---------------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. automodule:: pytassim.assimilation.filter.letkf
+The xarray/dask-interface implementation:
+.. autoclass:: pytassim.interface.letkf.LETKF
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: pytassim.assimilation.filter.letkf_dist
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-.. automodule:: pytassim.assimilation.filter.letkf_core
+The core is based on:
+.. autoclass:: pytassim.core.etkf.ETKFModule
    :members:
    :undoc-members:
    :show-inheritance:
