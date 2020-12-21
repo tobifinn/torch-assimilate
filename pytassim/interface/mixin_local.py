@@ -27,9 +27,6 @@ logger = logging.getLogger(__name__)
 
 
 class DomainLocalizedMixin(object):
-    def __init__(self):
-        self.localization = None
-
     @staticmethod
     def _extract_obs_information(observations: xr.DataArray) -> pd.DataFrame:
         obs_info = utils.multiindex_to_frame(observations.indexes['obs_id'])
@@ -61,7 +58,7 @@ class DomainLocalizedMixin(object):
                 luse, lweights = self.localization.localize_obs(
                     grid_info, obs_info
                 )
-                lweights = lweights[luse]
+                lweights = np.sqrt(lweights[luse])
                 args = [arg[..., luse]*lweights for arg in args]
             return func(*args, **kwargs)
         return wrapper
