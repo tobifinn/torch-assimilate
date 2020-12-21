@@ -65,15 +65,14 @@ Lorenz '96
 ----------
 
 .. autosummary::
-    pytassim.model.lorenz_96.lorenz_96.Lorenz96
-    pytassim.model.lorenz_96.forward_model.forward_model
+    pytassim.model.lorenz_96.Lorenz96
 
 
 Lorenz '84
 ----------
 
 .. autosummary::
-    pytassim.model.lorenz_84.lorenz_84.Lorenz84
+    pytassim.model.lorenz_84.Lorenz84
 
 
 ODE Integration
