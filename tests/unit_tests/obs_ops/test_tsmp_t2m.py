@@ -36,7 +36,7 @@ import numpy as np
 # Internal modules
 from pytassim.obs_ops.terrsysmp.cos_t2m import CosmoT2mOperator, EARTH_RADIUS
 from pytassim.model.terrsysmp import preprocess_cosmo
-from pytassim.assimilation import ETKFUncorr
+from pytassim.interface import ETKF
 
 
 logging.basicConfig(level=logging.INFO)
@@ -234,7 +234,7 @@ class TestCOST2m(unittest.TestCase):
         xr.testing.assert_equal(corr_t2m, ret_t2m)
 
     def test_obs_op_can_be_used_for_etkf(self):
-        etkf_filter = ETKFUncorr()
+        etkf_filter = ETKF()
         pseudo_obs = self.obs_op.obs_op(self.ens_file)
         pseudo_obs += np.random.normal(size=pseudo_obs.shape[-1])
         pseudo_obs = pseudo_obs.rename({'grid': 'obs_grid_1'}).mean('ensemble')
@@ -246,7 +246,7 @@ class TestCOST2m(unittest.TestCase):
         observations = xr.Dataset(
             {'observations': pseudo_obs, 'covariance': pseudo_cov}
         )
-        observations.obs.operator = self.obs_op.get_obs_method
+        observations.obs.operator = self.obs_op
         analysis = etkf_filter.assimilate(self.ens_file, observations)
         with self.assertRaises(AssertionError):
             np.testing.assert_allclose(analysis.values, self.ens_file.values)

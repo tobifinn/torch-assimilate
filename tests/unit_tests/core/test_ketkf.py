@@ -36,7 +36,7 @@ import dask.array as da
 
 # Internal modules
 from pytassim.core.ketkf import KETKFModule
-from pytassim.assimilation.utils import evd, rev_evd
+from pytassim.core.utils import evd, rev_evd
 from pytassim import kernels
 from pytassim.testing import dummy_obs_operator, if_gpu_decorator
 
