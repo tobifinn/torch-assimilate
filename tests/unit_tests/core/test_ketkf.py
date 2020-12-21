@@ -38,7 +38,7 @@ import dask.array as da
 from pytassim.core.ketkf import KETKFModule
 from pytassim.assimilation.utils import evd, rev_evd
 from pytassim import kernels
-from pytassim.testing import dummy_obs_operator
+from pytassim.testing import dummy_obs_operator, if_gpu_decorator
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -103,6 +103,17 @@ class TestKETKFWeightsModule(unittest.TestCase):
     def test_module_can_be_compiled(self):
         new_kernel = kernels.RBFKernel(gamma=torch.tensor(1.))
         _ = torch.jit.script(KETKFModule(kernel=new_kernel))
+
+    @if_gpu_decorator
+    def test_module_works_for_gpu(self):
+        self.module.kernel = kernels.GaussKernel()
+        cpu_weights = self.module(self.normed_perts, self.normed_obs)[0]
+        normed_obs = self.normed_obs.to('cuda')
+        normed_perts = self.normed_perts.to('cuda')
+        module = self.module.to('cuda')
+        weights = module(normed_perts, normed_obs)[0]
+        self.assertTrue(weights.is_cuda)
+        torch.testing.assert_allclose(cpu_weights, weights.cpu())
 
     def test_fordward_returns_weights(self):
         new_kernel = kernels.RBFKernel(gamma=10)

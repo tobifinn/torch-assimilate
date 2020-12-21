@@ -35,6 +35,7 @@ import xarray as xr
 # Internal modules
 from pytassim.core.etkf import ETKFModule
 from pytassim.core.utils import evd, rev_evd
+from pytassim.testing import if_gpu_decorator
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -107,6 +108,16 @@ class TestETKFModule(unittest.TestCase):
             _ = torch.jit.script(self.module)
         except RuntimeError:
             raise AssertionError('JIT is not possible!')
+
+    @if_gpu_decorator
+    def test_module_works_for_gpu(self):
+        cpu_weights = self.module(self.normed_perts, self.normed_obs)[0]
+        normed_obs = self.normed_obs.to('cuda')
+        normed_perts = self.normed_perts.to('cuda')
+        module = self.module.to('cuda')
+        weights = module(normed_perts, normed_obs)[0]
+        self.assertTrue(weights.is_cuda)
+        torch.testing.assert_allclose(cpu_weights, weights.cpu())
 
     def test_inf_factor_can_be_set_as_paramater(self):
         self.module.inf_factor = torch.nn.Parameter(torch.tensor(1.5))
