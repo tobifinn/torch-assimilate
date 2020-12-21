@@ -33,10 +33,10 @@ class ETKFModule(torch.nn.Module):
     """
     def __init__(
             self,
-            inf_factor: Union[float, torch.Tensor, torch.nn.Parameter] = 1.0
+            inf_factor: Union[torch.Tensor, torch.nn.Parameter] =
+            torch.tensor(1.0)
     ):
         super().__init__()
-        self._inf_factor = None
         self.inf_factor = inf_factor
 
     def __str__(self) -> str:
@@ -44,22 +44,6 @@ class ETKFModule(torch.nn.Module):
 
     def __repr__(self) -> str:
         return 'ETKFCore'
-
-    @property
-    def inf_factor(self) -> Union[float, torch.Tensor, torch.nn.Parameter]:
-        return self._inf_factor
-
-    @inf_factor.setter
-    def inf_factor(
-            self, new_factor: Union[float, torch.Tensor, torch.nn.Parameter]
-    ):
-        """
-        Sets a new inflation factor.
-        """
-        if isinstance(new_factor, (torch.Tensor, torch.nn.Parameter)):
-            self._inf_factor = new_factor
-        else:
-            self._inf_factor = torch.tensor(new_factor)
 
     @staticmethod
     def _test_sizes(normed_perts: torch.Tensor, normed_obs: torch.Tensor):
@@ -71,13 +55,6 @@ class ETKFModule(torch.nn.Module):
                 'Observational size between ensemble ({0:d}) and observations '
                 '({1:d}) do not match!'.format(
                     normed_perts.shape[-1], normed_obs.shape[-1]
-                )
-            )
-        if normed_perts.shape[:-2] != normed_obs.shape[:-2]:
-            raise ValueError(
-                'Batch sizes between ensemble {0} and observations {1} do not '
-                'match!'.format(
-                    tuple(normed_perts.shape[:-2]), tuple(normed_obs.shape[:-2])
                 )
             )
 
@@ -102,8 +79,8 @@ class ETKFModule(torch.nn.Module):
         prior_mean = torch.zeros(ens_size, 1).to(normed_perts)
         prior_eye = torch.ones(ens_size).to(normed_perts)
         prior_eye = torch.diag_embed(prior_eye)
-        prior_cov = self._inf_factor / (ens_size-1) * prior_eye
-        prior_perts = self._inf_factor.sqrt() * prior_eye
+        prior_cov = self.inf_factor / (ens_size-1) * prior_eye
+        prior_perts = self.inf_factor.sqrt() * prior_eye
         return prior_mean, prior_perts, prior_cov
 
     def _estimate_weights(
@@ -116,7 +93,7 @@ class ETKFModule(torch.nn.Module):
         and given data.
         """
         ens_size = normed_perts.shape[-2]
-        reg_value = (ens_size-1) / self._inf_factor
+        reg_value = (ens_size-1) / self.inf_factor
         kernel_perts = self._apply_kernel(normed_perts, normed_perts)
         evals, evects, evals_inv = evd(kernel_perts, reg_value)
         cov_analysed = rev_evd(evals_inv, evects)

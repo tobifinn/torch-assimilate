@@ -108,21 +108,11 @@ class TestETKFModule(unittest.TestCase):
         except RuntimeError:
             raise AssertionError('JIT is not possible!')
 
-    def test_inf_factor_float_to_tensor(self):
-        self.module._inf_factor = None
-        self.assertIsNone(self.module._inf_factor)
-        self.module.inf_factor = 1.2
-        self.assertIsInstance(self.module._inf_factor, torch.Tensor)
-        torch.testing.assert_allclose(
-            self.module._inf_factor, torch.tensor(1.2)
-        )
-
-    def test_inf_factor_uses_tensor(self):
-        self.module._inf_factor = None
-        self.assertIsNone(self.module._inf_factor)
-        test_tensor = torch.tensor(1.2)
-        self.module.inf_factor = test_tensor
-        self.assertEqual(id(self.module._inf_factor), id(test_tensor))
+    def test_inf_factor_can_be_set_as_paramater(self):
+        self.module.inf_factor = torch.nn.Parameter(torch.tensor(1.5))
+        ret_val = self.module(self.normed_perts, self.normed_obs)[0]
+        ret_val.mean().backward()
+        self.assertIsNotNone(self.module.inf_factor.grad)
 
     def test_dot_product(self):
         right_dot_product = self.normed_perts @ self.normed_perts.t()
@@ -213,7 +203,7 @@ class TestETKFModule(unittest.TestCase):
     def test_ektf_weights_returns_prior_for_empty_observations(self):
         normed_perts = torch.ones(10, 0)
         normed_obs = torch.ones(1, 0)
-        self.module.inf_factor = 1.1
+        self.module.inf_factor = torch.tensor(1.1)
 
         prior_mean = torch.zeros(10, 1)
         prior_perts = np.sqrt(self.module.inf_factor) * torch.eye(10)
@@ -229,13 +219,6 @@ class TestETKFModule(unittest.TestCase):
     def test_raises_valueerror_if_different_observation_size(self):
         normed_perts = torch.ones(10, 4)
         normed_obs = torch.ones(1, 3)
-
-        with self.assertRaises(ValueError):
-            _ = self.module(normed_perts, normed_obs)
-
-    def test_raises_valueerror_if_different_batch_sizes(self):
-        normed_perts = torch.ones(4, 10, 4).normal_()
-        normed_obs = torch.ones(3, 1, 4).normal_()
 
         with self.assertRaises(ValueError):
             _ = self.module(normed_perts, normed_obs)
