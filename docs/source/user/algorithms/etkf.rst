@@ -8,9 +8,8 @@ ETKF is further a square-root ensemble Kalman filter, whre the ensemble
 perturbations are estimated deterministically. The computing time is largely
 determined by the observational size and the speed of the observation operators.
 
-For the EKTF, the weights are estimated globally for either correlated
-:py:class:`pytassim.assimilation.filter.etkf.ETKFCorr` or uncorrelated
-:py:class:`pytassim.assimilation.filter.etkf.ETKFUncorr` observations. The
+For the EKTF, the weights are estimated globally with
+:py:class:`pytassim.core.etkf.ETKFModule` as core module. The
 implementation follows the equations of :cite:`hunt_efficient_2007`. The
 implementation further allows filtering in time based on linear propagation
 assumption :cite:`hunt_four-dimensional_2004` and ensemble smoothing.
@@ -19,9 +18,12 @@ As forgetting factor in time, an inflation factor can be chosen. This inflation
 factor is used to artificially inflate the background weights and leads to an
 inflated analysis ensemble.
 
+There are also implementations of the ETKF for both interfaces – the
+Xarray/Dask interface and the Light interface.
+
 .. autosummary::
-    pytassim.assimilation.filter.etkf.ETKFCorr
-    pytassim.assimilation.filter.etkf.ETKFUncorr
+    pytassim.interface.etkf.ETKF
+    pytassim.core.etkf.ETKFModule
 
 Localized Ensemble Transform Kalman filter
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -37,9 +39,8 @@ specified within `pytassim.localization`, which supports observational
 localization. If no localization is used, the analysis will be the same as for
 the ETKF, but only estimated in an inefficient way.
 
-As for the ETKF, the weights are estimated for either correlated
-:py:class:`pytassim.assimilation.filter.letkf.LETKFCorr` or uncorrelated
-:py:class:`pytassim.assimilation.filter.letkf.LETKFUncorr` observations. The
+As for the ETKF, the weights are estimated based on the
+:py:class:`pytassim.core.etkf.ETKFModule` core module. The
 implementation further allows filtering in time based on linear propagation
 assumption :cite:`hunt_four-dimensional_2004` and ensemble smoothing.
 
@@ -47,20 +48,13 @@ As forgetting factor in time, an inflation factor can be chosen. This inflation
 factor is used to artifically inflate the background weights and leads to an
 inflated analysis ensemble.
 
-It is possible to used a distributed LETKF with
-:py:class:`pytassim.assimilation.filter.letkf_dist.DistributedLETKFCorr` or
-:py:class:`pytassim.assimilation.filter.letkf_dist.DistributedLETKFUncorr`. This
-implementation is based on ``dask.distributed``. In a first step, the background
-data is chunked and converted in its backend to a
-:py:class:``dask.array.Array``. The implementation iterates over chunks of data
-and sends these chunks to the different workers.
-To increase the speed of the algorithm it is recommended to set
-``OMP_NUM_THREADS=1`` as environment variable, until some pytorch functions are
-parallelized.
-
+The Xarray/Dask interface for the LETKF iterates over the state time and grid
+and estimates for every temporal and spatial point independent weights. The
+implementation uses :py:func:`xarray.apply_ufunc` and is able to fully
+exploit a distributed environment with ``dask.distributed``. For efficiency
+different `chunksizes` can be specified. To increase the speed of the
+algorithm it is recommended to set ``OMP_NUM_THREADS=1`` as environment
+variable, until some pytorch functions are parallelized.
 
 .. autosummary::
-    pytassim.assimilation.filter.letkf.LETKFCorr
-    pytassim.assimilation.filter.letkf.LETKFUncorr
-    pytassim.assimilation.filter.letkf_dist.DistributedLETKFCorr
-    pytassim.assimilation.filter.letkf_dist.DistributedLETKFUncorr
+    pytassim.interface.letkf.LETKF
