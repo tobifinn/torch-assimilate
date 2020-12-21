@@ -64,7 +64,10 @@ are correlated or not with `xarray.Dataset.obs.correlated`. The assimilation
 algorithms will use the abstract method :py:meth:`xarray.Dataset.obs.operator`
 to convert the given model field into an observation equivalent. Thus, the
 `operator` method needs to be overwritten for every observation subset
-independently.
+independently. An additional method :py:meth:``xarray.Dataset.obs.mul_rcinv`
+can be used to multiply given values with the cholesky inverse of the
+observational covariance. This method is implemented for both correlated and
+uncorrelated observations.
 
 
 References
