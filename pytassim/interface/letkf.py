@@ -32,6 +32,43 @@ logger = logging.getLogger(__name__)
 
 
 class LETKF(ETKF, DomainLocalizedMixin):
+    """
+    This is an implementation of the `localized ensemble transform Kalman
+    filter` :cite:`hunt_efficient_2007`.
+    This is a localized version of the `ensemble transform Kalman filter`
+    :cite:`bishop_adaptive_2001`. This method iterates independently over each
+    grid point in given background state. Given localization instance can be
+    used to
+    constrain the influence of observations in space. The ensemble weights are
+    calculated for every grid point and independently applied to every grid
+    point. This implementation follows :cite:`hunt_efficient_2007`, with local
+    weight estimation and is implemented in PyTorch. This implementation allows
+    filtering in time based on linear propagation assumption
+    :cite:`hunt_four-dimensional_2004` and ensemble smoothing.
+
+    Parameters
+    ----------
+    localization : obj or None, optional
+        This localization is used to localize and constrain observations
+        spatially. If this localization is None, no localization is applied such
+        it is an inefficient version of the `ensemble transform Kalman filter`.
+        Default value is None, indicating no localization at all.
+    smoother : bool, optional
+        Indicates if this filter should be run in smoothing or in filtering
+        mode. In smoothing mode, no analysis time is selected from given state
+        and the ensemble weights are applied to the whole state. In filtering
+        mode, the weights are applied only on selected analysis time. Default
+        is False, indicating filtering mode.
+    inf_factor : float, optional
+        Multiplicative inflation factor :math:`\\rho``, which is applied to the
+        background precision. An inflation factor greater one increases the
+        ensemble spread, while a factor less one decreases the spread. Default
+        is 1.0, which is the same as no inflation at all.
+    gpu : bool, optional
+        Indicator if the weight estimation should be done on either GPU (True)
+        or CPU (False): Default is None. For small models, estimation of the
+        weights on CPU is faster than on GPU!.
+    """
     def __init__(
             self,
             localization: Union[None, BaseLocalization] = None,
