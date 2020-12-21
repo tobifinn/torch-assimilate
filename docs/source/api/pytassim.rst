@@ -1,12 +1,19 @@
 torch-assimilate package
 ========================
 
-Assimilation algorithms
------------------------
+Xarray/Dask interface
+---------------------
 .. toctree::
    :maxdepth: 1
 
-   assimilation
+   interface
+
+Core
+----
+.. toctree::
+   :maxdepth: 1
+
+   core
 
 Localization
 ------------
