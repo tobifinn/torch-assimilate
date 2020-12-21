@@ -13,6 +13,7 @@ listed.
    algorithms/etkf
    algorithms/letkf
    algorithms/ketkf
+   algorithms/lketkf
 
 Base classes
 ------------
