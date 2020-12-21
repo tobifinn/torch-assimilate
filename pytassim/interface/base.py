@@ -51,7 +51,7 @@ class BaseAssimilation(object):
     BaseAssimilation is used as base class for all assimilation algorithms for
     fast prototyping of assimilation prototyping. To implement a data
     assimilation, one needs to overwrite
-    :py:meth:`~pytassim.assimilation.base.BaseAssimilation.update_state`.
+    :py:meth:`~pytassim.interface.base.BaseAssimilation.update_state`.
     """
     def __init__(
             self,
