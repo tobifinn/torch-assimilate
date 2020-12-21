@@ -58,7 +58,7 @@ class LETKF(ETKF, DomainLocalizedMixin):
             repr(self.inf_factor), repr(self.localization)
         )
 
-    def _estimate_weights(
+    def estimate_weights(
             self,
             state: xr.DataArray,
             filtered_obs: List[xr.Dataset],

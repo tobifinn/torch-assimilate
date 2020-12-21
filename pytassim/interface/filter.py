@@ -27,6 +27,14 @@ logger = logging.getLogger(__name__)
 
 
 class FilterAssimilation(BaseAssimilation):
+    """
+    This is an AbstractClass for filtering-based data assimilation
+    techniques, like ensemble Kalman filters or particle filters.
+    To initiate a filtering-based technique, one only needs to overwrite the
+    :py:meth:`~pytassim.interface.filter.FilterAssimilation
+    .estimate_weights` method with a method, which returns the estimated
+    weights.
+    """
     @staticmethod
     def _slice_analysis(
             analysis_time: pd.Timestamp,
@@ -46,7 +54,7 @@ class FilterAssimilation(BaseAssimilation):
         return state, observations, pseudo_state
 
     @abc.abstractmethod
-    def _estimate_weights(
+    def estimate_weights(
             self,
             state: xr.DataArray,
             filtered_obs: List[xr.DataArray],
@@ -61,6 +69,40 @@ class FilterAssimilation(BaseAssimilation):
             pseudo_state: Union[xr.DataArray, None],
             analysis_time: pd.Timestamp
     ) -> xr.DataArray:
+        """
+        This method updates the state based on given observations and analysis
+        time. This method prepares the different states, calculates the ensemble
+        weights and applies these weight to given state. The calculation of the
+        weights is based on PyTorch, while everything else is calculated with
+        Numpy / Xarray.
+
+        Parameters
+        ----------
+        state : :py:class:`xarray.DataArray`
+            This state is updated by this assimilation algorithm and given
+            ``observation``. This :py:class:`~xarray.DataArray` should have
+            four coordinates, which are specified in
+            :py:class:`pytassim.state.ModelState`.
+        observations : list(:py:class:`xarray.Dataset`)
+            These observations are used to update given state. An iterable of
+            many :py:class:`xarray.Dataset` can be used to assimilate different
+            variables. For the observation state, these observations are
+            stacked such that the observation state contains all observations.
+        pseudo_state : :py:class:`xarray.DataArray` or None, optional
+            This state is used to generate an observation-equivalent. This
+             :py:class:`~xarray.DataArray` should have four coordinates, which
+             are specified in :py:class:`pytassim.state.ModelState`. Default
+             is None.
+        analysis_time : :py:class:`pd.TimeStamp`
+            This analysis time determines at which point the state is updated.
+
+        Returns
+        -------
+        analysis : :py:class:`xarray.DataArray`
+            The analysed state based on given state and observations. The
+            analysis has same coordinates as given ``state``. If filtering mode
+            is on, then the time axis has only one element.
+        """
         if pseudo_state is None:
             pseudo_state = state
         self._validate_state(pseudo_state)
@@ -71,6 +113,6 @@ class FilterAssimilation(BaseAssimilation):
             )
         ens_obs, filtered_obs = self._apply_obs_operator(pseudo_state,
                                                          observations)
-        weights = self._estimate_weights(state, filtered_obs, ens_obs)
+        weights = self.estimate_weights(state, filtered_obs, ens_obs)
         analysis = self._apply_weights(state, weights)
         return analysis

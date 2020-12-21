@@ -87,7 +87,7 @@ class ETKF(FilterAssimilation):
             new_factor = torch.tensor(new_factor, dtype=self.dtype)
         self._core_module = ETKFModule(inf_factor=new_factor)
 
-    def _estimate_weights(
+    def estimate_weights(
             self,
             state: xr.DataArray,
             filtered_obs: List[xr.Dataset],
