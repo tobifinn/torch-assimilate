@@ -60,6 +60,37 @@ class FilterAssimilation(BaseAssimilation):
             filtered_obs: List[xr.DataArray],
             ens_obs: List[xr.DataArray]
     ) -> xr.DataArray:
+        """
+        This method is used to estimate the weights with given state,
+        filtered observations and the ensemble equivalent of the observations.
+
+        Parameters
+        ----------
+        state : :py:class:`xarray.DataArray`
+            This state is updated by this assimilation algorithm and given
+            ``observation``. This :py:class:`~xarray.DataArray` should have
+            four coordinates, which are specified in
+            :py:class:`pytassim.state.ModelState`.
+        filtered_obs : list(:py:class:`xarray.Dataset`)
+            These observations are used to update given state. An iterable of
+            many :py:class:`xarray.Dataset` can be used to assimilate different
+            variables. For the observation state, these observations are
+            stacked such that the observation state contains all observations.
+        ens_obs : list(:py:class:`xarray.DataArray`)
+            The ensemble equivalent of the observations. This list should
+            have the same length as the `filtered_obs` list.
+
+        Returns
+        -------
+        weights : :py:class:`xarray.DataArray`
+            The estimated ensemble weights based on given state, filtered
+            observations and ensemble observations. The weights should have
+            at least "ensemble" and "ensemble_new" as dimensions. The
+            `ensemble` dimension should be the same as the `ensemble`
+            dimension of the given `state`. `ensemble_new` could have another
+            length if the number of ensemble members should be changed witihn
+            the analysis.
+        """
         pass
 
     def update_state(
@@ -100,8 +131,10 @@ class FilterAssimilation(BaseAssimilation):
         -------
         analysis : :py:class:`xarray.DataArray`
             The analysed state based on given state and observations. The
-            analysis has same coordinates as given ``state``. If filtering mode
-            is on, then the time axis has only one element.
+            analysis has same coordinates as given ``state``, except
+            `ensemble` which can change its size. If
+            filtering mode is on, then the time axis is sliced to the
+            analysis time.
         """
         if pseudo_state is None:
             pseudo_state = state
