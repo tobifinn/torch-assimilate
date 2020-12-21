@@ -92,6 +92,16 @@ class TestETKF(unittest.TestCase):
                                                       None, ana_time)
         self.assertFalse(np.any(np.isnan(assimilated_state.values)))
 
+    @if_gpu_decorator
+    def test_algorithm_works_gpu(self):
+        ana_time = self.state.time[-1].values
+        obs_tuple = (self.obs, self.obs.copy())
+        self.algorithm.gpu = True
+        self.algorithm.inf_factor = torch.nn.Parameter(torch.tensor(2.0))
+        assimilated_state = self.algorithm.assimilate(self.state, obs_tuple,
+                                                      None, ana_time)
+        self.assertFalse(np.any(np.isnan(assimilated_state.values)))
+
     def test_algorithm_works_dask(self):
         ana_time = self.state.time[-1].values
         obs_tuple = (self.obs, self.obs.copy())

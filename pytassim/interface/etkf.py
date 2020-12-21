@@ -42,11 +42,13 @@ def etkf_function(
 ) -> np.ndarray:
     obs_size = innovations.shape[0]
     ens_size = ens_obs_perts.shape[0]
-    torch_innovations = torch.from_numpy(innovations).to(dtype).to(device)
-    torch_perts = torch.from_numpy(ens_obs_perts).to(dtype).to(device)
+    torch_innovations = torch.from_numpy(innovations).to(device=device,
+                                                         dtype=dtype)
+    torch_perts = torch.from_numpy(ens_obs_perts).to(device=device, dtype=dtype)
     torch_innovations = torch_innovations.view(1, obs_size)
     torch_perts = torch_perts.view(ens_size, obs_size)
     torch_weights = core_module(torch_perts, torch_innovations)[0]
+    torch_weights = torch_weights.cpu().detach()
     weights = torch_weights.numpy().astype(innovations.dtype)
     return weights
 

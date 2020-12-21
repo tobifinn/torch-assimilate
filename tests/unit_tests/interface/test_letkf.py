@@ -37,7 +37,7 @@ import torch
 from pytassim.interface.etkf import ETKF
 from pytassim.interface.letkf import LETKF
 from pytassim.localization import GaspariCohn
-from pytassim.testing import dummy_obs_operator, dummy_distance
+from pytassim.testing import dummy_obs_operator, if_gpu_decorator
 
 
 logging.basicConfig(level=logging.INFO)
@@ -141,6 +141,15 @@ class TestLETKF(unittest.TestCase):
         xr.testing.assert_allclose(right_analysis, ret_analysis,
                                    rtol=1E-10, atol=1E-10)
 
+    @if_gpu_decorator
+    def test_algorithm_works_gpu(self):
+        ana_time = self.state.time[-1].values
+        obs_tuple = (self.obs, self.obs.copy())
+        self.algorithm.gpu = True
+        self.algorithm.inf_factor = torch.nn.Parameter(torch.tensor(2.0))
+        assimilated_state = self.algorithm.assimilate(self.state, obs_tuple,
+                                                      None, ana_time)
+        self.assertFalse(np.any(np.isnan(assimilated_state.values)))
 
 if __name__ == '__main__':
     unittest.main()
