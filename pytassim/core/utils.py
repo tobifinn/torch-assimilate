@@ -91,3 +91,30 @@ def rev_evd(
     rev_mat = torch.mm(evects, diag_flat_evals)
     rev_mat = torch.mm(rev_mat, evects.t())
     return rev_mat
+
+
+def dot_product(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+    """
+    Helper function for dot product :math:`x \\cdot y`. This dot product is
+    outsourced due to performance considerations if multi-dimensional values
+    are given.
+
+    Parameters
+    ----------
+    x : torch.Tensor
+        The first input to the dot product with (..., k, l) as shape.
+    y : torch.Tensor
+        The second input to the dot product with (..., m, l) as shape. The last
+        two dimensions are transposed to estimate the dot product.
+
+    Returns
+    -------
+    product : torch.Tensor
+        The dot product with (..., k, m) as shape.
+    """
+    product = torch.bmm(
+        x.reshape(-1, *x.shape[-2:]),
+        y.transpose(-1, -2).reshape(-1, y.shape[-1], y.shape[-2])
+    )
+    product = product.view(*x.shape[:-2], x.shape[-2], y.shape[-2])
+    return product
