@@ -19,13 +19,14 @@ import torch
 import torch.nn
 
 # Internal modules
+from .base import BaseModule
 from .utils import evd, rev_evd
 
 
 logger = logging.getLogger(__name__)
 
 
-class ETKFModule(torch.nn.Module):
+class ETKFModule(BaseModule):
     """
     Module to create ETKF weights based on PyTorch.
     This module estimates weight statistics with given perturbations and
@@ -44,44 +45,6 @@ class ETKFModule(torch.nn.Module):
 
     def __repr__(self) -> str:
         return 'ETKFCore'
-
-    @staticmethod
-    def _test_sizes(normed_perts: torch.Tensor, normed_obs: torch.Tensor):
-        """
-        Tests if sizes between perturbations and observations match.
-        """
-        if normed_perts.shape[-1] != normed_obs.shape[-1]:
-            raise ValueError(
-                'Observational size between ensemble ({0:d}) and observations '
-                '({1:d}) do not match!'.format(
-                    normed_perts.shape[-1], normed_obs.shape[-1]
-                )
-            )
-
-    @staticmethod
-    def _apply_kernel(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        """
-        Apply set kernel matrix, here the dot product, to given tensors.
-        """
-        k_mat = torch.mm(x, y.t())
-        return k_mat
-
-    def _get_prior_weights(
-            self,
-            normed_perts: torch.Tensor,
-            normed_obs: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """
-        Get prior weights. The perturbations and covariance matrix are
-        already inflated by set inflation factor.
-        """
-        ens_size = normed_perts.shape[-2]
-        prior_mean = torch.zeros(ens_size, 1).to(normed_perts)
-        prior_eye = torch.ones(ens_size).to(normed_perts)
-        prior_eye = torch.diag_embed(prior_eye)
-        prior_cov = self.inf_factor / (ens_size-1) * prior_eye
-        prior_perts = self.inf_factor.sqrt() * prior_eye
-        return prior_mean, prior_perts, prior_cov
 
     def _estimate_weights(
             self,
