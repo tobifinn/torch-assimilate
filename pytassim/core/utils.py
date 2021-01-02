@@ -112,9 +112,5 @@ def matrix_product(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     product : torch.Tensor
         The matrix product with (..., k, m) as shape.
     """
-    product = torch.bmm(
-        x.reshape(-1, *x.shape[-2:]),
-        y.transpose(-1, -2).reshape(-1, y.shape[-1], y.shape[-2])
-    )
-    product = product.view(*x.shape[:-2], x.shape[-2], y.shape[-2])
+    product = torch.matmul(x, y.transpose(-1, -2))
     return product
