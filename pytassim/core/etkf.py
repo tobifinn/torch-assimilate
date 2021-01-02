@@ -20,7 +20,7 @@ import torch.nn
 
 # Internal modules
 from .base import BaseModule
-from .utils import evd, rev_evd
+from .utils import evd, rev_evd, matrix_product
 
 
 logger = logging.getLogger(__name__)
@@ -45,6 +45,14 @@ class ETKFModule(BaseModule):
 
     def __repr__(self) -> str:
         return 'ETKFCore'
+
+    @staticmethod
+    def _apply_kernel(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        """
+        Apply set kernel matrix, here the matrix product, to given tensors.
+        """
+        k_mat = matrix_product(x, y)
+        return k_mat
 
     def _estimate_weights(
             self,

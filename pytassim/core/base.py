@@ -38,14 +38,6 @@ class BaseModule(torch.nn.Module):
             )
 
     @staticmethod
-    def _apply_kernel(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        """
-        Apply set kernel matrix, here the dot product, to given tensors.
-        """
-        k_mat = torch.mm(x, y.t())
-        return k_mat
-
-    @staticmethod
     def _get_prior_weights(
             self,
             ens_tensor: torch.Tensor,
