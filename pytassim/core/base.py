@@ -39,7 +39,6 @@ class BaseModule(torch.nn.Module):
 
     @staticmethod
     def _get_prior_weights(
-            self,
             ens_tensor: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """

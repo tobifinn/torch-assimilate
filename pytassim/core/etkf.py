@@ -90,7 +90,7 @@ class ETKFModule(BaseModule):
         self._test_sizes(normed_perts, normed_obs)
         if normed_perts.shape[-1] == 0:
             w_mean, w_perts, cov_analysed = self._get_prior_weights(
-                normed_perts, normed_obs
+                normed_perts
             )
             w_perts = w_perts * self.inf_factor.sqrt()
             cov_analysed = cov_analysed * self.inf_factor
