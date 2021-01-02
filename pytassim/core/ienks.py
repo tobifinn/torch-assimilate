@@ -27,8 +27,8 @@ logger = logging.getLogger(__name__)
 
 class IEnKSTransformModule(BaseModule):
     """
-    The core module for the transform version of the iterative ensemble
-    Kalman smoother (IEnKS).
+    The core module for the transform version of the Iterative Ensemble
+    Kalman Smoother (IEnKS).
     This version of the IEnKS uses a learning rate :math:`\\tau` to mitigate
     sampling errors within the linearized observation operator.
     """
@@ -156,6 +156,16 @@ class IEnKSBundleModule(IEnKSTransformModule):
     ):
         super().__init__(tau=tau)
         self.epsilon = epsilon
+
+    def __str__(self):
+        return 'IEnKSBundleModule(eps={0}, tau={1}'.format(
+            str(self.epsilon), str(self.tau)
+        )
+
+    def __repr__(self):
+        return 'IEnKSBundle({0}, {1})'.format(
+            repr(self.epsilon), repr(self.tau)
+        )
 
     def _get_dh_dw(
             self,
