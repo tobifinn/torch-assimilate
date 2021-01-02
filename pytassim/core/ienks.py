@@ -141,3 +141,26 @@ class IEnKSTransformModule(BaseModule):
             )
         weights = w_mean + w_perts
         return weights
+
+
+class IEnKSBundleModule(IEnKSTransformModule):
+    """
+    The core for the bundle version of the Iterative Ensemble Kalman Smoother (
+    IEnKS) with :math:`\\epsilon` as parameter.
+    """
+    def __init__(
+            self,
+            epsilon: Union[torch.Tensor, torch.nn.Parameter] =
+                torch.tensor(1E-4),
+            tau: Union[torch.Tensor, torch.nn.Parameter] = torch.tensor(1.0)
+    ):
+        super().__init__(tau=tau)
+        self.epsilon = epsilon
+
+    def _get_dh_dw(
+            self,
+            normed_perts: torch.Tensor,
+            weights_perts_inv: torch.Tensor
+    ) -> torch.Tensor:
+        dh_dw = normed_perts / self.epsilon
+        return dh_dw
