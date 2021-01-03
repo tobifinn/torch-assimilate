@@ -75,7 +75,7 @@ class KETKF(ETKF):
             pre_transform: Union[None, Iterable[BaseTransformer]] = None,
             post_transform: Union[None, Iterable[BaseTransformer]] = None
     ):
-        self._core_module = KETKFModule(kernel=kernel, inf_factor=inf_factor)
+        self._core_module = KETKFModule(kernel=kernel)
         super().__init__(
             inf_factor=inf_factor,
             smoother=smoother,
@@ -101,6 +101,8 @@ class KETKF(ETKF):
 
     @inf_factor.setter
     def inf_factor(self, new_factor):
+        if isinstance(new_factor, (float, int)):
+            new_factor = torch.tensor(new_factor, dtype=self.dtype)
         self._core_module = KETKFModule(
             inf_factor=new_factor, kernel=self.kernel
         )
