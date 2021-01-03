@@ -185,6 +185,55 @@ class TestClass(unittest.TestCase):
         correct_cov = returned_perts @ returned_perts.t() / 9
         torch.testing.assert_allclose(returned_cov, correct_cov)
 
+    def test_update_weights_returns_same_mean_as_etkf_for_prior(self):
+        self.module.tau = torch.tensor(1.0)
+        etkf = ETKFModule(inf_factor=torch.tensor(1.0))
+        etkf_weights_mean = etkf(self.normed_perts, self.normed_obs)[1]
+        ienks_mean = self.module._update_weights(
+            torch.eye(10), self.normed_perts, self.normed_obs
+        )[0]
+        torch.testing.assert_allclose(ienks_mean, etkf_weights_mean)
+
+    def test_update_weights_returns_same_perts_as_etkf_for_prior(self):
+        self.module.tau = torch.tensor(1.0)
+        etkf = ETKFModule(inf_factor=torch.tensor(1.0))
+        etkf_perts = etkf(self.normed_perts, self.normed_obs)[2]
+        ienks_perts = self.module._update_weights(
+            torch.eye(10), self.normed_perts, self.normed_obs
+        )[1]
+        torch.testing.assert_allclose(ienks_perts, etkf_perts)
+
+    def test_get_gradient_returns_analytical_gradient(self):
+        w_mean = torch.tensor([0.1, 0.2, -0.3]).view(3, 1)
+        normed_obs = torch.tensor([0.3]).view(1, 1)
+        normed_perts = torch.tensor([-0.15, -0.05, 0.2]).view(3, 1)
+        gradient = torch.tensor([0.245, 0.415, -0.66]).view(3, 1)
+        ret_grad = self.module._get_gradient(
+            w_mean, dh_dw=normed_perts, normed_obs=normed_obs, ens_size=3
+        )
+        torch.testing.assert_allclose(ret_grad, gradient)
+
+    def test_update_weights_returns_right_weights(self):
+        self.module.tau = torch.tensor(0.5)
+        weights, w_mean, w_perts = self._construct_weights(10)
+        dh_dw = torch.matmul(w_perts.inverse(), self.normed_perts)
+        grad_obs = -torch.matmul(dh_dw, self.normed_obs.t())
+        gradient = 9 * w_mean + grad_obs
+        curr_cov = w_perts @ w_perts.t() / 9
+        curr_prec = curr_cov.inverse()
+        new_prec = dh_dw @ dh_dw.t() + torch.eye(10) * 9
+        updated_prec = 0.5 * curr_prec + 0.5 * new_prec
+        updated_cov = updated_prec.inverse()
+        u, s, v = torch.svd(9 * updated_cov)
+        updated_perts = torch.matmul(u * s.sqrt(), v.t())
+        w_delta = - 0.5 * torch.matmul(updated_cov, gradient)
+        updated_mean = w_mean + w_delta
+        ret_mean, ret_perts = self.module._update_weights(
+            weights, self.normed_perts, self.normed_obs
+        )
+        torch.testing.assert_allclose(ret_mean, updated_mean)
+        torch.testing.assert_allclose(ret_perts, updated_perts)
+
 
 if __name__ == '__main__':
     unittest.main()

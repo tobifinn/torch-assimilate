@@ -119,7 +119,7 @@ class IEnKSTransformModule(BaseModule):
         dh_dw = self._get_dh_dw(normed_perts, w_perts_inv)
         grad = self._get_gradient(w_mean, dh_dw, normed_obs, ens_size)
         w_cov, w_perts = self._update_covariance(w_prec, dh_dw, ens_size)
-        delta_weight = matrix_product(w_cov, grad)
+        delta_weight = torch.matmul(w_cov, grad)
         w_mean = w_mean - self.tau * delta_weight
         return w_mean, w_perts
 
@@ -132,7 +132,7 @@ class IEnKSTransformModule(BaseModule):
         self._test_sizes(normed_perts, normed_obs)
         if normed_perts.shape[-1] == 0:
             w_mean, w_perts, _ = self._get_prior_weights(
-                normed_perts, normed_obs
+                normed_perts
             )
         else:
             w_mean, w_perts = self._update_weights(
