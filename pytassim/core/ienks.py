@@ -73,7 +73,7 @@ class IEnKSTransformModule(BaseModule):
             normed_perts: torch.Tensor,
             weights_perts_inv: torch.Tensor
     ) -> torch.Tensor:
-        dh_dw = matrix_product(normed_perts, weights_perts_inv)
+        dh_dw = torch.matmul(weights_perts_inv, normed_perts)
         return dh_dw
 
     def _get_gradient(

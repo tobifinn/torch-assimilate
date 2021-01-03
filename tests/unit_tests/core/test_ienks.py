@@ -117,6 +117,14 @@ class TestClass(unittest.TestCase):
         torch.testing.assert_allclose(decomposed_weights[2], w_prec,
                                       rtol=1E-4, atol=1E-4)
 
+    def test_dh_dw_returns_right_matrices(self):
+        weights, w_mean, w_perts = self._construct_weights(10)
+        w_perts_inv = w_perts.inverse()
+        dh_dw = torch.matmul(w_perts_inv, self.normed_perts)
+        ret_dh_dw = self.module._get_dh_dw(self.normed_perts,
+                                           weights_perts_inv=w_perts_inv)
+        torch.testing.assert_allclose(ret_dh_dw, dh_dw)
+
 
 if __name__ == '__main__':
     unittest.main()
