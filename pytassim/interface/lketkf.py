@@ -19,8 +19,9 @@ import torch
 import torch.nn
 
 # Internal modules
+from .mixin_local import DomainLocalizedMixin
 from .letkf import LETKF
-from ..core.ketkf import KETKFModule
+from .ketkf import KETKF
 from ..kernels.base_kernels import BaseKernel
 from ..kernels.linear import LinearKernel
 from ..localization.localization import BaseLocalization
@@ -30,7 +31,7 @@ from ..transform.base import BaseTransformer
 logger = logging.getLogger(__name__)
 
 
-class LKETKF(LETKF):
+class LKETKF(KETKF, DomainLocalizedMixin):
     """
     This is a kernelised implementation of the
     `localized ensemble transform Kalman filter` :cite:`hunt_efficient_2007`.
@@ -73,6 +74,8 @@ class LKETKF(LETKF):
         or CPU (False): Default is None. For small models, estimation of the
         weights on CPU is faster than on GPU!.
     """
+    estimate_weights = LETKF.estimate_weights
+
     def __init__(
             self,
             localization: Union[None, BaseLocalization] = None,
@@ -84,17 +87,16 @@ class LKETKF(LETKF):
             post_transform: Union[None, Iterable[BaseTransformer]] = None,
             chunksize: int = 10,
     ):
-        self._core_module = KETKFModule(kernel=kernel, inf_factor=inf_factor)
         super().__init__(
-            localization=localization,
+            kernel=kernel,
             inf_factor=inf_factor,
             smoother=smoother,
             gpu=gpu,
             pre_transform=pre_transform,
             post_transform=post_transform,
-            chunksize=chunksize
         )
-        self.kernel = kernel
+        self.localization = localization
+        self.chunksize = chunksize
 
     def __str__(self):
         return 'Localized KETKF(rho={0}, loc={1}, kernel={2})'.format(
@@ -104,24 +106,4 @@ class LKETKF(LETKF):
     def __repr__(self):
         return 'LKETKF({0},{1},{2})'.format(
             repr(self.inf_factor), repr(self.localization), repr(self.kernel)
-        )
-
-    @property
-    def inf_factor(self):
-        return self._core_module.inf_factor
-
-    @inf_factor.setter
-    def inf_factor(self, new_factor):
-        self._core_module = KETKFModule(
-            inf_factor=new_factor, kernel=self.kernel
-        )
-
-    @property
-    def kernel(self):
-        return self._core_module.kernel
-
-    @kernel.setter
-    def kernel(self, new_kernel):
-        self._core_module = KETKFModule(
-            kernel=new_kernel, inf_factor=self.inf_factor
         )
