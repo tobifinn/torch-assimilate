@@ -61,6 +61,38 @@ def evd(
     return evals, evects, evals_inv
 
 
+def rev_evd(
+        evals: torch.Tensor,
+        evects: torch.Tensor,
+) -> torch.Tensor:
+    """
+    Composes a tensor :math:`A` based on given eigenvalues :math:`\\lambda` and
+    eigenvectors :math:`u`,
+
+
+    .. math::
+
+       A = u \\lambda (u)^T
+
+
+    Parameters
+    ----------
+    evals : :py:class:`torch.Tensor` (nx)
+        These eigenvalues are used to recompose the matrix.
+    evects : :py:class:`torch.Tensor` (nx, nx)
+        These eigenvectors are used to recompose the matrix.
+
+    Returns
+    -------
+    rev_mat : :py:class:`torch.Tensor` (nx, nx)
+        The recomposed matrix based on given eigenvalues and eigenvectors.
+    """
+    diag_flat_evals = torch.diag_embed(evals)
+    rev_mat = torch.mm(evects, diag_flat_evals)
+    rev_mat = torch.mm(rev_mat, evects.t())
+    return rev_mat
+
+
 def svd(
         tensor: torch.Tensor,
         reg_value: float = 0.0
@@ -116,38 +148,6 @@ def rev_svd(
     """
     composed_tensor = torch.matmul(u * s, v.transpose(-1, -2))
     return composed_tensor
-
-
-def rev_evd(
-        evals: torch.Tensor,
-        evects: torch.Tensor,
-) -> torch.Tensor:
-    """
-    Composes a tensor :math:`A` based on given eigenvalues :math:`\\lambda` and
-    eigenvectors :math:`u`,
-
-
-    .. math::
-
-       A = u \\lambda (u)^T
-
-
-    Parameters
-    ----------
-    evals : :py:class:`torch.Tensor` (nx)
-        These eigenvalues are used to recompose the matrix.
-    evects : :py:class:`torch.Tensor` (nx, nx)
-        These eigenvectors are used to recompose the matrix.
-
-    Returns
-    -------
-    rev_mat : :py:class:`torch.Tensor` (nx, nx)
-        The recomposed matrix based on given eigenvalues and eigenvectors.
-    """
-    diag_flat_evals = torch.diag_embed(evals)
-    rev_mat = torch.mm(evects, diag_flat_evals)
-    rev_mat = torch.mm(rev_mat, evects.t())
-    return rev_mat
 
 
 def matrix_product(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:

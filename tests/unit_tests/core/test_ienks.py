@@ -27,6 +27,7 @@ from pytassim.core.ienks import IEnKSTransformModule, IEnKSBundleModule
 from pytassim.core.etkf import ETKFModule
 from pytassim.core.utils import svd, rev_svd, evd, rev_evd
 from pytassim.testing.dummy import dummy_obs_operator
+from pytassim.testing.decorators import if_gpu_decorator
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -233,6 +234,48 @@ class TestClass(unittest.TestCase):
         )
         torch.testing.assert_allclose(ret_mean, updated_mean)
         torch.testing.assert_allclose(ret_perts, updated_perts)
+
+    def test_update_weights_returns_given_weights_if_len_0(self):
+        weights, w_mean, w_perts = self._construct_weights(10)
+
+        ret_weights = self.module(
+            weights, self.normed_perts[..., :0], self.normed_obs[:, :0]
+        )
+        torch.testing.assert_allclose(ret_weights, weights)
+
+    def test_update_weights_returns_updated_weights(self):
+        weights = self._construct_weights(10)[0]
+        updated_weights = self.module._update_weights(
+            weights, self.normed_perts, self.normed_obs
+        )
+        updated_weights = updated_weights[0] + updated_weights[1]
+        ret_weights = self.module(
+            weights, self.normed_perts, self.normed_obs
+        )
+        torch.testing.assert_allclose(ret_weights, updated_weights)
+
+    def test_update_weights_tests_obs_perts_size(self):
+        with self.assertRaises(ValueError):
+            self.module(torch.eye(10), self.normed_perts[:, :5],
+                        self.normed_obs)
+
+    @if_gpu_decorator
+    def test_update_weights_uses_cuda(self):
+        device = torch.device('cuda')
+        self.module.tau = torch.tensor(0.5)
+        prior_weights = torch.eye(10)
+        updated_weights = self.module(prior_weights, self.normed_perts,
+                                      self.normed_obs)
+        self.module.to(device)
+        cuda_weights = self.module(
+            prior_weights.to(device), self.normed_perts.to(device),
+            self.normed_obs.to(device)
+        )
+        self.assertTrue(cuda_weights.is_cuda)
+        torch.testing.assert_allclose(cuda_weights.cpu(), updated_weights)
+
+    def test_module_can_be_compiled(self):
+        _ = torch.jit.script(self.module)
 
 
 if __name__ == '__main__':

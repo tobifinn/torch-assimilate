@@ -50,7 +50,7 @@ class IEnKSTransformModule(BaseModule):
             weights: torch.Tensor,
             ens_size: int
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        weights_deviation = weights - torch.eye(ens_size)
+        weights_deviation = weights - torch.eye(ens_size).to(weights)
         weights_mean = weights_deviation.mean(dim=1, keepdim=True)
         weights_perts = weights - weights_mean
         return weights_mean, weights_perts
@@ -96,7 +96,7 @@ class IEnKSTransformModule(BaseModule):
             ens_size: int,
     ):
         new_prec = matrix_product(dh_dw, dh_dw)
-        new_prec = new_prec + (ens_size - 1) * torch.eye(ens_size)
+        new_prec = new_prec + (ens_size - 1) * torch.eye(ens_size).to(new_prec)
         updated_prec = (1-self.tau) * w_prec + self.tau * new_prec
         u, s, v = svd(updated_prec, reg_value=0.0)
         s_inv = 1 / s
@@ -128,17 +128,13 @@ class IEnKSTransformModule(BaseModule):
             weights: torch.Tensor,
             normed_perts: torch.Tensor,
             normed_obs: torch.Tensor
-    ) -> Tuple[torch.Tensor]:
+    ) -> torch.Tensor:
         self._test_sizes(normed_perts, normed_obs)
-        if normed_perts.shape[-1] == 0:
-            w_mean, w_perts, _ = self._get_prior_weights(
-                normed_perts
-            )
-        else:
+        if normed_perts.shape[-1] > 0:
             w_mean, w_perts = self._update_weights(
                 weights, normed_perts, normed_obs
             )
-        weights = w_mean + w_perts
+            weights = w_mean + w_perts
         return weights
 
 
