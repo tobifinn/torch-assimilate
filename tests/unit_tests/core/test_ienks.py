@@ -25,7 +25,7 @@ import torch
 # Internal modules
 from pytassim.core.ienks import IEnKSTransformModule, IEnKSBundleModule
 from pytassim.core.etkf import ETKFModule
-from pytassim.core.utils import svd, rev_svd
+from pytassim.core.utils import svd, rev_svd, evd, rev_evd
 from pytassim.testing.dummy import dummy_obs_operator
 
 
@@ -135,6 +135,55 @@ class TestClass(unittest.TestCase):
             w_mean, dh_dw, self.normed_obs, ens_size=10
         )
         torch.testing.assert_allclose(ret_gradient, gradient)
+
+    def test_update_covariance_updates_covariance(self):
+        self.module.tau = torch.tensor(0.5)
+        weights, w_mean, w_perts = self._construct_weights(10)
+        w_prec = (w_perts @ w_perts.t() / 9).inverse()
+        w_perts_inv = w_perts.inverse()
+        dh_dw = torch.matmul(w_perts_inv, self.normed_perts)
+        new_prec = dh_dw @ dh_dw.t() + torch.eye(10) * 9
+        updated_prec = (1-self.module.tau) * w_prec + self.module.tau * new_prec
+        u, s, v = torch.svd(updated_prec)
+        updated_cov = torch.matmul(u/s, v.t())
+        ret_cov = self.module._update_covariance(w_prec, dh_dw, ens_size=10)[0]
+        torch.testing.assert_allclose(ret_cov, updated_cov)
+
+    def test_update_covariance_returns_new_perturbations(self):
+        self.module.tau = torch.tensor(0.5)
+        weights, w_mean, w_perts = self._construct_weights(10)
+        w_prec = (w_perts @ w_perts.t() / 9).inverse()
+        w_perts_inv = w_perts.inverse()
+        dh_dw = torch.matmul(w_perts_inv, self.normed_perts)
+        new_prec = dh_dw @ dh_dw.t() + torch.eye(10) * 9
+        updated_prec = (1-self.module.tau) * w_prec + self.module.tau * new_prec
+        u, s, v = torch.svd(updated_prec)
+        s_perts = (9 / s).sqrt()
+        updated_perts = torch.matmul(u * s_perts, v.t())
+        returned_perts = self.module._update_covariance(
+            w_prec, dh_dw, ens_size=10
+        )[1]
+        torch.testing.assert_allclose(returned_perts, updated_perts)
+
+    def test_update_covariance_returns_same_perts_as_etkf_if_gauss_newton(self):
+        self.module.tau = torch.tensor(1.0)
+        kernel_perts = self.normed_perts @ self.normed_perts.t()
+        evals, evects, evals_inv = evd(kernel_perts, reg_value=9.0)
+        evals_perts = (evals_inv * 9).sqrt()
+        weight_perts = rev_evd(evals_perts, evects)
+        returned_perts = self.module._update_covariance(
+            torch.eye(10), self.normed_perts, ens_size=10
+        )[1]
+        torch.testing.assert_allclose(returned_perts, weight_perts)
+
+    def test_update_covariance_returns_corresponding_cov_perts(self):
+        self.module.tau = torch.tensor(1.0)
+
+        returned_cov, returned_perts = self.module._update_covariance(
+            torch.eye(10), self.normed_perts, ens_size=10
+        )
+        correct_cov = returned_perts @ returned_perts.t() / 9
+        torch.testing.assert_allclose(returned_cov, correct_cov)
 
 
 if __name__ == '__main__':

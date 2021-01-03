@@ -96,12 +96,14 @@ class IEnKSTransformModule(BaseModule):
             ens_size: int,
     ):
         new_prec = matrix_product(dh_dw, dh_dw)
-        new_prec = new_prec + ens_mone * torch.eye(ens_size)
-        weights_prec = (1-self.tau) * w_prec + self.tau * new_prec
-        evals, evects, evals_inv = evd(weights_prec)
-        weights_cov = rev_evd(evals_inv, evects)
-        weights_perts = rev_evd((ens_mone * evals_inv).sqrt(), evects)
-        return weights_perts, weights_cov
+        new_prec = new_prec + (ens_size - 1) * torch.eye(ens_size)
+        updated_prec = (1-self.tau) * w_prec + self.tau * new_prec
+        u, s, v = svd(updated_prec, reg_value=0.0)
+        s_inv = 1 / s
+        weights_cov = rev_svd(u, s_inv, v)
+        s_perts = (s_inv * (ens_size - 1)).sqrt()
+        weights_perts = rev_svd(u, s_perts, v)
+        return weights_cov, weights_perts
 
     def _update_weights(
             self,
