@@ -146,7 +146,6 @@ class TestLETKF(unittest.TestCase):
         ana_time = self.state.time[-1].values
         obs_tuple = (self.obs, self.obs.copy())
         self.algorithm.gpu = True
-        print(self.algorithm.core_module)
         assimilated_state = self.algorithm.assimilate(self.state, obs_tuple,
                                                       None, ana_time)
         self.assertFalse(np.any(np.isnan(assimilated_state.values)))

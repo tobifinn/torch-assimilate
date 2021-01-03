@@ -29,10 +29,6 @@ logger = logging.getLogger(__name__)
 
 class DomainLocalizedMixin(object):
     @property
-    def core_module(self):
-        return torch.jit.script(self._core_module)
-
-    @property
     def localized_module(self):
         def wrapper(grid_info, *args, obs_info=None):
             if self.localization is not None:

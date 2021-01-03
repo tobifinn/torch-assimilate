@@ -109,6 +109,8 @@ class LETKF(DomainLocalizedMixin, ETKF):
         state_index, state_info = self._extract_state_information(state)
         state_info = state_info.chunk({'state_id': self.chunksize})
 
+        self._core_module = torch.jit.script(self._core_module)
+
         weights = xr.apply_ufunc(
             self.localized_module,
             state_info,
