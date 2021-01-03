@@ -80,7 +80,7 @@ class ETKFModule(BaseModule):
             self,
             normed_perts: torch.Tensor,
             normed_obs: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> torch.Tensor:
         """
         Get the ensemble weights for given inflation factor, _apply_kernel
         method and data.
@@ -89,14 +89,13 @@ class ETKFModule(BaseModule):
         """
         self._test_sizes(normed_perts, normed_obs)
         if normed_perts.shape[-1] == 0:
-            w_mean, w_perts, cov_analysed = self._get_prior_weights(
+            w_mean, w_perts, _ = self._get_prior_weights(
                 normed_perts
             )
             w_perts = w_perts * self.inf_factor.sqrt()
-            cov_analysed = cov_analysed * self.inf_factor
         else:
-            w_mean, w_perts, cov_analysed = self._estimate_weights(
+            w_mean, w_perts, _ = self._estimate_weights(
                 normed_perts, normed_obs
             )
         weights = w_mean + w_perts
-        return weights, w_mean, w_perts, cov_analysed
+        return weights
