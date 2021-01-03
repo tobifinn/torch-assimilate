@@ -61,7 +61,6 @@ class BaseAssimilation(object):
             pre_transform: Union[None, Iterable[BaseTransformer]] = None,
             post_transform: Union[None, Iterable[BaseTransformer]] = None
     ):
-        self._core_module = None
         self._dtype = torch.float32
         self.smoother = smoother
         self.gpu = gpu
