@@ -113,6 +113,7 @@ class KETKF(ETKF):
 
     @kernel.setter
     def kernel(self, new_kernel):
+        new_kernel.to(dtype=self.dtype, device=self.device)
         self._core_module = KETKFModule(
             kernel=new_kernel, inf_factor=self.inf_factor
         )
