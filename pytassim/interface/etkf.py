@@ -84,13 +84,13 @@ class ETKF(FilterAssimilation):
 
     @property
     def inf_factor(self):
-        return self._module.inf_factor
+        return self._core_module.inf_factor
 
     @inf_factor.setter
     def inf_factor(self, new_factor):
         if isinstance(new_factor, (float, int)):
             new_factor = torch.tensor(new_factor, dtype=self.dtype)
-        self._module = ETKFModule(inf_factor=new_factor)
+        self._core_module = ETKFModule(inf_factor=new_factor)
 
     def estimate_weights(
             self,
@@ -103,9 +103,9 @@ class ETKF(FilterAssimilation):
         )
         weights = xr.apply_ufunc(
             self.module,
-            innovations,
             ens_obs_perts,
-            input_core_dims=[['obs_id'], ['ensemble', 'obs_id']],
+            innovations,
+            input_core_dims=[['ensemble', 'obs_id'], ['obs_id']],
             dask='parallelized',
             output_core_dims=[['ensemble', 'ensemble_new']],
             output_dtypes=[float],
