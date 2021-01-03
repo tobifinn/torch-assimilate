@@ -43,8 +43,8 @@ class KETKFModule(ETKFModule):
     def __init__(
             self,
             kernel: BaseKernel,
-            inf_factor: Union[float, torch.Tensor, torch.nn.Parameter]
-                      = torch.tensor(1.0)
+            inf_factor: Union[torch.Tensor, torch.nn.Parameter] =
+            torch.tensor(1.0)
     ):
         super().__init__(inf_factor)
         self.add_module('kernel', kernel)
