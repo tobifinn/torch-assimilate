@@ -19,7 +19,7 @@ import torch
 
 # Internal modules
 from .base import BaseModule
-from .utils import svd, rev_svd, matrix_product
+from .utils import svd, rev_svd, matrix_product, diagonal_add
 
 
 logger = logging.getLogger(__name__)
@@ -50,7 +50,7 @@ class IEnKSTransformModule(BaseModule):
             weights: torch.Tensor,
             ens_size: int
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        weights_deviation = weights - torch.eye(ens_size).to(weights)
+        weights_deviation = diagonal_add(weights, -1.)
         weights_mean = weights_deviation.mean(dim=1, keepdim=True)
         weights_perts = weights - weights_mean
         return weights_mean, weights_perts
@@ -96,7 +96,7 @@ class IEnKSTransformModule(BaseModule):
             ens_size: int,
     ):
         new_prec = matrix_product(dh_dw, dh_dw)
-        new_prec = new_prec + (ens_size - 1) * torch.eye(ens_size).to(new_prec)
+        new_prec = diagonal_add(new_prec, ens_size-1.)
         updated_prec = (1-self.tau) * w_prec + self.tau * new_prec
         u, s, v = svd(updated_prec, reg_value=0.0)
         s_inv = 1 / s

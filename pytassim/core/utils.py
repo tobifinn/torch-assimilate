@@ -12,7 +12,7 @@
 
 # System modules
 import logging
-from typing import Tuple
+from typing import Tuple, Union
 
 # External modules
 import torch
@@ -171,3 +171,29 @@ def matrix_product(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     """
     product = torch.matmul(x, y.transpose(-1, -2))
     return product
+
+
+def diagonal_add(
+        tensor: torch.Tensor,
+        to_add: float = 0.
+) -> torch.Tensor:
+    """
+    Helper function to add values to the diagonal of a given tensor.
+    The diagonal is extracted from the last two dimensions.
+
+    Parameters
+    ----------
+    tensor : torch.Tensor
+        The value is added to the diagonal based on the last two dimensions of
+        this tensor.
+    to_add : float
+        This value is added to the diagonal of the given tensor.
+
+    Returns
+    -------
+    tensor_added : torch.Tensor
+        The tensor with the added values to the diagonal.
+    """
+    tensor_added = tensor.clone()
+    tensor_added.diagonal(dim1=-2, dim2=-1)[:] += to_add
+    return tensor_added
