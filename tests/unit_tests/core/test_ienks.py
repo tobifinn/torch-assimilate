@@ -36,7 +36,7 @@ BASE_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
 
 
-class TestClass(unittest.TestCase):
+class TestIEnKSTransformCore(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         torch.manual_seed(42)
@@ -224,9 +224,9 @@ class TestClass(unittest.TestCase):
         curr_prec = curr_cov.inverse()
         new_prec = dh_dw @ dh_dw.t() + torch.eye(10) * 9
         updated_prec = 0.5 * curr_prec + 0.5 * new_prec
-        updated_cov = updated_prec.inverse()
-        u, s, v = torch.svd(9 * updated_cov)
-        updated_perts = torch.matmul(u * s.sqrt(), v.t())
+        u, s, v = torch.svd(updated_prec)
+        updated_cov = torch.matmul(u/s, v.t())
+        updated_perts = torch.matmul(u * (9/s).sqrt(), v.t())
         w_delta = - 0.5 * torch.matmul(updated_cov, gradient)
         updated_mean = w_mean + w_delta
         ret_mean, ret_perts = self.module._update_weights(
@@ -276,6 +276,43 @@ class TestClass(unittest.TestCase):
 
     def test_module_can_be_compiled(self):
         _ = torch.jit.script(self.module)
+
+
+class TestIEnKSBundleCore(TestIEnKSTransformCore):
+    def setUp(self) -> None:
+        self.module = IEnKSBundleModule(
+            epsilon=torch.tensor(1.0),
+            tau=torch.tensor(1.0)
+        )
+
+    def test_dh_dw_returns_right_matrices(self):
+        self.module.epsilon = torch.tensor(1E-3)
+        dh_dw = self.normed_perts / self.module.epsilon
+        ret_dh_dw = self.module._get_dh_dw(self.normed_perts,
+                                           weights_perts_inv=torch.eye(10))
+        torch.testing.assert_allclose(ret_dh_dw, dh_dw)
+
+    def test_update_weights_returns_right_weights(self):
+        self.module.epsilon = torch.tensor(1E-3)
+        self.module.tau = torch.tensor(0.5)
+        weights, w_mean, w_perts = self._construct_weights(10)
+        dh_dw = self.normed_perts / self.module.epsilon
+        grad_obs = -torch.matmul(dh_dw, self.normed_obs.t())
+        gradient = 9 * w_mean + grad_obs
+        curr_cov = w_perts @ w_perts.t() / 9
+        curr_prec = curr_cov.inverse()
+        new_prec = dh_dw @ dh_dw.t() + torch.eye(10) * 9
+        updated_prec = 0.5 * curr_prec + 0.5 * new_prec
+        u, s, v = torch.svd(updated_prec)
+        updated_cov = torch.matmul(u/s, v.t())
+        updated_perts = torch.matmul(u * (9/s).sqrt(), v.t())
+        w_delta = - 0.5 * torch.matmul(updated_cov, gradient)
+        updated_mean = w_mean + w_delta
+        ret_mean, ret_perts = self.module._update_weights(
+            weights, self.normed_perts, self.normed_obs
+        )
+        torch.testing.assert_allclose(ret_mean, updated_mean)
+        torch.testing.assert_allclose(ret_perts, updated_perts)
 
 
 if __name__ == '__main__':
