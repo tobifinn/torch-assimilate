@@ -29,8 +29,8 @@ logger = logging.getLogger(__name__)
 
 class DomainLocalizedMixin(object):
     @property
-    def module(self):
-        return torch.jit.sript(self._module)
+    def core_module(self):
+        return torch.jit.sript(self._core_module)
 
     @property
     def localized_module(self):
@@ -41,7 +41,7 @@ class DomainLocalizedMixin(object):
                 )
                 lweights = np.sqrt(lweights[luse])
                 args = [arg[..., luse]*lweights for arg in args]
-            return self.bridged_module(*args)
+            return self.module(*args)
         return wrapper
 
     @staticmethod
