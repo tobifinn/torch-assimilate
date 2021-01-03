@@ -92,7 +92,7 @@ class ETKFModule(BaseModule):
             w_mean, w_perts, _ = self._get_prior_weights(
                 normed_perts
             )
-            w_perts = w_perts * self.inf_factor.sqrt()
+            w_perts = w_perts * torch.sqrt(self.inf_factor)
         else:
             normed_perts = self._view_as_2d(normed_perts)
             normed_obs = self._view_as_2d(normed_obs)
