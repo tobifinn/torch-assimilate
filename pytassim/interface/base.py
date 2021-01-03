@@ -61,6 +61,7 @@ class BaseAssimilation(object):
             pre_transform: Union[None, Iterable[BaseTransformer]] = None,
             post_transform: Union[None, Iterable[BaseTransformer]] = None
     ):
+        self._module = None
         self._dtype = torch.float32
         self.smoother = smoother
         self.gpu = gpu
@@ -73,6 +74,10 @@ class BaseAssimilation(object):
 
     def __repr__(self):
         return 'BaseAssimilation'
+
+    @property
+    def module(self):
+        return self._module
 
     @property
     def dtype(self) -> torch.dtype:
