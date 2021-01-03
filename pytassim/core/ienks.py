@@ -84,7 +84,7 @@ class IEnKSTransformModule(BaseModule):
             ens_size: int
     ) -> torch.Tensor:
         dlobs_dh = -normed_obs
-        grad_obs = matrix_product(dlobs_dh, dh_dw)
+        grad_obs = matrix_product(dh_dw, dlobs_dh)
         grad_back = (ens_size - 1) * w_mean
         grad = grad_back + grad_obs
         return grad

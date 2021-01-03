@@ -125,6 +125,17 @@ class TestClass(unittest.TestCase):
                                            weights_perts_inv=w_perts_inv)
         torch.testing.assert_allclose(ret_dh_dw, dh_dw)
 
+    def test_get_gradient_returns_gradient_wrt_ensemble_mean(self):
+        weights, w_mean, w_perts = self._construct_weights(10)
+        w_perts_inv = w_perts.inverse()
+        dh_dw = torch.matmul(w_perts_inv, self.normed_perts)
+        gradient = 9 * w_mean - torch.matmul(dh_dw, self.normed_obs.t())
+
+        ret_gradient = self.module._get_gradient(
+            w_mean, dh_dw, self.normed_obs, ens_size=10
+        )
+        torch.testing.assert_allclose(ret_gradient, gradient)
+
 
 if __name__ == '__main__':
     unittest.main()
