@@ -38,6 +38,14 @@ class BaseModule(torch.nn.Module):
             )
 
     @staticmethod
+    def _view_as_2d(tensor: torch.Tensor) -> torch.Tensor:
+        if len(tensor.shape) < 2:
+            tensor = tensor.view(1, -1)
+        else:
+            tensor = tensor.view(-1, tensor.shape[-1])
+        return tensor
+
+    @staticmethod
     def _get_prior_weights(
             ens_tensor: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
