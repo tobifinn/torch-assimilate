@@ -88,6 +88,8 @@ class ETKFModule(BaseModule):
         weights are returned.
         """
         self._test_sizes(normed_perts, normed_obs)
+        normed_perts = self._view_as_2d(normed_perts)
+        normed_obs = self._view_as_2d(normed_obs)
         if normed_perts.shape[-1] == 0:
             w_mean, w_perts, _ = self._get_prior_weights(
                 normed_perts

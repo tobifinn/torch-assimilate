@@ -130,6 +130,9 @@ class IEnKSTransformModule(BaseModule):
             normed_obs: torch.Tensor
     ) -> torch.Tensor:
         self._test_sizes(normed_perts, normed_obs)
+        weights = self._view_as_2d(weights)
+        normed_perts = self._view_as_2d(normed_perts)
+        normed_obs = self._view_as_2d(normed_obs)
         if normed_perts.shape[-1] > 0:
             w_mean, w_perts = self._update_weights(
                 weights, normed_perts, normed_obs
