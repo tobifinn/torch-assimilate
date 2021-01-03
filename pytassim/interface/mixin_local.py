@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 class DomainLocalizedMixin(object):
     @property
     def core_module(self):
-        return torch.jit.sript(self._core_module)
+        return torch.jit.script(self._core_module)
 
     @property
     def localized_module(self):
