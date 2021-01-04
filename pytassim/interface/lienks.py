@@ -76,7 +76,7 @@ class LocalizedIEnKSTransform(IEnKSTransform, DomainLocalizedMixin):
         obs_info = self._extract_obs_information(innovations)
         state_index, state_info = self._extract_state_information(state)
         state_info = state_info.chunk({'state_id': self.chunksize})
-        weights = self._prepare_weights(weights)
+        weights = self._weights_stack_state_id(weights)
 
         self._core_module = torch.jit.script(self._core_module)
 
