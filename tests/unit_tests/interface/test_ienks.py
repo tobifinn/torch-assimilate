@@ -43,9 +43,10 @@ import scipy.linalg
 import scipy.linalg.blas
 
 # Internal modules
-from pytassim.state import StateError
 from pytassim.interface.ienks import IEnKSTransform, IEnKSBundle
 from pytassim.interface.etkf import ETKF
+from pytassim.core.ienks import IEnKSTransformModule, IEnKSBundleModule
+from pytassim.state import StateError
 from pytassim.testing import dummy_obs_operator, if_gpu_decorator, \
     generate_random_weights
 
@@ -96,6 +97,13 @@ class TestIEnKSTransform(unittest.TestCase):
     def test_tau_returns_core_module_tau(self):
         self.algorithm.core_module.tau = torch.tensor(0.01)
         self.assertEqual(self.algorithm.tau, self.algorithm.core_module.tau)
+
+    def test_tau_is_bounded(self):
+        with self.assertRaises(ValueError):
+            self.algorithm.tau = -0.5
+
+        with self.assertRaises(ValueError):
+            self.algorithm.tau = 1.5
 
     def test_get_model_weights_returns_weights(self):
         returned_weights = self.algorithm.get_model_weights(self.weights)
@@ -161,7 +169,6 @@ class TestIEnKSTransform(unittest.TestCase):
         xr.testing.assert_identical(returned_weights, correct_weights)
 
     def test_algorithm_works(self):
-        print(self.state)
         ana_time = self.state.time[-1].values
         obs_tuple = (self.obs, self.obs.copy())
         assimilated_state = self.algorithm.assimilate(self.state, obs_tuple,
@@ -228,6 +235,101 @@ class TestIEnKSTransform(unittest.TestCase):
             prior_state, self.obs, analysis_time=prior_state.time.values
         )
         xr.testing.assert_allclose(ienks_analysis, etkf_analysis)
+
+
+class TestIEnKSBundle(unittest.TestCase):
+    def setUp(self):
+        state_path = os.path.join(DATA_PATH, 'test_state.nc')
+        self.state = xr.open_dataarray(state_path).load()
+        obs_path = os.path.join(DATA_PATH, 'test_single_obs.nc')
+        self.obs = xr.open_dataset(obs_path).load()
+        self.obs.obs.operator = dummy_obs_operator
+        self.weights = generate_random_weights(len(self.state['ensemble']))
+        self.algorithm = IEnKSBundle(lambda x: (self.state+1, self.state+2))
+
+    def tearDown(self):
+        self.state.close()
+        self.obs.close()
+
+    def test_tau_sets_core_module(self):
+        old_id = id(self.algorithm._core_module)
+        self.algorithm.tau = torch.tensor(3.2)
+        self.assertNotEqual(id(self.algorithm._core_module), old_id)
+        self.assertIsInstance(self.algorithm.core_module, IEnKSBundleModule)
+        torch.testing.assert_allclose(self.algorithm.core_module.tau,
+                                      3.2)
+
+    def test_tau_can_set_parameter(self):
+        tau = torch.nn.Parameter(torch.tensor(3.2))
+        self.algorithm.tau = tau
+        self.assertEqual(self.algorithm.core_module.tau, tau)
+
+    def test_float_tau_gets_converted_into_tensor(self):
+        self.algorithm.tau = 3.2
+        self.assertIsInstance(
+            self.algorithm.core_module.tau, torch.Tensor
+        )
+        torch.testing.assert_allclose(
+            self.algorithm.core_module.tau, 3.2
+        )
+
+    def test_tau_returns_core_module_tau(self):
+        self.algorithm.core_module.tau = torch.tensor(0.01)
+        self.assertEqual(self.algorithm.tau, self.algorithm.core_module.tau)
+
+    def test_tau_sets_old_epsilon(self):
+        old_eps = id(self.algorithm.core_module.epsilon)
+        self.algorithm.core_module.tau = torch.tensor(0.01)
+        self.assertEqual(old_eps, id(self.algorithm.core_module.epsilon))
+
+    def test_epsilon_sets_core_module(self):
+        old_id = id(self.algorithm._core_module)
+        self.algorithm.epsilon = torch.tensor(3.2)
+        self.assertNotEqual(id(self.algorithm._core_module), old_id)
+        self.assertIsInstance(self.algorithm.core_module, IEnKSBundleModule)
+        torch.testing.assert_allclose(self.algorithm.core_module.epsilon,
+                                      3.2)
+
+    def test_epsilon_can_set_parameter(self):
+        epsilon = torch.nn.Parameter(torch.tensor(3.2))
+        self.algorithm.epsilon = epsilon
+        self.assertEqual(self.algorithm.core_module.epsilon, epsilon)
+
+    def test_float_epsilon_gets_converted_into_tensor(self):
+        self.algorithm.epsilon = 3.2
+        self.assertIsInstance(
+            self.algorithm.core_module.epsilon, torch.Tensor
+        )
+        torch.testing.assert_allclose(
+            self.algorithm.core_module.epsilon, 3.2
+        )
+
+    def test_epsilon_returns_core_module_epsilon(self):
+        self.algorithm.core_module.epsilon = torch.tensor(0.01)
+        self.assertEqual(self.algorithm.epsilon,
+                         self.algorithm.core_module.epsilon)
+
+    def test_epsilon_sets_old_tau(self):
+        old_tau = id(self.algorithm.core_module.tau)
+        self.algorithm.core_module.epsilon = torch.tensor(0.01)
+        self.assertEqual(old_tau, id(self.algorithm.core_module.tau))
+
+    def test_tau_is_bounded(self):
+        with self.assertRaises(ValueError):
+            self.algorithm.tau = -0.5
+
+        with self.assertRaises(ValueError):
+            self.algorithm.tau = 1.5
+
+    def test_epsilon_is_bounded_from_below(self):
+        self.algorithm.epsilon = 2.5
+        with self.assertRaises(ValueError):
+            self.algorithm.epsilon = -0.5
+        torch.testing.assert_allclose(self.algorithm.epsilon, 2.5)
+
+    def test_get_model_weights_returns_weights(self):
+        returned_weights = self.algorithm.get_model_weights(self.weights)
+        xr.testing.assert_identical(returned_weights, self.weights)
 
 
 if __name__ == '__main__':

@@ -22,6 +22,7 @@ import xarray as xr
 from .variational import VarAssimilation
 from pytassim.core.ienks import IEnKSTransformModule, IEnKSBundleModule
 from pytassim.transform import BaseTransformer
+from pytassim.utilities.decorators import ensure_tensor, bound_tensor
 
 
 logger = logging.getLogger(__name__)
@@ -38,7 +39,6 @@ class IEnKSTransform(VarAssimilation):
             pre_transform: Union[None, Iterable[BaseTransformer]] = None,
             post_transform: Union[None, Iterable[BaseTransformer]] = None,
     ):
-        self._core_module = IEnKSTransformModule()
         super().__init__(
             model=model,
             max_iter=max_iter,
@@ -54,10 +54,9 @@ class IEnKSTransform(VarAssimilation):
         return self._core_module.tau
 
     @tau.setter
+    @ensure_tensor
+    @bound_tensor(min_val=0.0, max_val=1.0)
     def tau(self, new_tau):
-        if isinstance(new_tau, (float, int)):
-            new_tau = torch.tensor(new_tau, dtype=self.dtype,
-                                   device=self.device)
         self._core_module = IEnKSTransformModule(tau=new_tau)
 
     def get_model_weights(self, weights: xr.DataArray) -> xr.DataArray:
@@ -113,3 +112,27 @@ class IEnKSBundle(IEnKSTransform):
             post_transform=post_transform
         )
         self.epsilon = epsilon
+
+    @property
+    def epsilon(self):
+        return self._core_module.epsilon
+
+    @epsilon.setter
+    @ensure_tensor
+    @bound_tensor(min_val=0.0, max_val=None)
+    def epsilon(self, new_epsilon):
+        self._core_module = IEnKSBundleModule(
+            epsilon=new_epsilon, tau=self._core_module.tau
+        )
+
+    @property
+    def tau(self):
+        return self._core_module.tau
+
+    @tau.setter
+    @ensure_tensor
+    @bound_tensor(min_val=0.0, max_val=1.0)
+    def tau(self, new_tau):
+        self._core_module = IEnKSBundleModule(
+            epsilon=self._core_module.epsilon, tau=new_tau
+        )
