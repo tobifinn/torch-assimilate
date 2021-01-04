@@ -45,6 +45,7 @@ import scipy.linalg.blas
 # Internal modules
 from pytassim.state import StateError
 from pytassim.interface.ienks import IEnKSTransform, IEnKSBundle
+from pytassim.interface.etkf import ETKF
 from pytassim.testing import dummy_obs_operator, if_gpu_decorator, \
     generate_random_weights
 
@@ -59,13 +60,13 @@ DATA_PATH = os.path.join(os.path.dirname(BASE_PATH), 'data')
 
 class TestIEnKSTransform(unittest.TestCase):
     def setUp(self):
-        self.algorithm = IEnKSTransform(lambda x: (x+1, x+2))
         state_path = os.path.join(DATA_PATH, 'test_state.nc')
         self.state = xr.open_dataarray(state_path).load()
         obs_path = os.path.join(DATA_PATH, 'test_single_obs.nc')
         self.obs = xr.open_dataset(obs_path).load()
         self.obs.obs.operator = dummy_obs_operator
         self.weights = generate_random_weights(len(self.state['ensemble']))
+        self.algorithm = IEnKSTransform(lambda x: (self.state+1, self.state+2))
 
     def tearDown(self):
         self.state.close()
@@ -91,6 +92,10 @@ class TestIEnKSTransform(unittest.TestCase):
         torch.testing.assert_allclose(
             self.algorithm.core_module.tau, 3.2
         )
+
+    def test_tau_returns_core_module_tau(self):
+        self.algorithm.core_module.tau = torch.tensor(0.01)
+        self.assertEqual(self.algorithm.tau, self.algorithm.core_module.tau)
 
     def test_get_model_weights_returns_weights(self):
         returned_weights = self.algorithm.get_model_weights(self.weights)
@@ -139,7 +144,24 @@ class TestIEnKSTransform(unittest.TestCase):
                 self.weights, self.state
             )
 
+    def test_estimate_weights_returns_right_weights(self):
+        ens_obs = self.obs.obs.operator(self.obs, self.state)
+        ens_mean = ens_obs.mean('ensemble')
+        normed_ens_obs = self.obs.obs.mul_rcinv(ens_obs-ens_mean)
+        normed_obs = self.obs.obs.mul_rcinv(self.obs['observations']-ens_mean)
+        normed_ens_obs = normed_ens_obs.stack(obs_id=['time', 'obs_grid_1'])
+        normed_obs = normed_obs.stack(obs_id=['time', 'obs_grid_1'])
+        correct_weights = self.algorithm.module(
+            self.weights.values, normed_ens_obs.values, normed_obs.values
+        )
+        correct_weights = self.weights.copy(data=correct_weights)
+        returned_weights = self.algorithm.estimate_weights(
+            self.state, self.weights, [self.obs], [ens_obs]
+        )
+        xr.testing.assert_identical(returned_weights, correct_weights)
+
     def test_algorithm_works(self):
+        print(self.state)
         ana_time = self.state.time[-1].values
         obs_tuple = (self.obs, self.obs.copy())
         assimilated_state = self.algorithm.assimilate(self.state, obs_tuple,
@@ -182,44 +204,30 @@ class TestIEnKSTransform(unittest.TestCase):
         with_time = self.algorithm.assimilate(self.state, obs_tuple,
                                               None, ana_time)
         xr.testing.assert_identical(with_time, no_time)
-    # def test_etkf_returns_right_analysis(self):
-    #     sliced_state = self.state.isel(time=[0])
-    #     sliced_obs = self.obs.isel(time=[0])
-    #     sliced_obs.obs.operator = self.obs.obs.operator
-    #     ens_obs = sliced_obs.obs.operator(sliced_obs, sliced_state)
-    #     ens_mean, ens_perts = ens_obs.state.split_mean_perts()
-    #     innovation = sliced_obs['observations']-ens_mean
-    #
-    #     norm_innov = sliced_obs.obs.mul_rcinv(innovation)
-    #     norm_innov = torch.from_numpy(norm_innov.values).to(
-    #         self.algorithm.dtype
-    #     ).view(1, -1)
-    #
-    #     norm_perts = sliced_obs.obs.mul_rcinv(ens_perts)
-    #     norm_perts = norm_perts.transpose('ensemble', 'time', 'obs_grid_1')
-    #     norm_perts = torch.from_numpy(norm_perts.values).to(
-    #         self.algorithm.dtype
-    #     ).view(10, -1)
-    #
-    #     weights = self.algorithm.core_module(norm_perts, norm_innov).numpy()
-    #     weights = xr.DataArray(
-    #         weights,
-    #         coords={
-    #             'ensemble': self.state.indexes['ensemble'],
-    #             'ensemble_new': self.state.indexes['ensemble']
-    #         },
-    #         dims=['ensemble', 'ensemble_new']
-    #     )
-    #     analysis = self.algorithm._apply_weights(sliced_state, weights)
-    #     ret_analysis = self.algorithm.assimilate(state=sliced_state,
-    #                                              observations=sliced_obs)
-    #     xr.testing.assert_identical(analysis, ret_analysis)
-    #
-    # def test_filter_uses_state_as_pseudo_state_if_no_pseudo(self):
-    #     right_analysis = self.algorithm.assimilate(self.state, self.obs,
-    #                                                self.state)
-    #     ret_analysis = self.algorithm.assimilate(self.state, self.obs)
-    #     xr.testing.assert_equal(right_analysis, ret_analysis)
+
+    def test_ienks_with_linear_max_iter_1_equals_etkf(self):
+        def linear_model(analysis):
+            state = xr.concat([analysis,] * 3, dim='time')
+            state['time'] = self.state['time'].values
+            pseudo_state = state + 1
+            return state, pseudo_state
+        prior_state = self.state.isel(time=[0])
+        propagated_state, pseudo_state = linear_model(prior_state)
+
+        etkf = ETKF(inf_factor=1.0, smoother=True)
+        etkf_analysis = etkf.assimilate(
+            propagated_state, self.obs, pseudo_state,
+            analysis_time=prior_state.time.values
+        )
+
+        self.algorithm.max_iter = 1
+        self.algorithm.tau = 1.0
+        self.algorithm.model = linear_model
+        self.algorithm.smoother = True
+        ienks_analysis = self.algorithm.assimilate(
+            prior_state, self.obs, analysis_time=prior_state.time.values
+        )
+        xr.testing.assert_allclose(ienks_analysis, etkf_analysis)
 
 
 if __name__ == '__main__':
