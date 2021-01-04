@@ -88,6 +88,13 @@ class VarAssimilation(BaseAssimilation):
         self._validate_state(pseudo_state)
         return pseudo_state
 
+    def _weights_stack_state_id(self, weights: xr.DataArray) -> xr.DataArray:
+        if 'grid' in weights.dims:
+            weights = weights.state.stack_to_state_id()
+            weights['state_id'] = np.arange(len(weights['state_id']))
+            weights = weights.chunk({'state_id': self.chunksize})
+        return weights
+
     def _update_step(
             self,
             weights: xr.DataArray,

@@ -49,6 +49,12 @@ class IEnKSTransform(VarAssimilation):
         )
         self.tau = tau
 
+    def __str__(self):
+        return 'IEnKSTransform(tau={0})'.format(str(self.tau))
+
+    def __repr__(self):
+        return 'IEnKSTransform({0})'.format(repr(self.tau))
+
     @property
     def tau(self):
         return self._core_module.tau
@@ -112,6 +118,16 @@ class IEnKSBundle(IEnKSTransform):
             post_transform=post_transform
         )
         self.epsilon = epsilon
+
+    def __str__(self):
+        return 'IEnKSBundle(epsilon={0}, tau={1})'.format(
+            str(self.epsilon), str(self.tau)
+        )
+
+    def __repr__(self):
+        return 'IEnKSBundle({0},{1})'.format(
+            repr(self.epsilon), repr(self.tau)
+        )
 
     @property
     def epsilon(self):
