@@ -15,6 +15,7 @@ import logging
 from typing import Union
 
 # External modules
+import torch
 
 # Internal modules
 
@@ -45,3 +46,30 @@ def lazy_property(attr_name=None):
             return getattr(self, prvt_name)
         return _lazy_property
     return lazy_wrap
+
+
+def ensure_tensor(func):
+    def wrapped_func(self, new_value):
+        if not isinstance(new_value, (torch.Tensor, torch.nn.Parameter)):
+            new_value = torch.tensor(new_value, dtype=self.dtype,
+                                     device=self.device)
+        return func(self, new_value)
+    return wrapped_func
+
+
+def bound_tensor(min_val=None, max_val=None):
+    def bound_wrap(func):
+        def bound_func(self, new_value):
+            if (min_val is not None) and torch.any(new_value < min_val):
+                raise ValueError(
+                    'Given new value {0} is smaller than the minimum value '
+                    '{1}!'.format(new_value, min_val)
+                )
+            if (max_val is not None) and torch.any(new_value > max_val):
+                raise ValueError(
+                    'Given new value {0} is larger than the maximum value '
+                    '{1}!'.format(new_value, max_val)
+                )
+            return func(self, new_value)
+        return bound_func
+    return bound_wrap
