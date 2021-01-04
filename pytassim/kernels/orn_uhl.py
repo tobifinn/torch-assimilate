@@ -70,7 +70,7 @@ class OrnsteinUhlenbeckKernel(BaseKernel):
         return 'OrnUhlKernel({0})'.format(repr(self.lengthscale))
 
     def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        abs_dist = distance_matrix(x, y, norm=1)
+        abs_dist = distance_matrix(x, y, norm=1.)
         factor = -abs_dist / self.lengthscale
         k_mat = torch.exp(factor)
         return k_mat

@@ -122,9 +122,11 @@ class TestRBFKernel(unittest.TestCase):
             (0.5/torch.tensor(0.1)).sqrt()
         )
 
+    def test_kernel_compilable(self):
+        orig_value = self.kernel(self.tensor, self.tensor)
+        compiled_kernel = torch.jit.script(self.kernel)
+        compiled_value = compiled_kernel(self.tensor, self.tensor)
+        torch.testing.assert_allclose(compiled_value, orig_value)
 
-
-
-
-if __name__ == '__main__':
-    unittest.main()
+    if __name__ == '__main__':
+        unittest.main()

@@ -13,7 +13,7 @@
 # System modules
 import logging
 import abc
-from typing import Union, Iterable, List, Callable
+from typing import Union, Iterable, List
 
 # External modules
 import xarray as xr
@@ -31,26 +31,6 @@ logger = logging.getLogger(__name__)
 
 
 __all__ = ['ETKF']
-
-
-def etkf_function(
-        innovations: np.ndarray,
-        ens_obs_perts: np.ndarray,
-        core_module: Callable,
-        device: torch.device,
-        dtype: torch.dtype
-) -> np.ndarray:
-    obs_size = innovations.shape[0]
-    ens_size = ens_obs_perts.shape[0]
-    torch_innovations = torch.from_numpy(innovations).to(device=device,
-                                                         dtype=dtype)
-    torch_perts = torch.from_numpy(ens_obs_perts).to(device=device, dtype=dtype)
-    torch_innovations = torch_innovations.view(1, obs_size)
-    torch_perts = torch_perts.view(ens_size, obs_size)
-    torch_weights = core_module(torch_perts, torch_innovations)[0]
-    torch_weights = torch_weights.cpu().detach()
-    weights = torch_weights.numpy().astype(innovations.dtype)
-    return weights
 
 
 class ETKF(FilterAssimilation):
@@ -103,10 +83,6 @@ class ETKF(FilterAssimilation):
         return 'ETKF({0})'.format(repr(self.inf_factor))
 
     @property
-    def module(self):
-        return self._core_module
-
-    @property
     def inf_factor(self):
         return self._core_module.inf_factor
 
@@ -125,20 +101,14 @@ class ETKF(FilterAssimilation):
         innovations, ens_obs_perts = self._get_obs_space_variables(
             ens_obs, filtered_obs
         )
-
         weights = xr.apply_ufunc(
-            etkf_function,
-            innovations,
+            self.module,
             ens_obs_perts,
-            input_core_dims=[['obs_id'], ['ensemble', 'obs_id']],
+            innovations,
+            input_core_dims=[['ensemble', 'obs_id'], ['obs_id']],
             dask='parallelized',
             output_core_dims=[['ensemble', 'ensemble_new']],
             output_dtypes=[float],
-            output_sizes={'ensemble_new': len(ens_obs_perts['ensemble'])},
-            kwargs={
-                'core_module': self._core_module,
-                'device': self.device,
-                'dtype': self.dtype
-            }
+            output_sizes={'ensemble_new': len(ens_obs_perts['ensemble'])}
         )
         return weights

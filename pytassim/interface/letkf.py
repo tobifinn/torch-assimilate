@@ -22,7 +22,7 @@ import torch
 import torch.nn
 
 # Internal modules
-from .etkf import ETKF, etkf_function
+from .etkf import ETKF
 from .mixin_local import DomainLocalizedMixin
 from ..transform.base import BaseTransformer
 from ..localization.localization import BaseLocalization
@@ -31,7 +31,7 @@ from ..localization.localization import BaseLocalization
 logger = logging.getLogger(__name__)
 
 
-class LETKF(ETKF, DomainLocalizedMixin):
+class LETKF(DomainLocalizedMixin, ETKF):
     """
     This is an implementation of the `localized ensemble transform Kalman
     filter` :cite:`hunt_efficient_2007`.
@@ -108,14 +108,15 @@ class LETKF(ETKF, DomainLocalizedMixin):
         obs_info = self._extract_obs_information(innovations)
         state_index, state_info = self._extract_state_information(state)
         state_info = state_info.chunk({'state_id': self.chunksize})
-        localized_etkf_function = self.localization_decorator(etkf_function)
+
+        self._core_module = torch.jit.script(self._core_module)
 
         weights = xr.apply_ufunc(
-            localized_etkf_function,
+            self.localized_module,
             state_info,
-            innovations,
             ens_obs_perts,
-            input_core_dims=[['id_names'], ['obs_id'], ['ensemble', 'obs_id']],
+            innovations,
+            input_core_dims=[['id_names'], ['ensemble', 'obs_id'], ['obs_id']],
             vectorize=True,
             dask='parallelized',
             output_core_dims=[['ensemble', 'ensemble_new']],
@@ -123,9 +124,6 @@ class LETKF(ETKF, DomainLocalizedMixin):
             output_sizes={'ensemble_new': len(state['ensemble'])},
             kwargs={
                 'obs_info': obs_info,
-                'core_module': self._core_module,
-                'device': self.device,
-                'dtype': self.dtype
             }
         )
         weights = weights.assign_coords(state_id=state_index)

@@ -12,7 +12,7 @@
 
 # System modules
 import logging
-from typing import Tuple
+from typing import Tuple, Union
 
 # External modules
 import torch
@@ -91,3 +91,109 @@ def rev_evd(
     rev_mat = torch.mm(evects, diag_flat_evals)
     rev_mat = torch.mm(rev_mat, evects.t())
     return rev_mat
+
+
+def svd(
+        tensor: torch.Tensor,
+        reg_value: float = 0.0
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """
+    Performs singular value decomposition of a tensor. The regularization
+    value is added to the tensor.
+
+    Parameters
+    ----------
+    tensor : :py:class:`torch.Tensor`
+        This tensor is decomposed.
+    reg_value : float, optional
+        This regularization value is added to the singular values and represents
+        a regularization of the matrix diagonal. The regularization is
+        deactivated with the default value of 0.
+
+    Returns
+    -------
+    u : :py:class:`torch.Tensor`
+        The decomposed left singular vector.
+    s : :py:class:`torch.Tensor`
+        The decomposed singular values with added regularization value.
+    v : :py:class:`torch.Tensor`
+        The decomposed right singular vector.
+    """
+    u, s, v = torch.svd(tensor)
+    s = s + reg_value
+    return u, s, v
+
+
+def rev_svd(
+        u: torch.Tensor,
+        s: torch.Tensor,
+        v: torch.Tensor
+) -> torch.Tensor:
+    """
+    Reverses a singular value decomposition.
+
+    Parameters
+    ----------
+    u : :py:class:`torch.Tensor`
+        The decomposed left singular vector.
+    s : :py:class:`torch.Tensor`
+        The decomposed singular values with added regularization value.
+    v : :py:class:`torch.Tensor`
+        The decomposed right singular vector.
+
+    Returns
+    -------
+    composed_tensor : :py:class:`torch.Tensor`
+        The recomposed tensor from given ``u``, ``s``, and ``v``.
+    """
+    composed_tensor = torch.matmul(u * s, v.transpose(-1, -2))
+    return composed_tensor
+
+
+def matrix_product(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+    """
+    Helper function for matrix product :math:`x \\cdot y`. This matrix
+    product is outsourced due to performance considerations if
+    multi-dimensional values are given.
+
+    Parameters
+    ----------
+    x : torch.Tensor
+        The first input to the matrix product with (..., k, l) as shape.
+    y : torch.Tensor
+        The second input to the matrix product with (..., m, l) as shape. The
+        last two dimensions are transposed to estimate the product.
+
+    Returns
+    -------
+    product : torch.Tensor
+        The matrix product with (..., k, m) as shape.
+    """
+    product = torch.matmul(x, y.transpose(-1, -2))
+    return product
+
+
+def diagonal_add(
+        tensor: torch.Tensor,
+        to_add: float = 0.
+) -> torch.Tensor:
+    """
+    Helper function to add values to the diagonal of a given tensor.
+    The diagonal is extracted from the last two dimensions.
+
+    Parameters
+    ----------
+    tensor : torch.Tensor
+        The value is added to the diagonal based on the last two dimensions of
+        this tensor.
+    to_add : float
+        This value is added to the diagonal of the given tensor.
+
+    Returns
+    -------
+    tensor_added : torch.Tensor
+        The tensor with the added values to the diagonal.
+    """
+    tensor_added = tensor.clone()
+    tensor_added.diagonal(dim1=-2, dim2=-1)[:] += to_add
+    return tensor_added

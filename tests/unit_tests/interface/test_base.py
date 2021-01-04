@@ -140,6 +140,15 @@ class TestBaseAssimilation(unittest.TestCase):
             )
         np.testing.assert_equal(valid_time, returned_time)
 
+    def test_get_analysis_time_works_for_given_array(self):
+        analysis_time = self.state.time[:2].values
+        valid_time = pd.to_datetime(analysis_time[-1])
+        returned_time = self.algorithm._get_analysis_time(
+            self.state, analysis_time=analysis_time
+        )
+        self.assertIsInstance(returned_time, pd.Timestamp)
+        self.assertEqual(valid_time, returned_time)
+
     def test_apply_obs_operator_filters_obs_wo_operator(self):
         obs_list = [self.obs, self.obs.copy()]
         obs_list[-1].obs.operator = dummy_obs_operator
@@ -167,12 +176,28 @@ class TestBaseAssimilation(unittest.TestCase):
             obs_id=['time', 'obs_grid_1']
         )
         stacked_obs = xr.concat((stacked_obs, stacked_obs), dim='obs_id')
+        stacked_obs = stacked_obs.drop('var_name')
         obs_list = [
             self.obs['observations'],
             self.obs['observations']
         ]
         returned_stacked_obs = self.algorithm._stack_obs(obs_list)
         xr.testing.assert_identical(stacked_obs, returned_stacked_obs)
+
+    def test_stack_obs_removes_unused_coords(self):
+        stacked_obs = self.obs['observations'].assign_coords(
+            time=dtindex_to_total_seconds(self.obs.indexes['time'])
+        )
+        stacked_obs = stacked_obs.stack(
+            obs_id=['time', 'obs_grid_1']
+        )
+        stacked_obs = stacked_obs.drop('var_name')
+
+        obs_list = [
+            self.obs['observations']
+        ]
+        returned_stacked = self.algorithm._stack_obs(obs_list)
+        xr.testing.assert_identical(returned_stacked, stacked_obs)
 
     def test_time_is_converted_into_unix(self):
         time_index = self.obs.indexes['time'].to_pydatetime()
@@ -207,6 +232,7 @@ class TestBaseAssimilation(unittest.TestCase):
         stacked_obs_index = stacked_obs_index.drop('obs_grid_1', axis=1)
         stacked_obs_index = pd.concat([stacked_obs_index, grid_frame], axis=1)
         stacked_obs['obs_id'] = pd.MultiIndex.from_frame(stacked_obs_index)
+        stacked_obs = stacked_obs.drop('var_name')
         returned_obs = self.algorithm._stack_obs([self.obs['observations']])
         xr.testing.assert_identical(returned_obs, stacked_obs)
 

@@ -121,7 +121,7 @@ class TestLETKF(unittest.TestCase):
             lweights = np.sqrt(lweights[luse])
             curr_innov = torch_innov[..., luse] * lweights
             curr_perts = torch_perts[..., luse] * lweights
-            curr_weights = self.algorithm.module(curr_perts, curr_innov)[0]
+            curr_weights = self.algorithm.core_module(curr_perts, curr_innov)
             weights.append(curr_weights.numpy())
         weights = np.stack(weights, axis=0)
 
@@ -146,10 +146,10 @@ class TestLETKF(unittest.TestCase):
         ana_time = self.state.time[-1].values
         obs_tuple = (self.obs, self.obs.copy())
         self.algorithm.gpu = True
-        self.algorithm.inf_factor = torch.nn.Parameter(torch.tensor(2.0))
         assimilated_state = self.algorithm.assimilate(self.state, obs_tuple,
                                                       None, ana_time)
         self.assertFalse(np.any(np.isnan(assimilated_state.values)))
+
 
 if __name__ == '__main__':
     unittest.main()

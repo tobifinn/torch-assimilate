@@ -134,13 +134,8 @@ class TestKETKFWeightsModule(unittest.TestCase):
         sqrt_evals = (9. * evals_inv).sqrt()
         w_perts = rev_evd(sqrt_evals, evects)
         weights = w_mean + w_perts
-
         ret_weight_stats = self.module(self.normed_perts, self.normed_obs)
-
-        torch.testing.assert_allclose(ret_weight_stats[0], weights)
-        torch.testing.assert_allclose(ret_weight_stats[1], w_mean)
-        torch.testing.assert_allclose(ret_weight_stats[2], w_perts)
-        torch.testing.assert_allclose(ret_weight_stats[3], cov_analysed)
+        torch.testing.assert_allclose(ret_weight_stats, weights)
 
 
 if __name__ == '__main__':

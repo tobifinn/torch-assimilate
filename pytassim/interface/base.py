@@ -75,6 +75,34 @@ class BaseAssimilation(object):
         return 'BaseAssimilation'
 
     @property
+    def core_module(self):
+        return self._core_module
+
+    @property
+    def module(self):
+        """
+        This bridged module is the module of the algorithm bridged to work
+        with numpy array.
+        The bridged module function will returned the ensemble weights as numpy
+        array with the same dtype as the first argument to the wrapped module.
+
+        Returns
+        -------
+        wrapped_module : func
+            This is the bridged module.
+        """
+        def wrapped_module(*args):
+            torch_args = [
+                torch.from_numpy(arg).to(device=self.device, dtype=self.dtype)
+                for arg in args
+            ]
+            torch_weights = self.core_module(*torch_args)
+            torch_weights = torch_weights.cpu().detach()
+            weights = torch_weights.numpy().astype(args[0].dtype)
+            return weights
+        return wrapped_module
+
+    @property
     def dtype(self) -> torch.dtype:
         return self._dtype
 
@@ -139,6 +167,8 @@ class BaseAssimilation(object):
                     category=UserWarning
                 )
         valid_time = valid_time.values
+        if not isinstance(valid_time, np.datetime64):
+            valid_time = valid_time[-1]
         valid_time = pd.to_datetime(valid_time)
         return valid_time
 
@@ -197,6 +227,11 @@ class BaseAssimilation(object):
             )
             stacked_observations.append(stacked_obs)
         stacked_observations = xr.concat(stacked_observations, dim='obs_id')
+        unused_coords = [
+            coord_name for coord_name in stacked_observations.coords.keys()
+            if coord_name not in stacked_observations.dims
+        ]
+        stacked_observations = stacked_observations.drop_vars(unused_coords)
         return stacked_observations
 
     @staticmethod

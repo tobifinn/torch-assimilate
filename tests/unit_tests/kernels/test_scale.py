@@ -90,6 +90,12 @@ class TestScaleKernel(unittest.TestCase):
         self.assertIsNotNone(self.kernel.scaling.grad)
         torch.testing.assert_allclose(self.kernel.scaling.grad, right_grad)
 
+    def test_kernel_compilable(self):
+        self.kernel.scaling = torch.nn.Parameter(torch.zeros(10, 1).normal_())
+        orig_value = self.kernel(self.test_tensor, self.test_tensor)
+        compiled_kernel = torch.jit.script(self.kernel)
+        compiled_value = compiled_kernel(self.test_tensor, self.test_tensor)
+        torch.testing.assert_allclose(compiled_value, orig_value)
 
-if __name__ == '__main__':
-    unittest.main()
+    if __name__ == '__main__':
+        unittest.main()

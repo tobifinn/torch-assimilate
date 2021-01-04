@@ -78,9 +78,9 @@ class TestLKETKF(unittest.TestCase):
         )
 
     def test_inf_factor_sets_old_kernel_to_module(self):
-        kernel_id = id(self.algorithm.module.kernel)
+        kernel_id = id(self.algorithm.core_module.kernel)
         self.algorithm.inf_factor = torch.nn.Parameter(torch.tensor(1.5))
-        self.assertEqual(id(self.algorithm.module.kernel), kernel_id)
+        self.assertEqual(id(self.algorithm.core_module.kernel), kernel_id)
 
     def test_kernel_returns_kernel_from_core_module(self):
         self.algorithm._core_module.kernel = kernels.GaussKernel()
@@ -93,17 +93,18 @@ class TestLKETKF(unittest.TestCase):
         self.assertEqual(new_kernel, self.algorithm._core_module.kernel)
 
     def test_kernel_sets_old_inf_factor_to_module(self):
-        inf_factor_id = id(self.algorithm.module.inf_factor)
+        inf_factor_id = id(self.algorithm.core_module.inf_factor)
         self.algorithm.kernel = kernels.GaussKernel()
-        self.assertEqual(id(self.algorithm.module.inf_factor), inf_factor_id)
+        self.assertEqual(id(self.algorithm.core_module.inf_factor),
+                         inf_factor_id)
 
     def test_inf_factor_sets_ketkf_module(self):
         self.algorithm.inf_factor = torch.nn.Parameter(torch.tensor(1.5))
-        self.assertIsInstance(self.algorithm.module, KETKFModule)
+        self.assertIsInstance(self.algorithm.core_module, KETKFModule)
 
     def test_kernel_sets_ketkf_module(self):
         self.algorithm.kernel = kernels.GaussKernel()
-        self.assertIsInstance(self.algorithm.module, KETKFModule)
+        self.assertIsInstance(self.algorithm.core_module, KETKFModule)
 
     def test_ketkf_linear_kernel_same_result_as_etkf(self):
         ana_time = self.state.time[-1].values
@@ -149,7 +150,7 @@ class TestLKETKF(unittest.TestCase):
             self.algorithm.dtype
         ).view(10, -1)
 
-        weights = self.algorithm.module(norm_perts, norm_innov)[0].numpy()
+        weights = self.algorithm.core_module(norm_perts, norm_innov).numpy()
         weights = xr.DataArray(
             weights,
             coords={
@@ -198,7 +199,7 @@ class TestLKETKF(unittest.TestCase):
             lweights = np.sqrt(lweights[luse])
             curr_innov = torch_innov[..., luse] * lweights
             curr_perts = torch_perts[..., luse] * lweights
-            curr_weights = self.algorithm.module(curr_perts, curr_innov)[0]
+            curr_weights = self.algorithm.core_module(curr_perts, curr_innov)
             weights.append(curr_weights.numpy())
         weights = np.stack(weights, axis=0)
 
@@ -230,10 +231,8 @@ class TestLKETKF(unittest.TestCase):
             (10.,), dist_func=dist_func
         )
         self.algorithm.gpu = True
-        self.algorithm.inf_factor = torch.nn.Parameter(torch.tensor(2.0))
-        self.algorithm.kernel = kernels.GaussKernel(
-            torch.nn.Parameter(torch.tensor(1.0))
-        )
+        self.algorithm.inf_factor = torch.tensor(2.0)
+        self.algorithm.kernel = kernels.GaussKernel(torch.tensor(1.0))
         assimilated_state = self.algorithm.assimilate(self.state, obs_tuple,
                                                       None, ana_time)
         self.assertFalse(np.any(np.isnan(assimilated_state.values)))

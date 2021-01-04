@@ -99,6 +99,11 @@ class TestPeriodic(unittest.TestCase):
         torch.testing.assert_allclose(self.kernel.lengthscale.grad,
                                       grad_out[1])
 
+    def test_kernel_compilable(self):
+        orig_value = self.kernel(self.tensor, self.tensor)
+        compiled_kernel = torch.jit.script(self.kernel)
+        compiled_value = compiled_kernel(self.tensor, self.tensor)
+        torch.testing.assert_allclose(compiled_value, orig_value)
 
-if __name__ == '__main__':
-    unittest.main()
+    if __name__ == '__main__':
+        unittest.main()
