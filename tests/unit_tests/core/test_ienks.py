@@ -189,7 +189,9 @@ class TestIEnKSTransformCore(unittest.TestCase):
     def test_update_weights_returns_same_mean_as_etkf_for_prior(self):
         self.module.tau = torch.tensor(1.0)
         etkf = ETKFModule(inf_factor=torch.tensor(1.0))
-        etkf_weights_mean = etkf(self.normed_perts, self.normed_obs)[1]
+        etkf_weights_mean = etkf._estimate_weights(
+            self.normed_perts, self.normed_obs
+        )[0]
         ienks_mean = self.module._update_weights(
             torch.eye(10), self.normed_perts, self.normed_obs
         )[0]
@@ -198,7 +200,9 @@ class TestIEnKSTransformCore(unittest.TestCase):
     def test_update_weights_returns_same_perts_as_etkf_for_prior(self):
         self.module.tau = torch.tensor(1.0)
         etkf = ETKFModule(inf_factor=torch.tensor(1.0))
-        etkf_perts = etkf(self.normed_perts, self.normed_obs)[2]
+        etkf_perts = etkf._estimate_weights(
+            self.normed_perts, self.normed_obs
+        )[1]
         ienks_perts = self.module._update_weights(
             torch.eye(10), self.normed_perts, self.normed_obs
         )[1]
