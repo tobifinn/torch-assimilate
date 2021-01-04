@@ -140,6 +140,15 @@ class TestBaseAssimilation(unittest.TestCase):
             )
         np.testing.assert_equal(valid_time, returned_time)
 
+    def test_get_analysis_time_works_for_given_array(self):
+        analysis_time = self.state.time[:2].values
+        valid_time = pd.to_datetime(analysis_time[-1])
+        returned_time = self.algorithm._get_analysis_time(
+            self.state, analysis_time=analysis_time
+        )
+        self.assertIsInstance(returned_time, pd.Timestamp)
+        self.assertEqual(valid_time, returned_time)
+
     def test_apply_obs_operator_filters_obs_wo_operator(self):
         obs_list = [self.obs, self.obs.copy()]
         obs_list[-1].obs.operator = dummy_obs_operator

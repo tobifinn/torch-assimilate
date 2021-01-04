@@ -167,6 +167,8 @@ class BaseAssimilation(object):
                     category=UserWarning
                 )
         valid_time = valid_time.values
+        if not isinstance(valid_time, np.datetime64):
+            valid_time = valid_time[-1]
         valid_time = pd.to_datetime(valid_time)
         return valid_time
 
