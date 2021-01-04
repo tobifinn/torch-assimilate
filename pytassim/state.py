@@ -35,7 +35,7 @@ from xarray.core.utils import either_dict_or_kwargs
 import pandas as pd
 
 # Internal modules
-from .utilities.pandas import multiindex_to_frame
+from .utilities.pandas import multiindex_to_frame, dtindex_to_total_seconds
 
 
 logger = logging.getLogger(__name__)
@@ -220,3 +220,10 @@ class ModelState(object):
                 )
             stacked[dim] = pd.MultiIndex.from_frame(dim_index_frame)
         return stacked
+
+    def stack_to_state_id(self) -> xr.DataArray:
+        stacked = self.array.assign_coords(
+            time=dtindex_to_total_seconds(self.array.indexes['time'])
+        )
+        stacked_to_stateid = stacked.state.stack(state_id=['time', 'grid'])
+        return stacked_to_stateid

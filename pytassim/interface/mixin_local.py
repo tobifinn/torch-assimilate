@@ -54,10 +54,7 @@ class DomainLocalizedMixin(object):
     def _extract_state_information(
             state: xr.DataArray
     ) -> Tuple[pd.MultiIndex, xr.DataArray]:
-        state_id = state.assign_coords(
-            time=utils.dtindex_to_total_seconds(state.indexes['time'])
-        )
-        state_id = state_id.state.stack(state_id=['time', 'grid'])
+        state_id = state.state.stack_to_state_id()
         state_index = state_id.indexes['state_id']
         state_array = utils.index_to_array(state_id.indexes['state_id'])
         state_array = xr.DataArray(
