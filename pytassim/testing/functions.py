@@ -33,7 +33,7 @@ def generate_random_weights(ens_size: int = 10) -> xr.DataArray:
         weights,
         coords={
             'ensemble': np.arange(10),
-            'ensemble_new': np.array(10)
+            'ensemble_new': np.arange(10)
         },
         dims=['ensemble', 'ensemble_new']
     )
