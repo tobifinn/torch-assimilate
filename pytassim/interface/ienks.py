@@ -136,3 +136,12 @@ class IEnKSBundle(IEnKSTransform):
         self._core_module = IEnKSBundleModule(
             epsilon=self._core_module.epsilon, tau=new_tau
         )
+
+    def get_model_weights(self, weights: xr.DataArray) -> xr.DataArray:
+        weights_mean = weights.mean(dim='ensemble_new')
+        prior_weights = self.generate_prior_weights(
+            len(weights_mean['ensemble'])
+        )
+        epsilon_weights = self.epsilon.cpu().detach().numpy() * prior_weights
+        epsilon_weights = epsilon_weights + weights_mean
+        return epsilon_weights
