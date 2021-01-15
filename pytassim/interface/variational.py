@@ -35,6 +35,7 @@ class VarAssimilation(BaseAssimilation):
     def __init__(
             self,
             model: Callable,
+            weight_save_path: Union[None, str] = None,
             max_iter: int = 10,
             smoother: bool = False,
             gpu: bool = False,
@@ -49,6 +50,17 @@ class VarAssimilation(BaseAssimilation):
         )
         self.model = model
         self.max_iter = max_iter
+        self.weight_save_path = weight_save_path
+
+    def precompute_weights(self, weights: xr.DataArray) -> xr.DataArray:
+        if isinstance(self.weight_save_path, str):
+            weights.to_netcdf(self.weight_save_path)
+            weights = xr.open_dataarray(
+                self.weight_save_path, chunks=weights.chunks
+            )
+        else:
+            weights = weights.load()
+        return weights
 
     @abc.abstractmethod
     def get_model_weights(self, weights: xr.DataArray) -> xr.DataArray:

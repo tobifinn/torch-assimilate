@@ -121,7 +121,9 @@ class LETKF(DomainLocalizedMixin, ETKF):
             dask='parallelized',
             output_core_dims=[['ensemble', 'ensemble_new']],
             output_dtypes=[float],
-            output_sizes={'ensemble_new': len(state['ensemble'])},
+            dask_gufunc_kwargs=dict(
+                output_sizes={'ensemble_new': len(ens_obs_perts['ensemble'])}
+            ),
             kwargs={
                 'obs_info': obs_info,
             }
