@@ -109,6 +109,8 @@ class ETKF(FilterAssimilation):
             dask='parallelized',
             output_core_dims=[['ensemble', 'ensemble_new']],
             output_dtypes=[float],
-            output_sizes={'ensemble_new': len(ens_obs_perts['ensemble'])}
+            dask_gufunc_kwargs=dict(
+                output_sizes={'ensemble_new': len(ens_obs_perts['ensemble'])}
+            )
         )
         return weights
