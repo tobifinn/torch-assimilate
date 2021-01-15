@@ -79,6 +79,35 @@ class TestIEnKSTransform(unittest.TestCase):
         self.assertNotEqual(id(self.algorithm._core_module), old_id)
         torch.testing.assert_allclose(self.algorithm.core_module.tau, 0.67)
 
+    def test_precompute_weights_loads_weights_if_no_save_path(self):
+        self.algorithm.weight_save_path = None
+        dask_weights = self.weights.chunk({'ensemble': 1, 'ensemble_new': 1})
+        with patch(
+                'xarray.core.dataarray.DataArray.load',
+                return_value=self.weights
+        ) as load_patch:
+            returned_weights = self.algorithm.precompute_weights(dask_weights)
+        load_patch.assert_called_once_with()
+        self.assertIsInstance(returned_weights.data, np.ndarray)
+        xr.testing.assert_identical(returned_weights, self.weights)
+
+    def test_precompute_weights_saves_weights_if_save_path(self):
+        self.algorithm.weight_save_path = 'test.nc'
+        dask_weights = self.weights.chunk({'ensemble': 1, 'ensemble_new': 1})
+
+        with patch(
+                'xarray.core.dataarray.Dataset.to_netcdf',
+                return_value=None
+        ) as save_patch, patch(
+                    'xarray.open_dataarray', return_value=dask_weights
+        ) as load_patch:
+            returned_weights = self.algorithm.precompute_weights(dask_weights)
+        save_patch.assert_called_once_with('test.nc')
+        load_patch.assert_called_once_with(
+            'test.nc', chunks=dask_weights.chunks
+        )
+        xr.testing.assert_identical(returned_weights, dask_weights)
+
     def test_tau_can_set_parameter(self):
         tau = torch.nn.Parameter(torch.tensor(0.67))
         self.algorithm.tau = tau
