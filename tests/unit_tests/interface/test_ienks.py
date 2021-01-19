@@ -196,6 +196,26 @@ class TestIEnKSTransform(unittest.TestCase):
         )
         xr.testing.assert_identical(returned_weights, correct_weights)
 
+    def test_algorithm_skips_first_propagation(self):
+        self.algorithm.max_iter = 1
+        self.algorithm.model = MagicMock()
+        self.algorithm.model.return_value = (self.state, self.state+1)
+        _ = self.algorithm.assimilate(
+            self.state, self.obs, self.state,
+            analysis_time=self.state.time[-1].values
+        )
+        self.algorithm.model.assert_not_called()
+
+    def test_algorithm_uses_later_propagations(self):
+        self.algorithm.max_iter = 2
+        self.algorithm.model = MagicMock()
+        self.algorithm.model.return_value = (self.state, self.state+1)
+        _ = self.algorithm.assimilate(
+            self.state, self.obs, self.state,
+            analysis_time=self.state.time[-1].values
+        )
+        self.algorithm.model.assert_called_once()
+
     def test_algorithm_works(self):
         ana_time = self.state.time[-1].values
         obs_tuple = (self.obs, self.obs.copy())
