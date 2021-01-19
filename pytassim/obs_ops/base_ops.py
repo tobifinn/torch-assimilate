@@ -69,7 +69,7 @@ class BaseOperator(object):
         pseudo_obs = self.obs_op(input_vals, *args, **kwargs)
         pseudo_obs = pseudo_obs.rename(grid='obs_grid_1')
         pseudo_obs['time'] = obs_ds.time.values
-        pseudo_obs['obs_grid_1'] = obs_ds.obs_grid_1.values
+        pseudo_obs['obs_grid_1'] = obs_ds.indexes['obs_grid_1']
         return pseudo_obs
 
     @abc.abstractmethod
