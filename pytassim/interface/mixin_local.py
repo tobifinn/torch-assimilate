@@ -55,8 +55,11 @@ class DomainLocalizedMixin(object):
             state: xr.DataArray
     ) -> Tuple[pd.MultiIndex, xr.DataArray]:
         state_id = state.state.stack_to_state_id()
-        state_index = state_id.indexes['state_id']
-        state_array = utils.index_to_array(state_id.indexes['state_id'])
+        logger.debug('Stacked into state id')
+        state_index = state_id.state_id
+        logger.debug('Got MultiIndex state id')
+        state_array = utils.index_to_array(state_index.values)
+        logger.debug('Got state id array')
         state_array = xr.DataArray(
             state_array,
             coords={
@@ -65,4 +68,5 @@ class DomainLocalizedMixin(object):
             },
             dims=['state_id', 'id_names']
         )
+        logger.debug('Transformed state id array into dataarray')
         return state_index, state_array

@@ -107,10 +107,13 @@ class LETKF(DomainLocalizedMixin, ETKF):
         logger.info('Got normalized data in observational space')
 
         obs_info = self._extract_obs_information(innovations)
+        logger.info('Extracted observation grid information')
+        logger.debug('Obs info: {0}'.format(obs_info))
         state_index, state_info = self._extract_state_information(state)
-        state_info = state_info.chunk({'state_id': self.chunksize})
         logger.info('Extracted grid information about the state id')
         logger.debug('State_id: {0}'.format(state_info))
+        state_info = state_info.chunk({'state_id': self.chunksize})
+        logger.info('Chunked the state information')
 
         self._core_module = torch.jit.script(self._core_module)
         logger.info('Compiled the core module')
