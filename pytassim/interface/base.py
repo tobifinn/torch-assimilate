@@ -211,6 +211,7 @@ class BaseAssimilation(object):
                 filtered_observations.append(obs)
             except NotImplementedError:
                 pass
+        logger.info('Applied the observation operators')
         return obs_equivalent, filtered_observations
 
     @staticmethod
@@ -239,12 +240,19 @@ class BaseAssimilation(object):
             state: xr.DataArray,
             weights: xr.DataArray
     ) -> xr.DataArray:
+        logger.debug('State: {0}'.format(state))
+        logger.debug('Weights: {0}'.format(weights))
         state_mean, state_perts = state.state.split_mean_perts(dim='ensemble')
         analysis_perts = xr.dot(state_perts, weights, dims='ensemble')
+        logger.info('Estimated the analysis perturbations')
         analysis = state_mean + analysis_perts
+        logger.debug('Analysis: {0}'.format(analysis))
+        logger.info('Created the analysis')
         analysis = analysis.rename({'ensemble_new': 'ensemble'})
-        analysis['ensemble'] = np.arange(len(analysis['ensemble']))
+        analysis['ensemble'] = state.indexes['ensemble']
+        logger.info('Recreated ensemble axis')
         analysis = analysis.transpose(*state_perts.dims)
+        logger.info('Transposed dimensions to prior state dimensions')
         return analysis
 
     def _get_obs_space_variables(
@@ -263,8 +271,10 @@ class BaseAssimilation(object):
             curr_perts = observations[k].obs.mul_rcinv(curr_perts)
             innovations.append(curr_innov)
             ens_obs_perts.append(curr_perts)
+        logger.info('Normalized data in observational space')
         innovations = self._stack_obs(innovations)
         ens_obs_perts = self._stack_obs(ens_obs_perts)
+        logger.info('Stacked the observations into one array')
         return innovations, ens_obs_perts
 
     @abc.abstractmethod

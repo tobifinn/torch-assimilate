@@ -138,14 +138,19 @@ class FilterAssimilation(BaseAssimilation):
         """
         if pseudo_state is None:
             pseudo_state = state
+            logger.info('Set the pseudo state to the state')
         self._validate_state(pseudo_state)
 
         if not self.smoother:
             state, observations, pseudo_state = self._slice_analysis(
                 analysis_time, state, observations, pseudo_state
             )
+
         ens_obs, filtered_obs = self._apply_obs_operator(pseudo_state,
                                                          observations)
+        logger.info('Start to estimate the weights')
         weights = self.estimate_weights(state, filtered_obs, ens_obs)
+        logger.info('Finished with weight estimation, starting with '
+                    'application of weights')
         analysis = self._apply_weights(state, weights)
         return analysis

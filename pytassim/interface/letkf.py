@@ -104,12 +104,16 @@ class LETKF(DomainLocalizedMixin, ETKF):
         innovations, ens_obs_perts = self._get_obs_space_variables(
             ens_obs, filtered_obs
         )
+        logger.info('Got normalized data in observational space')
 
         obs_info = self._extract_obs_information(innovations)
         state_index, state_info = self._extract_state_information(state)
         state_info = state_info.chunk({'state_id': self.chunksize})
+        logger.info('Extracted grid information about the state id')
+        logger.debug('State_id: {0}'.format(state_info))
 
         self._core_module = torch.jit.script(self._core_module)
+        logger.info('Compiled the core module')
 
         weights = xr.apply_ufunc(
             self.localized_module,
@@ -128,7 +132,9 @@ class LETKF(DomainLocalizedMixin, ETKF):
                 'obs_info': obs_info,
             }
         )
+        logger.info('Estimated the weights')
         weights = weights.assign_coords(state_id=state_index)
         weights = weights.unstack('state_id')
         weights['time'] = state.indexes['time']
+        logger.info('Post-processed the weights')
         return weights
