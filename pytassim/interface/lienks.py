@@ -73,10 +73,16 @@ class LocalizedIEnKSTransform(IEnKSTransform, DomainLocalizedMixin):
         innovations, ens_obs_perts = self._get_obs_space_variables(
             ens_obs, filtered_obs
         )
+        logger.info('Got normalized data in observational space')
+
         obs_info = self._extract_obs_information(innovations)
+        logger.info('Extracted observation grid information')
+        logger.debug('Obs info: {0}'.format(obs_info))
         grid_index, state_info = self._extract_state_information(state)
-        state_info = state_info.chunk({'state_id': self.chunksize})
-        weights = self._weights_stack_state_id(weights)
+        logger.info('Extracted grid information about the state id')
+        logger.debug('State_id: {0}'.format(state_info))
+        state_info = state_info.chunk({'grid': self.chunksize})
+        logger.info('Chunked the state information')
 
         self._core_module = torch.jit.script(self._core_module)
 
@@ -102,9 +108,8 @@ class LocalizedIEnKSTransform(IEnKSTransform, DomainLocalizedMixin):
             }
         )
         logger.info('Estimated the weights')
-        weights = weights.assign_coords(state_id=grid_index)
-        weights = weights.rename({'state_id': 'grid'})
-        weights['ensemble_new'] = weights.indexes['ensemble']
+        weights = weights.assign_coords(grid=grid_index)
+        weights['ensemble_new'] = weights.indexes['ensemble'].values
         logger.info('Post-processed the weights')
         return weights
 

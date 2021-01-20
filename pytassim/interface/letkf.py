@@ -112,7 +112,7 @@ class LETKF(DomainLocalizedMixin, ETKF):
         grid_index, state_info = self._extract_state_information(state)
         logger.info('Extracted grid information about the state id')
         logger.debug('State_id: {0}'.format(state_info))
-        state_info = state_info.chunk({'state_id': self.chunksize})
+        state_info = state_info.chunk({'grid': self.chunksize})
         logger.info('Chunked the state information')
 
         self._core_module = torch.jit.script(self._core_module)
@@ -136,7 +136,6 @@ class LETKF(DomainLocalizedMixin, ETKF):
             }
         )
         logger.info('Estimated the weights')
-        weights = weights.rename({'state_id': 'grid'})
         weights = weights.assign_coords(grid=grid_index)
         weights['ensemble_new'] = weights.indexes['ensemble']
         logger.info('Post-processed the weights')

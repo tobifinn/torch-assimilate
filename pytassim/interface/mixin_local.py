@@ -64,10 +64,10 @@ class DomainLocalizedMixin(object):
         state_array = xr.DataArray(
             state_array,
             coords={
-                'state_id': np.arange(state_array.shape[0]),
+                'grid': np.arange(state_array.shape[0]),
                 'id_names': np.arange(state_array.shape[1])
             },
-            dims=['state_id', 'id_names']
+            dims=['grid', 'id_names']
         )
         logger.debug('Transformed state id array into dataarray')
         return grid_index, state_array
