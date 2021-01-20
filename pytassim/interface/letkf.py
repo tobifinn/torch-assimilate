@@ -136,8 +136,8 @@ class LETKF(DomainLocalizedMixin, ETKF):
             }
         )
         logger.info('Estimated the weights')
-        weights = weights.assign_coords(state_id=grid_index)
         weights = weights.rename({'state_id': 'grid'})
+        weights = weights.assign_coords(grid=grid_index)
         weights['ensemble_new'] = weights.indexes['ensemble']
         logger.info('Post-processed the weights')
         return weights

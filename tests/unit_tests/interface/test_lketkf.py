@@ -180,7 +180,7 @@ class TestLKETKF(unittest.TestCase):
             [ens_obs], [sliced_obs]
         )
         obs_info = self.algorithm._extract_obs_information(norm_innov)
-        state_index, state_info = self.algorithm._extract_state_information(
+        grid_index, state_info = self.algorithm._extract_state_information(
             sliced_state
         )
 
@@ -202,19 +202,17 @@ class TestLKETKF(unittest.TestCase):
             curr_weights = self.algorithm.core_module(curr_perts, curr_innov)
             weights.append(curr_weights.numpy())
         weights = np.stack(weights, axis=0)
-
         weights = xr.DataArray(
             weights,
             coords={
-                'state_id': state_index,
+                'grid': grid_index,
                 'ensemble': sliced_state.indexes['ensemble'],
                 'ensemble_new': sliced_state.indexes['ensemble']
             },
-            dims=['state_id', 'ensemble', 'ensemble_new']
+            dims=['grid', 'ensemble', 'ensemble_new']
         )
-        weights = weights.unstack('state_id')
-        weights['time'] = sliced_state.indexes['time']
         right_analysis = self.algorithm._apply_weights(sliced_state, weights)
+
         ret_analysis = self.algorithm.assimilate(sliced_state, sliced_obs)
         xr.testing.assert_allclose(right_analysis, ret_analysis,
                                    rtol=1E-10, atol=1E-10)
