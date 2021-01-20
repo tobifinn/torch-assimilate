@@ -55,12 +55,12 @@ class LocalizedIEnKSTransform(IEnKSTransform, DomainLocalizedMixin):
 
     def __str__(self):
         return 'Localized IEnKSBundle(loc={0}, tau={1})'.format(
-            str(self.localization), str(self.tau)
+            str(self.localization), str(self.tau.item())
         )
 
     def __repr__(self):
         return 'LIEnKSBundle({0},{1})'.format(
-            repr(self.localization), repr(self.tau)
+            repr(self.localization), repr(self.tau.item())
         )
 
     def estimate_weights(
@@ -140,11 +140,13 @@ class LocalizedIEnKSBundle(IEnKSBundle, DomainLocalizedMixin):
 
     def __str__(self):
         return 'Localized IEnKSBundle(loc={0}, eps={1}, tau={2})'.format(
-            str(self.localization), str(self.epsilon), str(self.tau)
+            str(self.localization), str(self.epsilon.item()),
+            str(self.tau.item())
         )
 
     def __repr__(self):
         return 'LIEnKSBundle({0},{1},{2})'.format(
-            repr(self.localization), repr(self.epsilon), repr(self.tau)
+            repr(self.localization), repr(self.epsilon.item()),
+            repr(self.tau.item())
         )
 

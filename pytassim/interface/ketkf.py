@@ -86,13 +86,13 @@ class KETKF(ETKF):
         self.kernel = kernel
 
     def __str__(self):
-        return 'Global KETKF(rho={0}, kernel={1})'.format(
-            str(self.inf_factor), str(self.kernel)
+        return 'Global KETKF(inf_factor={0}, kernel={1})'.format(
+            str(self.inf_factor.item()), str(self.kernel)
         )
 
     def __repr__(self):
         return 'KETKF({0},{1})'.format(
-            repr(self.inf_factor), repr(self.kernel)
+            repr(self.inf_factor.item()), repr(self.kernel)
         )
 
     @property

@@ -99,11 +99,13 @@ class LKETKF(KETKF, DomainLocalizedMixin):
         self.chunksize = chunksize
 
     def __str__(self):
-        return 'Localized KETKF(rho={0}, loc={1}, kernel={2})'.format(
-            str(self.inf_factor), str(self.localization), str(self.kernel)
+        return 'Localized KETKF(inf_factor={0}, loc={1}, kernel={2})'.format(
+            str(self.inf_factor.item()), str(self.localization),
+            str(self.kernel)
         )
 
     def __repr__(self):
         return 'LKETKF({0},{1},{2})'.format(
-            repr(self.inf_factor), repr(self.localization), repr(self.kernel)
+            repr(self.inf_factor.item()), repr(self.localization),
+            repr(self.kernel)
         )

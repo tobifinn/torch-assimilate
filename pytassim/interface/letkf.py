@@ -86,13 +86,13 @@ class LETKF(DomainLocalizedMixin, ETKF):
         self.chunksize = chunksize
 
     def __str__(self):
-        return 'Localized ETKF(rho={0}, loc={1})'.format(
-            str(self.inf_factor), str(self.localization)
+        return 'Localized ETKF(inf_factor={0}, loc={1})'.format(
+            str(self.inf_factor.item()), str(self.localization)
         )
 
     def __repr__(self):
         return 'LETKF({0},{1})'.format(
-            repr(self.inf_factor), repr(self.localization)
+            repr(self.inf_factor.item()), repr(self.localization)
         )
 
     def estimate_weights(
