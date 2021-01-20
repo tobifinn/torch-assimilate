@@ -109,7 +109,7 @@ class LETKF(DomainLocalizedMixin, ETKF):
         obs_info = self._extract_obs_information(innovations)
         logger.info('Extracted observation grid information')
         logger.debug('Obs info: {0}'.format(obs_info))
-        state_index, state_info = self._extract_state_information(state)
+        grid_index, state_info = self._extract_state_information(state)
         logger.info('Extracted grid information about the state id')
         logger.debug('State_id: {0}'.format(state_info))
         state_info = state_info.chunk({'state_id': self.chunksize})
@@ -136,8 +136,8 @@ class LETKF(DomainLocalizedMixin, ETKF):
             }
         )
         logger.info('Estimated the weights')
-        weights = weights.assign_coords(state_id=state_index)
-        weights = weights.unstack('state_id')
-        weights['time'] = state.indexes['time']
+        weights = weights.assign_coords(state_id=grid_index)
+        weights = weights.rename({'state_id': 'grid'})
+        weights['ensemble_new'] = weights.indexes['ensemble']
         logger.info('Post-processed the weights')
         return weights
