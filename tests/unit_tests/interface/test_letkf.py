@@ -87,7 +87,6 @@ class TestLETKF(unittest.TestCase):
         etkf = ETKF()
         etkf_analysis = etkf.assimilate(self.state, obs_tuple)
         letkf_analysis = self.algorithm.assimilate(self.state, obs_tuple)
-        print(letkf_analysis)
         xr.testing.assert_allclose(letkf_analysis, etkf_analysis,
                                    rtol=1E-10, atol=1E-10)
 

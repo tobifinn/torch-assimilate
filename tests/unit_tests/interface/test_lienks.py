@@ -30,6 +30,7 @@ import os
 # External modules
 import xarray as xr
 import numpy as np
+import pandas as pd
 
 import torch
 import torch.jit
@@ -138,6 +139,45 @@ class TestLIEnKSTransform(unittest.TestCase):
         def dist_func(x, y):
             diff = x - y
             abs_diff = diff['obs_grid_1'].abs().values
+            return abs_diff,
+        self.algorithm.localization = GaspariCohn(
+            (10.,), dist_func=dist_func
+        )
+
+        def linear_model(analysis):
+            state = xr.concat([analysis,] * 3, dim='time')
+            state['time'] = self.state['time'].values
+            pseudo_state = state + 1
+            return state, pseudo_state
+        prior_state = self.state.isel(time=[0])
+        propagated_state, pseudo_state = linear_model(prior_state)
+
+        letkf = LETKF(
+            localization=self.algorithm.localization,
+            inf_factor=1.0, smoother=True
+        )
+        letkf_analysis = letkf.assimilate(
+            propagated_state, self.obs, pseudo_state,
+            analysis_time=prior_state.time.values
+        )
+
+        self.algorithm.max_iter = 1
+        self.algorithm.tau = 1.0
+        self.algorithm.model = linear_model
+        self.algorithm.smoother = True
+        ienks_analysis = self.algorithm.assimilate(
+            prior_state, self.obs, analysis_time=prior_state.time.values
+        )
+        xr.testing.assert_allclose(ienks_analysis, letkf_analysis)
+
+    def test_lienks_with_linear_equals_letkf_multiindex(self):
+        self.state['grid'] = pd.MultiIndex.from_product(
+            (np.arange(40), [0,]), names=['grid_point', 'height']
+        )
+
+        def dist_func(x, y):
+            diff = x[1] - y['obs_grid_1']
+            abs_diff = diff.abs().values
             return abs_diff,
         self.algorithm.localization = GaspariCohn(
             (10.,), dist_func=dist_func
