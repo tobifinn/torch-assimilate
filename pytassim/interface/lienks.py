@@ -84,8 +84,6 @@ class LocalizedIEnKSTransform(IEnKSTransform, DomainLocalizedMixin):
         state_info = state_info.chunk({'grid': self.chunksize})
         logger.info('Chunked the state information')
 
-        self._core_module = torch.jit.script(self._core_module)
-
         weights = xr.apply_ufunc(
             self.localized_module,
             state_info,
