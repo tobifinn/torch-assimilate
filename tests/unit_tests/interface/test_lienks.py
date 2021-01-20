@@ -132,7 +132,8 @@ class TestLIEnKSTransform(unittest.TestCase):
         lienks_weights = self.algorithm.estimate_weights(
             self.state.isel(time=[0]), self.weights, [self.obs], [ens_obs]
         )
-        lienks_weights = lienks_weights.mean(['grid', 'time'])
+
+        lienks_weights = lienks_weights.mean('grid')
         xr.testing.assert_allclose(lienks_weights, ienks_weights)
 
     def test_lienks_with_linear_equals_letkf(self):
@@ -287,7 +288,7 @@ class TestLIEnKSBundle(unittest.TestCase):
         lienks_weights = self.algorithm.estimate_weights(
             self.state.isel(time=[0]), self.weights, [self.obs], [ens_obs]
         )
-        lienks_weights = lienks_weights.mean(['grid', 'time'])
+        lienks_weights = lienks_weights.mean('grid')
         xr.testing.assert_allclose(lienks_weights, ienks_weights)
 
     def test_lienks_with_linear_equals_letkf(self):
