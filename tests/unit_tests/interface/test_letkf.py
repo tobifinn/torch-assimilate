@@ -30,6 +30,7 @@ import os
 # External modules
 import xarray as xr
 import numpy as np
+import pandas as pd
 
 import torch
 
@@ -74,6 +75,21 @@ class TestLETKF(unittest.TestCase):
         )
         self.assertTrue(analysis.state.valid)
 
+    def test_algorithm_localized_works_multiindex_grid(self):
+        self.state['grid'] = pd.MultiIndex.from_product(
+            (np.arange(40), [0,]), names=['grid_point', 'height']
+        )
+        self.algorithm.localization = GaspariCohn(
+            (1., 1.), dist_func=lambda x, y: np.zeros(y.shape[0])
+        )
+        self.algorithm.chunksize = 10
+        obs_tuple = (self.obs, self.obs)
+        etkf = ETKF()
+        etkf_analysis = etkf.assimilate(self.state, obs_tuple)
+        letkf_analysis = self.algorithm.assimilate(self.state, obs_tuple)
+        xr.testing.assert_allclose(letkf_analysis, etkf_analysis,
+                                   rtol=1E-10, atol=1E-10)
+
     def test_algorithm_localized_works(self):
         self.algorithm.localization = GaspariCohn(
             (1., 1.), dist_func=lambda x, y: np.zeros(y.shape[0])
@@ -102,7 +118,7 @@ class TestLETKF(unittest.TestCase):
             [ens_obs], [sliced_obs]
         )
         obs_info = self.algorithm._extract_obs_information(norm_innov)
-        state_index, state_info = self.algorithm._extract_state_information(
+        grid_index, state_info = self.algorithm._extract_state_information(
             sliced_state
         )
 
@@ -128,14 +144,12 @@ class TestLETKF(unittest.TestCase):
         weights = xr.DataArray(
             weights,
             coords={
-                'state_id': state_index,
+                'grid': grid_index,
                 'ensemble': sliced_state.indexes['ensemble'],
                 'ensemble_new': sliced_state.indexes['ensemble']
             },
-            dims=['state_id', 'ensemble', 'ensemble_new']
+            dims=['grid', 'ensemble', 'ensemble_new']
         )
-        weights = weights.unstack('state_id')
-        weights['time'] = sliced_state.indexes['time']
         right_analysis = self.algorithm._apply_weights(sliced_state, weights)
         ret_analysis = self.algorithm.assimilate(sliced_state, sliced_obs)
         xr.testing.assert_allclose(right_analysis, ret_analysis,

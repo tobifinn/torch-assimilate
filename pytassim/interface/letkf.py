@@ -86,13 +86,13 @@ class LETKF(DomainLocalizedMixin, ETKF):
         self.chunksize = chunksize
 
     def __str__(self):
-        return 'Localized ETKF(rho={0}, loc={1})'.format(
-            str(self.inf_factor), str(self.localization)
+        return 'Localized ETKF(inf_factor={0}, loc={1})'.format(
+            str(self.inf_factor.item()), str(self.localization)
         )
 
     def __repr__(self):
         return 'LETKF({0},{1})'.format(
-            repr(self.inf_factor), repr(self.localization)
+            repr(self.inf_factor.item()), repr(self.localization)
         )
 
     def estimate_weights(
@@ -109,10 +109,10 @@ class LETKF(DomainLocalizedMixin, ETKF):
         obs_info = self._extract_obs_information(innovations)
         logger.info('Extracted observation grid information')
         logger.debug('Obs info: {0}'.format(obs_info))
-        state_index, state_info = self._extract_state_information(state)
+        grid_index, state_info = self._extract_state_information(state)
         logger.info('Extracted grid information about the state id')
         logger.debug('State_id: {0}'.format(state_info))
-        state_info = state_info.chunk({'state_id': self.chunksize})
+        state_info = state_info.chunk({'grid': self.chunksize})
         logger.info('Chunked the state information')
 
         self._core_module = torch.jit.script(self._core_module)
@@ -136,8 +136,7 @@ class LETKF(DomainLocalizedMixin, ETKF):
             }
         )
         logger.info('Estimated the weights')
-        weights = weights.assign_coords(state_id=state_index)
-        weights = weights.unstack('state_id')
-        weights['time'] = state.indexes['time']
+        weights = weights.assign_coords(grid=grid_index)
+        weights['ensemble_new'] = weights.indexes['ensemble']
         logger.info('Post-processed the weights')
         return weights

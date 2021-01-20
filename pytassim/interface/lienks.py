@@ -55,12 +55,12 @@ class LocalizedIEnKSTransform(IEnKSTransform, DomainLocalizedMixin):
 
     def __str__(self):
         return 'Localized IEnKSBundle(loc={0}, tau={1})'.format(
-            str(self.localization), str(self.tau)
+            str(self.localization), str(self.tau.item())
         )
 
     def __repr__(self):
         return 'LIEnKSBundle({0},{1})'.format(
-            repr(self.localization), repr(self.tau)
+            repr(self.localization), repr(self.tau.item())
         )
 
     def estimate_weights(
@@ -73,10 +73,16 @@ class LocalizedIEnKSTransform(IEnKSTransform, DomainLocalizedMixin):
         innovations, ens_obs_perts = self._get_obs_space_variables(
             ens_obs, filtered_obs
         )
+        logger.info('Got normalized data in observational space')
+
         obs_info = self._extract_obs_information(innovations)
-        state_index, state_info = self._extract_state_information(state)
-        state_info = state_info.chunk({'state_id': self.chunksize})
-        weights = self._weights_stack_state_id(weights)
+        logger.info('Extracted observation grid information')
+        logger.debug('Obs info: {0}'.format(obs_info))
+        grid_index, state_info = self._extract_state_information(state)
+        logger.info('Extracted grid information about the state id')
+        logger.debug('State_id: {0}'.format(state_info))
+        state_info = state_info.chunk({'grid': self.chunksize})
+        logger.info('Chunked the state information')
 
         self._core_module = torch.jit.script(self._core_module)
 
@@ -101,9 +107,10 @@ class LocalizedIEnKSTransform(IEnKSTransform, DomainLocalizedMixin):
                 'args_to_skip': (0, )
             }
         )
-        weights = weights.assign_coords(state_id=state_index)
-        weights = weights.unstack('state_id')
-        weights['time'] = state.indexes['time']
+        logger.info('Estimated the weights')
+        weights = weights.assign_coords(grid=grid_index)
+        weights['ensemble_new'] = weights.indexes['ensemble'].values
+        logger.info('Post-processed the weights')
         return weights
 
 
@@ -138,11 +145,13 @@ class LocalizedIEnKSBundle(IEnKSBundle, DomainLocalizedMixin):
 
     def __str__(self):
         return 'Localized IEnKSBundle(loc={0}, eps={1}, tau={2})'.format(
-            str(self.localization), str(self.epsilon), str(self.tau)
+            str(self.localization), str(self.epsilon.item()),
+            str(self.tau.item())
         )
 
     def __repr__(self):
         return 'LIEnKSBundle({0},{1},{2})'.format(
-            repr(self.localization), repr(self.epsilon), repr(self.tau)
+            repr(self.localization), repr(self.epsilon.item()),
+            repr(self.tau.item())
         )
 

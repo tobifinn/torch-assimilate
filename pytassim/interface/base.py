@@ -369,6 +369,11 @@ class BaseAssimilation(object):
         """
         start_time = time.time()
         logger.info('Starting assimilation')
+        logger.info(
+            '########## ALGORITHM ##########\n'
+            '{0:s}\n'
+            '###############################'.format(str(self))
+        )
         if not observations:
             warnings.warn('No observation is given, I will return the '
                           'background state!', UserWarning)
