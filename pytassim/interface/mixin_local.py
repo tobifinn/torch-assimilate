@@ -54,11 +54,12 @@ class DomainLocalizedMixin(object):
     def _extract_state_information(
             state: xr.DataArray
     ) -> Tuple[pd.MultiIndex, xr.DataArray]:
-        state_id = state.state.stack_to_state_id()
-        logger.debug('Stacked into state id')
-        state_index = state_id.state_id
-        logger.debug('Got MultiIndex state id')
-        state_array = utils.index_to_array(state_index.values)
+        grid_index = state['grid']
+        logger.debug('Got grid index')
+        state_array = utils.index_to_array(grid_index.values)
+        time_array = np.ones((state_array.shape[0], 1))
+        time_array *= state.indexes['time'][0].timestamp()
+        state_array = np.hstack((time_array, state_array))
         logger.debug('Got state id array')
         state_array = xr.DataArray(
             state_array,
@@ -69,4 +70,4 @@ class DomainLocalizedMixin(object):
             dims=['state_id', 'id_names']
         )
         logger.debug('Transformed state id array into dataarray')
-        return state_index, state_array
+        return grid_index, state_array
