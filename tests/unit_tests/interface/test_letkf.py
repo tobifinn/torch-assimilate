@@ -30,6 +30,7 @@ import os
 # External modules
 import xarray as xr
 import numpy as np
+import pandas as pd
 
 import torch
 
@@ -73,6 +74,22 @@ class TestLETKF(unittest.TestCase):
             self.state, obs_tuple, self.state, self.state.time[-1].values
         )
         self.assertTrue(analysis.state.valid)
+
+    def test_algorithm_localized_works_multiindex_grid(self):
+        self.state['grid'] = pd.MultiIndex.from_product(
+            (np.arange(40), [0,]), names=['grid_point', 'height']
+        )
+        self.algorithm.localization = GaspariCohn(
+            (1., 1.), dist_func=lambda x, y: np.zeros(y.shape[0])
+        )
+        self.algorithm.chunksize = 10
+        obs_tuple = (self.obs, self.obs)
+        etkf = ETKF()
+        etkf_analysis = etkf.assimilate(self.state, obs_tuple)
+        letkf_analysis = self.algorithm.assimilate(self.state, obs_tuple)
+        print(letkf_analysis)
+        xr.testing.assert_allclose(letkf_analysis, etkf_analysis,
+                                   rtol=1E-10, atol=1E-10)
 
     def test_algorithm_localized_works(self):
         self.algorithm.localization = GaspariCohn(
