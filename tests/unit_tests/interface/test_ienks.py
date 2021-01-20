@@ -146,7 +146,9 @@ class TestIEnKSTransform(unittest.TestCase):
             },
             dims=['ensemble', 'ensemble_new']
         )
-        ret_weights = self.algorithm.generate_prior_weights(10)
+        ret_weights = self.algorithm.generate_prior_weights(
+            prior_weights['ensemble'].values
+        )
         xr.testing.assert_identical(ret_weights, prior_weights)
 
     def test_propagate_model_applies_model_weights(self):
@@ -217,6 +219,14 @@ class TestIEnKSTransform(unittest.TestCase):
         self.algorithm.model.assert_called_once()
 
     def test_algorithm_works(self):
+        ana_time = self.state.time[-1].values
+        obs_tuple = (self.obs, self.obs.copy())
+        assimilated_state = self.algorithm.assimilate(self.state, obs_tuple,
+                                                      None, ana_time)
+        self.assertFalse(np.any(np.isnan(assimilated_state.values)))
+
+    def test_algorithm_works_shited_ens(self):
+        self.state['ensemble'] = np.arange(1, len(self.state['ensemble'])+1)
         ana_time = self.state.time[-1].values
         obs_tuple = (self.obs, self.obs.copy())
         assimilated_state = self.algorithm.assimilate(self.state, obs_tuple,
@@ -377,7 +387,7 @@ class TestIEnKSBundle(unittest.TestCase):
         self.algorithm.epsilon = 1E-2
         weight_mean = self.weights.mean(dim='ensemble_new')
         prior_weights = self.algorithm.generate_prior_weights(
-            len(weight_mean['ensemble'])
+            weight_mean['ensemble'].values
         )
         epsilon_weights = weight_mean + 1E-2 * prior_weights
         returned_weights = self.algorithm.get_model_weights(self.weights)

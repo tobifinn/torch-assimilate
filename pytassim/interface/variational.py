@@ -77,13 +77,13 @@ class VarAssimilation(BaseAssimilation):
         pass
 
     @staticmethod
-    def generate_prior_weights(ens_size: int) -> xr.DataArray:
-        prior_weights = np.eye(ens_size)
+    def generate_prior_weights(ens_values: pd.Index) -> xr.DataArray:
+        prior_weights = np.eye(len(ens_values))
         prior_weights = xr.DataArray(
             prior_weights,
             coords={
-                'ensemble': np.arange(ens_size),
-                'ensemble_new': np.arange(ens_size)
+                'ensemble': ens_values,
+                'ensemble_new': ens_values
             },
             dims=['ensemble', 'ensemble_new']
         )
@@ -129,7 +129,7 @@ class VarAssimilation(BaseAssimilation):
             pseudo_state: Union[xr.DataArray, None],
             analysis_time: pd.Timestamp
     ) -> xr.DataArray:
-        weights = self.generate_prior_weights(len(state['ensemble']))
+        weights = self.generate_prior_weights(state.indexes['ensemble'])
         state = state.sel(time=[analysis_time])
         n_iter = 0
         while n_iter < self.max_iter:
