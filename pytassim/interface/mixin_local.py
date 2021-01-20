@@ -54,7 +54,7 @@ class DomainLocalizedMixin(object):
     def _extract_state_information(
             state: xr.DataArray
     ) -> Tuple[pd.MultiIndex, xr.DataArray]:
-        grid_index = state['grid']
+        grid_index = state.indexes['grid']
         logger.debug('Got grid index')
         state_array = utils.index_to_array(grid_index.values)
         time_array = np.ones((state_array.shape[0], 1))
