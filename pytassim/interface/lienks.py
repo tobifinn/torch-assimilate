@@ -74,7 +74,7 @@ class LocalizedIEnKSTransform(IEnKSTransform, DomainLocalizedMixin):
             ens_obs, filtered_obs
         )
         obs_info = self._extract_obs_information(innovations)
-        state_index, state_info = self._extract_state_information(state)
+        grid_index, state_info = self._extract_state_information(state)
         state_info = state_info.chunk({'state_id': self.chunksize})
         weights = self._weights_stack_state_id(weights)
 
@@ -101,9 +101,11 @@ class LocalizedIEnKSTransform(IEnKSTransform, DomainLocalizedMixin):
                 'args_to_skip': (0, )
             }
         )
-        weights = weights.assign_coords(state_id=state_index)
-        weights = weights.unstack('state_id')
-        weights['time'] = state.indexes['time']
+        logger.info('Estimated the weights')
+        weights = weights.assign_coords(state_id=grid_index)
+        weights = weights.rename({'state_id': 'grid'})
+        weights['ensemble_new'] = weights.indexes['ensemble']
+        logger.info('Post-processed the weights')
         return weights
 
 
