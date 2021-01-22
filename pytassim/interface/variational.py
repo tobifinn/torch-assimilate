@@ -59,14 +59,18 @@ class VarAssimilation(BaseAssimilation):
                     grid=np.arange(len(weights['grid']))
                 )
             weights.to_netcdf(self.weight_save_path)
-            weights = xr.open_dataarray(
-                self.weight_save_path, chunks=weights.chunks
+            loaded_weights = xr.open_dataarray(
+                self.weight_save_path
             )
+            if 'grid' in weights.dims:
+                loaded_weights = loaded_weights.chunk(
+                    {'grid': self.chunksize}
+                )
             logger.info('Stored and loaded the weights')
         else:
-            weights = weights.load()
+            loaded_weights = weights.load()
             logger.info('Loaded the weights')
-        return weights
+        return loaded_weights
 
     @abc.abstractmethod
     def get_model_weights(self, weights: xr.DataArray) -> xr.DataArray:
