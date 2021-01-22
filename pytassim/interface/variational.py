@@ -146,5 +146,5 @@ class VarAssimilation(BaseAssimilation):
             iter_num += 1
         analysis_state = self._apply_weights(state, weights)
         if self.smoother:
-            analysis_state, _ = self.model(analysis_state)
+            analysis_state, _ = self.model(analysis_state, iter_num)
         return analysis_state
