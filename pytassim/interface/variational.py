@@ -54,6 +54,10 @@ class VarAssimilation(BaseAssimilation):
 
     def precompute_weights(self, weights: xr.DataArray) -> xr.DataArray:
         if isinstance(self.weight_save_path, str):
+            if 'grid' in weights.dims:
+                weights = weights.assign_coords(
+                    grid=np.arange(len(weights['grid']))
+                )
             weights.to_netcdf(self.weight_save_path)
             weights = xr.open_dataarray(
                 self.weight_save_path, chunks=weights.chunks

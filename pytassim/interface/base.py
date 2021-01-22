@@ -237,6 +237,10 @@ class BaseAssimilation(object):
             state: xr.DataArray,
             weights: xr.DataArray
     ) -> xr.DataArray:
+        if 'grid' in weights.dims:
+            weights = weights.assign_coords(
+                grid=state['grid']
+            )
         logger.debug('State: {0}'.format(state))
         logger.debug('Weights: {0}'.format(weights))
         state_mean, state_perts = state.state.split_mean_perts(dim='ensemble')
