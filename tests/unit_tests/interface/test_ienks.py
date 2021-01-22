@@ -27,20 +27,16 @@ import unittest
 import logging
 import os
 from unittest.mock import patch, MagicMock
-import re
 
 # External modules
 import xarray as xr
 import numpy as np
-import pandas as pd
+import cloudpickle
 
 import torch
 import torch.jit
 import torch.nn
 import torch.sparse
-
-import scipy.linalg
-import scipy.linalg.blas
 
 # Internal modules
 from pytassim.interface.ienks import IEnKSTransform, IEnKSBundle
@@ -67,16 +63,23 @@ class TestIEnKSTransform(unittest.TestCase):
         self.obs = xr.open_dataset(obs_path).load()
         self.obs.obs.operator = dummy_obs_operator
         self.weights = generate_random_weights(len(self.state['ensemble']))
-        self.algorithm = IEnKSTransform(lambda x: (self.state+1, self.state+2))
+        self.algorithm = IEnKSTransform(
+            model=lambda state, iter_num: (self.state+1, self.state+2)
+        )
 
     def tearDown(self):
         self.state.close()
         self.obs.close()
 
+    def test_pickleable(self):
+        cloudpickle.dumps(ETKF().module)
+        cloudpickle.dumps(self.algorithm.module)
+
     def test_tau_sets_core_module(self):
         old_id = id(self.algorithm._core_module)
         self.algorithm.tau = torch.tensor(0.67)
         self.assertNotEqual(id(self.algorithm._core_module), old_id)
+        self.assertIsInstance(self.algorithm.core_module, IEnKSTransformModule)
         torch.testing.assert_allclose(self.algorithm.core_module.tau, 0.67)
 
     def test_precompute_weights_loads_weights_if_no_save_path(self):
@@ -152,7 +155,7 @@ class TestIEnKSTransform(unittest.TestCase):
         xr.testing.assert_identical(ret_weights, prior_weights)
 
     def test_propagate_model_applies_model_weights(self):
-        self.algorithm.model = lambda x: (x+1, x)
+        self.algorithm.model = lambda state, iter_num: (state+1, state)
         analysis_state = self.algorithm._apply_weights(self.state, self.weights)
 
         returned_state = self.algorithm._propagate_model(
@@ -161,7 +164,7 @@ class TestIEnKSTransform(unittest.TestCase):
         xr.testing.assert_identical(returned_state, analysis_state)
 
     def test_propagate_model_propagates_model(self):
-        self.algorithm.model = lambda x: (x+1, x+2)
+        self.algorithm.model = lambda state, iter_num: (state+1, state+2)
         analysis_state = self.algorithm._apply_weights(self.state, self.weights)
         propagated_state = analysis_state + 2
         returned_state = self.algorithm._propagate_model(
@@ -170,13 +173,13 @@ class TestIEnKSTransform(unittest.TestCase):
         xr.testing.assert_identical(returned_state, propagated_state)
 
     def test_propagate_model_tests_pseudo_state(self):
-        self.algorithm.model = lambda x: (x+1, x.values)
+        self.algorithm.model = lambda state, iter_num: (state+1, state.values)
         with self.assertRaises(TypeError):
             _ = self.algorithm._propagate_model(
                 self.weights, self.state
             )
 
-        self.algorithm.model = lambda x: (x+1, x[0])
+        self.algorithm.model = lambda state, iter_num: (state+1, state[0])
         with self.assertRaises(StateError):
             _ = self.algorithm._propagate_model(
                 self.weights, self.state
@@ -271,13 +274,13 @@ class TestIEnKSTransform(unittest.TestCase):
         xr.testing.assert_identical(with_time, no_time)
 
     def test_ienks_with_linear_max_iter_1_equals_etkf(self):
-        def linear_model(analysis):
-            state = xr.concat([analysis,] * 3, dim='time')
+        def linear_model(state, iter_num):
+            state = xr.concat([state,] * 3, dim='time')
             state['time'] = self.state['time'].values
             pseudo_state = state + 1
             return state, pseudo_state
         prior_state = self.state.isel(time=[0])
-        propagated_state, pseudo_state = linear_model(prior_state)
+        propagated_state, pseudo_state = linear_model(prior_state, 0)
 
         etkf = ETKF(inf_factor=1.0, smoother=True)
         etkf_analysis = etkf.assimilate(
@@ -303,7 +306,9 @@ class TestIEnKSBundle(unittest.TestCase):
         self.obs = xr.open_dataset(obs_path).load()
         self.obs.obs.operator = dummy_obs_operator
         self.weights = generate_random_weights(len(self.state['ensemble']))
-        self.algorithm = IEnKSBundle(lambda x: (self.state+1, self.state+2))
+        self.algorithm = IEnKSBundle(
+            model=lambda state, iter_num: (self.state+1, self.state+2)
+        )
 
     def tearDown(self):
         self.state.close()
@@ -394,13 +399,13 @@ class TestIEnKSBundle(unittest.TestCase):
         xr.testing.assert_identical(returned_weights, epsilon_weights)
 
     def test_ienks_with_linear_max_iter_1_equals_etkf(self):
-        def linear_model(analysis):
-            state = xr.concat([analysis,] * 3, dim='time')
+        def linear_model(state, iter_num):
+            state = xr.concat([state,] * 3, dim='time')
             state['time'] = self.state['time'].values
             pseudo_state = state + 1
             return state, pseudo_state
         prior_state = self.state.isel(time=[0])
-        propagated_state, pseudo_state = linear_model(prior_state)
+        propagated_state, pseudo_state = linear_model(prior_state, 0)
 
         etkf = ETKF(inf_factor=1.0, smoother=True)
         etkf_analysis = etkf.assimilate(
