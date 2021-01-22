@@ -176,6 +176,40 @@ class TestLIEnKSTransform(unittest.TestCase):
         )
         xr.testing.assert_allclose(ienks_analysis, letkf_analysis)
 
+    def test_lienks_with_linear_equals_letkf_multiindex_multi_iter(self):
+        self.state['grid'] = pd.MultiIndex.from_product(
+            (np.arange(40), [0,]), names=['grid_point', 'height']
+        )
+
+        def dist_func(x, y):
+            diff = x[1] - y['obs_grid_1']
+            abs_diff = diff.abs().values
+            return abs_diff,
+        self.algorithm.localization = GaspariCohn(
+            (10.,), dist_func=dist_func
+        )
+
+        def model(state, iter_num):
+            state = xr.concat([
+                state,
+                np.sin(state),
+                np.cos(state)
+            ], dim='time')
+            state['time'] = self.state['time'].values
+            pseudo_state = state + 1
+            return state, pseudo_state
+        prior_state = self.state.isel(time=[0])
+
+        self.algorithm.max_iter = 3
+        self.algorithm.tau = 1.0
+        self.algorithm.model = model
+        self.algorithm.smoother = True
+
+        logging.basicConfig(level=logging.DEBUG)
+        ienks_analysis = self.algorithm.assimilate(
+            prior_state, self.obs, analysis_time=prior_state.time.values
+        )
+
     def test_lienks_with_linear_equals_letkf_multiindex(self):
         self.state['grid'] = pd.MultiIndex.from_product(
             (np.arange(40), [0,]), names=['grid_point', 'height']
