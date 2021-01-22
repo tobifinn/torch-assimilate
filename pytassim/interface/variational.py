@@ -146,8 +146,8 @@ class VarAssimilation(BaseAssimilation):
                                         pseudo_state, iter_num=iter_num)
             weights = self.precompute_weights(weights)
             pseudo_state = None
-            iter_num += 1
             logger.info('Finished with iteration #{0:d}'.format(iter_num))
+            iter_num += 1
         analysis_state = self._apply_weights(state, weights)
         if self.smoother:
             analysis_state, _ = self.model(analysis_state, iter_num)
