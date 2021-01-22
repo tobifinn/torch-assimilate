@@ -58,8 +58,10 @@ class VarAssimilation(BaseAssimilation):
             weights = xr.open_dataarray(
                 self.weight_save_path, chunks=weights.chunks
             )
+            logger.info('Stored and loaded the weights')
         else:
             weights = weights.load()
+            logger.info('Loaded the weights')
         return weights
 
     @abc.abstractmethod
@@ -139,11 +141,13 @@ class VarAssimilation(BaseAssimilation):
         state = state.sel(time=[analysis_time])
         iter_num = 0
         while iter_num < self.max_iter:
+            logger.info('Starting with iteration #{0:d}'.format(iter_num))
             weights = self._update_step(weights, state, observations,
                                         pseudo_state, iter_num=iter_num)
             weights = self.precompute_weights(weights)
             pseudo_state = None
             iter_num += 1
+            logger.info('Finished with iteration #{0:d}'.format(iter_num))
         analysis_state = self._apply_weights(state, weights)
         if self.smoother:
             analysis_state, _ = self.model(analysis_state, iter_num)
