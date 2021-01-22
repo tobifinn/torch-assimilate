@@ -38,6 +38,7 @@ class IEnKSTransform(VarAssimilation):
             gpu: bool = False,
             pre_transform: Union[None, Iterable[BaseTransformer]] = None,
             post_transform: Union[None, Iterable[BaseTransformer]] = None,
+            weight_save_path: Union[None, str] = None,
     ):
         super().__init__(
             model=model,
@@ -45,7 +46,8 @@ class IEnKSTransform(VarAssimilation):
             smoother=smoother,
             gpu=gpu,
             pre_transform=pre_transform,
-            post_transform=post_transform
+            post_transform=post_transform,
+            weight_save_path=weight_save_path
         )
         self.tau = tau
 
@@ -106,6 +108,7 @@ class IEnKSBundle(IEnKSTransform):
             gpu: bool = False,
             pre_transform: Union[None, Iterable[BaseTransformer]] = None,
             post_transform: Union[None, Iterable[BaseTransformer]] = None,
+            weight_save_path: Union[None, str] = None,
     ):
         self._core_module = IEnKSBundleModule()
         super().__init__(
@@ -115,7 +118,8 @@ class IEnKSBundle(IEnKSTransform):
             smoother=smoother,
             gpu=gpu,
             pre_transform=pre_transform,
-            post_transform=post_transform
+            post_transform=post_transform,
+            weight_save_path=weight_save_path
         )
         self.epsilon = epsilon
 

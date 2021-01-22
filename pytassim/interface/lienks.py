@@ -40,6 +40,7 @@ class LocalizedIEnKSTransform(IEnKSTransform, DomainLocalizedMixin):
             pre_transform: Union[None, Iterable[BaseTransformer]] = None,
             post_transform: Union[None, Iterable[BaseTransformer]] = None,
             chunksize: int = 10,
+            weight_save_path: Union[None, str] = None,
     ):
         super().__init__(
             model=model,
@@ -48,7 +49,8 @@ class LocalizedIEnKSTransform(IEnKSTransform, DomainLocalizedMixin):
             smoother=smoother,
             gpu=gpu,
             pre_transform=pre_transform,
-            post_transform=post_transform
+            post_transform=post_transform,
+            weight_save_path=weight_save_path
         )
         self.localization = localization
         self.chunksize = chunksize
@@ -131,6 +133,7 @@ class LocalizedIEnKSBundle(IEnKSBundle, DomainLocalizedMixin):
             pre_transform: Union[None, Iterable[BaseTransformer]] = None,
             post_transform: Union[None, Iterable[BaseTransformer]] = None,
             chunksize: int = 10,
+            weight_save_path: Union[None, str] = None,
     ):
         super().__init__(
             model=model,
@@ -140,7 +143,8 @@ class LocalizedIEnKSBundle(IEnKSBundle, DomainLocalizedMixin):
             smoother=smoother,
             gpu=gpu,
             pre_transform=pre_transform,
-            post_transform=post_transform
+            post_transform=post_transform,
+            weight_save_path=weight_save_path
         )
         self.localization = localization
         self.chunksize = chunksize
