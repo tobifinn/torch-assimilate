@@ -31,6 +31,7 @@ import os
 import xarray as xr
 import numpy as np
 import pandas as pd
+import cloudpickle
 
 import torch
 import torch.jit
@@ -65,8 +66,7 @@ class TestLIEnKSTransform(unittest.TestCase):
         self.obs.obs.operator = dummy_obs_operator
         self.weights = generate_random_weights(len(self.state['ensemble']))
         self.algorithm = LocalizedIEnKSTransform(
-            lambda x: (self.state+1, self.state+2),
-
+            model=lambda state, iter_num: (self.state + 1, self.state + 2)
         )
 
     def tearDown(self):
@@ -76,6 +76,11 @@ class TestLIEnKSTransform(unittest.TestCase):
     def test_isinstance_of_domain_localized_ienks_transform(self):
         self.assertIsInstance(self.algorithm, IEnKSTransform)
         self.assertIsInstance(self.algorithm, DomainLocalizedMixin)
+
+    def test_localized_module_pickeable(self):
+        cloudpickle.dumps(self.algorithm.core_module)
+        cloudpickle.dumps(self.algorithm.module)
+        cloudpickle.dumps(self.algorithm.localized_module)
 
     def test_algorithm_works(self):
         ana_time = self.state.time[-1].values
@@ -145,13 +150,13 @@ class TestLIEnKSTransform(unittest.TestCase):
             (10.,), dist_func=dist_func
         )
 
-        def linear_model(analysis):
-            state = xr.concat([analysis,] * 3, dim='time')
+        def linear_model(state, iter_num):
+            state = xr.concat([state,] * 3, dim='time')
             state['time'] = self.state['time'].values
             pseudo_state = state + 1
             return state, pseudo_state
         prior_state = self.state.isel(time=[0])
-        propagated_state, pseudo_state = linear_model(prior_state)
+        propagated_state, pseudo_state = linear_model(prior_state, 0)
 
         letkf = LETKF(
             localization=self.algorithm.localization,
@@ -184,13 +189,13 @@ class TestLIEnKSTransform(unittest.TestCase):
             (10.,), dist_func=dist_func
         )
 
-        def linear_model(analysis):
-            state = xr.concat([analysis,] * 3, dim='time')
+        def linear_model(state, iter_num):
+            state = xr.concat([state,] * 3, dim='time')
             state['time'] = self.state['time'].values
             pseudo_state = state + 1
             return state, pseudo_state
         prior_state = self.state.isel(time=[0])
-        propagated_state, pseudo_state = linear_model(prior_state)
+        propagated_state, pseudo_state = linear_model(prior_state, 0)
 
         letkf = LETKF(
             localization=self.algorithm.localization,
@@ -220,7 +225,7 @@ class TestLIEnKSBundle(unittest.TestCase):
         self.obs.obs.operator = dummy_obs_operator
         self.weights = generate_random_weights(len(self.state['ensemble']))
         self.algorithm = LocalizedIEnKSBundle(
-            lambda x: (self.state+1, self.state+2),
+            model=lambda state, iter_num: (self.state + 1, self.state + 2)
         )
 
     def tearDown(self):
@@ -300,13 +305,13 @@ class TestLIEnKSBundle(unittest.TestCase):
             (10.,), dist_func=dist_func
         )
 
-        def linear_model(analysis):
-            state = xr.concat([analysis,] * 3, dim='time')
+        def linear_model(state, iter_num):
+            state = xr.concat([state,] * 3, dim='time')
             state['time'] = self.state['time'].values
             pseudo_state = state + 1
             return state, pseudo_state
         prior_state = self.state.isel(time=[0])
-        propagated_state, pseudo_state = linear_model(prior_state)
+        propagated_state, pseudo_state = linear_model(prior_state, 0)
 
         letkf = LETKF(
             localization=self.algorithm.localization,
