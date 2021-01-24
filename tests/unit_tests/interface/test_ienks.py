@@ -67,7 +67,9 @@ class TestIEnKSTransform(unittest.TestCase):
         self.obs = xr.open_dataset(obs_path).load()
         self.obs.obs.operator = dummy_obs_operator
         self.weights = generate_random_weights(len(self.state['ensemble']))
-        self.algorithm = IEnKSTransform(lambda x: (self.state+1, self.state+2))
+        self.algorithm = IEnKSTransform(
+            forward_model=lambda state, iter_num: (self.state+1, self.state+2)
+        )
 
     def tearDown(self):
         self.state.close()
@@ -90,9 +92,9 @@ class TestIEnKSTransform(unittest.TestCase):
                     'xarray.open_dataarray', return_value=dask_weights
         ) as load_patch:
             returned_weights = self.algorithm.precompute_weights(dask_weights)
-        save_patch.assert_called_once_with('test.nc')
+        save_patch.assert_called_once_with('test.nc', compute=True)
         load_patch.assert_called_once_with(
-            'test.nc', chunks=dask_weights.chunks
+            'test.nc', chunks=None
         )
         xr.testing.assert_identical(returned_weights, dask_weights)
 
@@ -121,7 +123,7 @@ class TestIEnKSTransform(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.algorithm.tau = 1.5
 
-    def test_estimate_weights_returns_right_weights(self):
+    def test_innerloop_returns_right_weights(self):
         ens_obs = self.obs.obs.operator(self.obs, self.state)
         ens_mean = ens_obs.mean('ensemble')
         normed_ens_obs = self.obs.obs.mul_rcinv(ens_obs-ens_mean)
@@ -132,7 +134,7 @@ class TestIEnKSTransform(unittest.TestCase):
             self.weights.values, normed_ens_obs.values, normed_obs.values
         )
         correct_weights = self.weights.copy(data=correct_weights)
-        returned_weights = self.algorithm.estimate_weights(
+        returned_weights = self.algorithm.inner_loop(
             self.state, self.weights, [self.obs], [ens_obs]
         )
         xr.testing.assert_identical(returned_weights, correct_weights)
@@ -149,13 +151,13 @@ class TestIEnKSTransform(unittest.TestCase):
 
     def test_algorithm_uses_later_propagations(self):
         self.algorithm.max_iter = 2
-        self.algorithm.model = MagicMock()
-        self.algorithm.model.return_value = (self.state, self.state+1)
+        self.algorithm.forward_model = MagicMock()
+        self.algorithm.forward_model.return_value = (self.state, self.state+1)
         _ = self.algorithm.assimilate(
             self.state, self.obs, self.state,
             analysis_time=self.state.time[-1].values
         )
-        self.algorithm.model.assert_called_once()
+        self.algorithm.forward_model.assert_called_once()
 
     def test_algorithm_works(self):
         ana_time = self.state.time[-1].values
@@ -210,13 +212,13 @@ class TestIEnKSTransform(unittest.TestCase):
         xr.testing.assert_identical(with_time, no_time)
 
     def test_ienks_with_linear_max_iter_1_equals_etkf(self):
-        def linear_model(analysis):
-            state = xr.concat([analysis,] * 3, dim='time')
+        def linear_model(state, iter_num):
+            state = xr.concat([state,] * 3, dim='time')
             state['time'] = self.state['time'].values
             pseudo_state = state + 1
             return state, pseudo_state
         prior_state = self.state.isel(time=[0])
-        propagated_state, pseudo_state = linear_model(prior_state)
+        propagated_state, pseudo_state = linear_model(prior_state, 0)
 
         etkf = ETKF(inf_factor=1.0, smoother=True)
         etkf_analysis = etkf.assimilate(
@@ -226,7 +228,7 @@ class TestIEnKSTransform(unittest.TestCase):
 
         self.algorithm.max_iter = 1
         self.algorithm.tau = 1.0
-        self.algorithm.model = linear_model
+        self.algorithm.forward_model = linear_model
         self.algorithm.smoother = True
         ienks_analysis = self.algorithm.assimilate(
             prior_state, self.obs, analysis_time=prior_state.time.values
@@ -242,8 +244,9 @@ class TestIEnKSBundle(unittest.TestCase):
         self.obs = xr.open_dataset(obs_path).load()
         self.obs.obs.operator = dummy_obs_operator
         self.weights = generate_random_weights(len(self.state['ensemble']))
-        self.algorithm = IEnKSBundle(lambda x: (self.state+1, self.state+2))
-
+        self.algorithm = IEnKSBundle(
+            forward_model=lambda state, iter_num: (self.state+1, self.state+2)
+        )
     def tearDown(self):
         self.state.close()
         self.obs.close()
@@ -333,13 +336,13 @@ class TestIEnKSBundle(unittest.TestCase):
         xr.testing.assert_identical(returned_weights, epsilon_weights)
 
     def test_ienks_with_linear_max_iter_1_equals_etkf(self):
-        def linear_model(analysis):
-            state = xr.concat([analysis,] * 3, dim='time')
+        def linear_model(state, iter_num):
+            state = xr.concat([state,] * 3, dim='time')
             state['time'] = self.state['time'].values
             pseudo_state = state + 1
             return state, pseudo_state
         prior_state = self.state.isel(time=[0])
-        propagated_state, pseudo_state = linear_model(prior_state)
+        propagated_state, pseudo_state = linear_model(prior_state, 0)
 
         etkf = ETKF(inf_factor=1.0, smoother=True)
         etkf_analysis = etkf.assimilate(
@@ -350,7 +353,7 @@ class TestIEnKSBundle(unittest.TestCase):
         self.algorithm.max_iter = 1
         self.algorithm.tau = 1.0
         self.algorithm.epsilon = 1.0
-        self.algorithm.model = linear_model
+        self.algorithm.forward_model = linear_model
         self.algorithm.smoother = True
         ienks_analysis = self.algorithm.assimilate(
             prior_state, self.obs, analysis_time=prior_state.time.values
