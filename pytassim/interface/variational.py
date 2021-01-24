@@ -14,16 +14,15 @@
 import logging
 import abc
 from typing import Union, Iterable, Callable, List
+from copy import deepcopy
+import os
+import tempfile
 
 # External modules
 import xarray as xr
 import pandas as pd
-import torch
-import numpy as np
 
 # Internal modules
-from pytassim.state import StateError
-from pytassim.observation import ObservationError
 from pytassim.transform import BaseTransformer
 from .base import BaseAssimilation
 
@@ -54,14 +53,25 @@ class VarAssimilation(BaseAssimilation):
         self.weight_save_path = weight_save_path
 
     def precompute_weights(self, weights: xr.DataArray) -> xr.DataArray:
+        old_weight_save_path = deepcopy(self.weight_save_path)
         if isinstance(self.weight_save_path, str):
-            weights.to_netcdf(self.weight_save_path)
-            weights = xr.open_dataarray(
-                self.weight_save_path, chunks=weights.chunks
-            )
+            if os.path.isfile(self.weight_save_path):
+                self.weight_save_path = '{0:s}_1'.format(self.weight_save_path)
+            loaded_weights = self.store_weights(weights)
+            weights.close()
+            if self.weight_save_path != old_weight_save_path:
+                os.replace(self.weight_save_path, old_weight_save_path)
+            logger.info('Stored and loaded the weights')
         else:
-            weights = weights.load()
-        return weights
+            self.weight_save_path = os.path.join(
+                '/tmp', next(tempfile._get_candidate_names())
+            )
+            loaded_weights = self.store_weights(weights).load()
+            weights.close()
+            os.remove(self.weight_save_path)
+            logger.info('Stored and loaded the weights under a temporary path')
+        self.weight_save_path = old_weight_save_path
+        return loaded_weights
 
     @abc.abstractmethod
     def inner_loop(
