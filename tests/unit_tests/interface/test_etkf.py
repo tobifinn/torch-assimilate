@@ -197,6 +197,46 @@ class TestETKF(unittest.TestCase):
         )
         xr.testing.assert_identical(pseudo_obs, self.state+1)
 
+    def test_update_state_calls_generate_prior_weights(self):
+        weights = self.algorithm.generate_prior_weights(np.arange(10))
+        with patch(
+                'pytassim.interface.base.BaseAssimilation.'
+                'generate_prior_weights',
+                return_value=weights
+        ) as prior_patch:
+            _ = self.algorithm.update_state(
+                state=self.state,
+                observations=(self.obs, ),
+                pseudo_state=self.state,
+                analysis_time=self.state.indexes['time'][0]
+            )
+        prior_patch.assert_called_once()
+        np.testing.assert_equal(
+            prior_patch.call_args[0][0],
+            self.state['ensemble'].values
+        )
+
+    def test_update_state_calls_get_pseudo_state(self):
+        weights = self.algorithm.generate_prior_weights(np.arange(10))
+        with patch(
+                'pytassim.interface.base.BaseAssimilation.'
+                'generate_prior_weights',
+                return_value=weights
+        ), patch(
+                'pytassim.interface.base.BaseAssimilation.get_pseudo_state',
+                return_value=self.state
+        ) as pseudo_patch:
+            _ = self.algorithm.update_state(
+                state=self.state,
+                observations=(self.obs, ),
+                pseudo_state=self.state,
+                analysis_time=self.state.indexes['time'][0]
+            )
+        pseudo_patch.assert_called_once_with(
+            pseudo_state=self.state,
+            state=self.state,
+            weights=weights
+        )
 
 if __name__ == '__main__':
     unittest.main()
