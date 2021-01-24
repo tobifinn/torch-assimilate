@@ -155,5 +155,8 @@ class FilterAssimilation(BaseAssimilation):
         weights = self.estimate_weights(state, filtered_obs, ens_obs)
         logger.info('Finished with weight estimation, starting with '
                     'application of weights')
+        if self.weight_save_path is not None:
+            weights = self.store_weights(weights)
+            logger.info('Stored the weights')
         analysis = self._apply_weights(state, weights)
         return analysis
