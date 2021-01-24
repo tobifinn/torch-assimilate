@@ -53,24 +53,6 @@ class FilterAssimilation(BaseAssimilation):
         observations = sel_obs
         return state, observations, pseudo_state
 
-    def get_pseudo_state(
-            self,
-            pseudo_state: Union[xr.DataArray, None],
-            state: xr.DataArray
-    ) -> xr.DataArray:
-        if pseudo_state is None and self.forward_model is not None:
-            prior_weights = self.generate_prior_weights(
-                state.indexes['ensemble']
-            )
-            pseudo_state = self.propagate_model(
-                weights=prior_weights,
-                state=state,
-                iter_num=0
-            )
-        elif pseudo_state is None:
-            pseudo_state = state
-        return pseudo_state
-
     @abc.abstractmethod
     def estimate_weights(
             self,
@@ -154,9 +136,11 @@ class FilterAssimilation(BaseAssimilation):
             filtering mode is on, then the time axis is sliced to the
             analysis time.
         """
+        prior_weights = self.generate_prior_weights(state.indexes['ensemble'])
         pseudo_state = self.get_pseudo_state(
             pseudo_state=pseudo_state,
-            state=state
+            state=state,
+            weights=prior_weights
         )
         self._validate_state(pseudo_state)
 

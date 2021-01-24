@@ -331,6 +331,22 @@ class BaseAssimilation(object):
         self._validate_state(pseudo_state)
         return pseudo_state
 
+    def get_pseudo_state(
+            self,
+            pseudo_state: Union[xr.DataArray, None],
+            state: xr.DataArray,
+            weights: xr.DataArray
+    ) -> xr.DataArray:
+        if pseudo_state is None and self.forward_model is not None:
+            pseudo_state = self.propagate_model(
+                weights=weights,
+                state=state,
+                iter_num=0
+            )
+        elif pseudo_state is None:
+            pseudo_state = state
+        return pseudo_state
+
     def _get_obs_space_variables(
             self,
             ens_obs: List[xr.DataArray],
