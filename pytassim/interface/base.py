@@ -42,6 +42,7 @@ from pytassim.state import StateError
 from pytassim.observation import ObservationError
 from pytassim.transform import BaseTransformer
 from pytassim.utilities.pandas import dtindex_to_total_seconds
+from pytassim.utilities.xarray import save_netcdf, load_netcdf
 
 
 logger = logging.getLogger(__name__)
@@ -59,7 +60,8 @@ class BaseAssimilation(object):
             smoother: bool = False,
             gpu: bool = False,
             pre_transform: Union[None, Iterable[BaseTransformer]] = None,
-            post_transform: Union[None, Iterable[BaseTransformer]] = None
+            post_transform: Union[None, Iterable[BaseTransformer]] = None,
+            weight_save_path: Union[None, str] = None
     ):
         self._dtype = torch.float32
         self.smoother = smoother
@@ -67,6 +69,7 @@ class BaseAssimilation(object):
         self.pre_transform = pre_transform
         self.post_transform = post_transform
         self.dtype = torch.float64
+        self.weight_save_path = weight_save_path
 
     def __str__(self):
         return 'BaseAssimilation'
@@ -254,6 +257,49 @@ class BaseAssimilation(object):
         analysis = analysis.transpose(*state_perts.dims)
         logger.info('Transposed dimensions to prior state dimensions')
         return analysis
+
+    def store_weights(
+            self,
+            weights: xr.DataArray
+    ) -> xr.DataArray:
+        """
+        This method triggers the computation and storage of given weights
+        under set `weight_save_path`.
+        During the storage process, the multidimensional indexes witihn the
+        weights are stored as single dimensional index and reloaded as
+        multidimensional index.
+        After the weights are stored, they are reloaded as xarray.DataArray.
+        If `chunksize` is set and `grid` is within the dimensions of given
+        weights, the returned data array is chunked along the grid dimension.
+
+        Parameters
+        ----------
+        weights : xarray.DataArray
+            These weights will be stored under set weight_save_path.
+
+        Returns
+        -------
+        loaded_weights : xarray.DataArray
+            The reloaded ensemble weights from set weight path.
+            If `chunksize` is set and `grid` is within the dimensions of given
+            weights, the underlying data will be a dask.array.Array and
+            chunked along the grid dimension, else it will be numpy.ndarray.
+        """
+        _ = save_netcdf(
+            dataset_to_save=weights,
+            save_path=self.weight_save_path,
+            compute=True
+        )
+        if 'grid' in weights.dims and hasattr(self, 'chunksize'):
+            chunks = {'grid': self.chunksize}
+        else:
+            chunks = None
+        loaded_weights = load_netcdf(
+            load_path=self.weight_save_path,
+            array=True,
+            chunks=chunks
+        )
+        return loaded_weights
 
     def _get_obs_space_variables(
             self,

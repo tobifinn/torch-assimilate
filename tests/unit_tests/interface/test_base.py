@@ -34,6 +34,7 @@ import xarray as xr
 import numpy as np
 import pandas as pd
 import torch
+import dask.array as da
 
 # Internal modules
 from pytassim.interface.base import BaseAssimilation
@@ -330,6 +331,146 @@ class TestBaseAssimilation(unittest.TestCase):
         analysis = analysis.transpose(*self.state.dims)
         ret_analysis = self.algorithm._apply_weights(self.state, weights)
         xr.testing.assert_identical(analysis, ret_analysis)
+
+    def test_store_weights_calls_save_netcdf_from_utilities(self):
+        weights = self.rnd.binomial(n=1, p=0.5, size=(10, 10, 40))
+        weights = weights / (weights.sum(axis=0, keepdims=True) + 1E-9)
+        weights = xr.DataArray(
+            weights,
+            coords={
+                'ensemble': self.state.indexes['ensemble'],
+                'ensemble_new': self.state.indexes['ensemble'],
+                'grid': self.state.indexes['grid']
+            },
+            dims=['ensemble', 'ensemble_new', 'grid']
+        )
+        self.algorithm.weight_save_path = 'test.nc'
+        with patch('pytassim.interface.base.save_netcdf') as save_patch, \
+                patch(
+                    'pytassim.interface.base.load_netcdf',
+                    return_value=weights
+                ):
+            _ = self.algorithm.store_weights(weights)
+        save_patch.assert_called_once()
+
+    def test_store_weights_returns_loaded_weights(self):
+        weights = self.rnd.binomial(n=1, p=0.5, size=(10, 10, 40))
+        weights = weights / (weights.sum(axis=0, keepdims=True) + 1E-9)
+        weights = xr.DataArray(
+            weights,
+            coords={
+                'ensemble': self.state.indexes['ensemble'],
+                'ensemble_new': self.state.indexes['ensemble'],
+                'grid': self.state.indexes['grid']
+            },
+            dims=['ensemble', 'ensemble_new', 'grid']
+        )
+        self.algorithm.weight_save_path = 'test.nc'
+        with patch('pytassim.interface.base.save_netcdf'), \
+                patch(
+                    'pytassim.interface.base.load_netcdf',
+                    return_value=weights
+                ) as load_patch:
+            returned_weights = self.algorithm.store_weights(weights)
+        load_patch.assert_called_once_with(
+            load_path=self.algorithm.weight_save_path,
+            array=True,
+            chunks=None
+        )
+        xr.testing.assert_identical(returned_weights, weights)
+
+    def test_store_weights_chunks_weights_if_chunksize_given(self):
+        weights = self.rnd.binomial(n=1, p=0.5, size=(10, 10, 40))
+        weights = weights / (weights.sum(axis=0, keepdims=True) + 1E-9)
+        weights = xr.DataArray(
+            weights,
+            coords={
+                'ensemble': self.state.indexes['ensemble'],
+                'ensemble_new': self.state.indexes['ensemble'],
+                'grid': self.state.indexes['grid']
+            },
+            dims=['ensemble', 'ensemble_new', 'grid']
+        )
+        self.algorithm.weight_save_path = 'test.nc'
+        self.algorithm.chunksize = 1000
+        with patch('pytassim.interface.base.save_netcdf'), \
+                patch(
+                    'pytassim.interface.base.load_netcdf',
+                    return_value=weights
+                ) as load_patch:
+            _ = self.algorithm.store_weights(weights)
+        load_patch.assert_called_once_with(
+            load_path=self.algorithm.weight_save_path,
+            array=True,
+            chunks={'grid': 1000}
+        )
+
+    def test_store_weights_returns_numpy_array_if_no_chunksize(self):
+        weights = self.rnd.binomial(n=1, p=0.5, size=(10, 10, 40))
+        weights = weights / (weights.sum(axis=0, keepdims=True) + 1E-9)
+        weights = xr.DataArray(
+            weights,
+            coords={
+                'ensemble': self.state['ensemble'].values,
+                'ensemble_new': self.state['ensemble'].values,
+                'grid': self.state.indexes['grid']
+            },
+            dims=['ensemble', 'ensemble_new', 'grid']
+        )
+        self.algorithm.weight_save_path = '/tmp/test.nc'
+        try:
+            loaded_weights = self.algorithm.store_weights(weights)
+            self.assertIsInstance(loaded_weights.data, np.ndarray)
+            xr.testing.assert_identical(loaded_weights, weights)
+        finally:
+            if os.path.isfile(self.algorithm.weight_save_path):
+                os.remove(self.algorithm.weight_save_path)
+
+    def test_store_weights_returns_numpy_array_if_no_grid(self):
+        weights = self.rnd.binomial(n=1, p=0.5, size=(10, 10))
+        weights = weights / (weights.sum(axis=0, keepdims=True) + 1E-9)
+        weights = xr.DataArray(
+            weights,
+            coords={
+                'ensemble': self.state['ensemble'].values,
+                'ensemble_new': self.state['ensemble'].values,
+            },
+            dims=['ensemble', 'ensemble_new']
+        )
+        self.algorithm.chunksize = 10
+        self.algorithm.weight_save_path = '/tmp/test.nc'
+        try:
+            loaded_weights = self.algorithm.store_weights(weights)
+            self.assertIsInstance(loaded_weights.data, np.ndarray)
+            xr.testing.assert_identical(loaded_weights, weights)
+        finally:
+            if os.path.isfile(self.algorithm.weight_save_path):
+                os.remove(self.algorithm.weight_save_path)
+
+    def test_store_weights_returns_dask_array_if_grid_and_chunksize(self):
+        weights = self.rnd.binomial(n=1, p=0.5, size=(10, 10, 40))
+        weights = weights / (weights.sum(axis=0, keepdims=True) + 1E-9)
+        weights = xr.DataArray(
+            weights,
+            coords={
+                'ensemble': self.state['ensemble'].values,
+                'ensemble_new': self.state['ensemble'].values,
+                'grid': self.state.indexes['grid']
+            },
+            dims=['ensemble', 'ensemble_new', 'grid']
+        )
+        self.algorithm.chunksize = 20
+        self.algorithm.weight_save_path = '/tmp/test.nc'
+        try:
+            loaded_weights = self.algorithm.store_weights(weights)
+            self.assertIsInstance(loaded_weights.data, da.Array)
+            self.assertTupleEqual(
+                loaded_weights.data.chunksize, (10, 10, 20)
+            )
+            xr.testing.assert_identical(loaded_weights, weights)
+        finally:
+            if os.path.isfile(self.algorithm.weight_save_path):
+                os.remove(self.algorithm.weight_save_path)
 
 
 if __name__ == '__main__':
