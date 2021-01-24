@@ -104,6 +104,7 @@ class VarAssimilation(BaseAssimilation):
         state = state.sel(time=[analysis_time])
         iter_num = 0
         while iter_num < self.max_iter:
+            logger.info('Starting with iteration #{0:d}'.format(iter_num))
             weights = self._outer_step(
                 weights=weights,
                 state=state,
@@ -113,6 +114,7 @@ class VarAssimilation(BaseAssimilation):
             )
             weights = self.precompute_weights(weights)
             pseudo_state = None
+            logger.info('Finished with iteration #{0:d}'.format(iter_num))
             iter_num += 1
         analysis_state = self._apply_weights(state, weights)
         if self.smoother:
