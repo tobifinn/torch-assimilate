@@ -41,7 +41,7 @@ class FilterAssimilation(BaseAssimilation):
             state: xr.DataArray,
             observations: Iterable[xr.Dataset],
             pseudo_state: xr.DataArray,
-    ) -> Tuple[xr.DataArray, xr.DataArray, Iterable[xr.Dataset]]:
+    ) -> Tuple[xr.DataArray, Iterable[xr.Dataset], xr.DataArray]:
         logger.info('Assimilation in filtering mode')
         state = state.sel(time=[analysis_time, ])
         pseudo_state = pseudo_state.sel(time=[analysis_time, ])
