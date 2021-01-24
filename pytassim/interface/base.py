@@ -29,7 +29,7 @@ import abc
 import warnings
 import time
 import datetime
-from typing import Union, Iterable, Tuple, Any, List
+from typing import Union, Iterable, Tuple, Any, List, Callable
 
 # External modules
 import xarray as xr
@@ -61,7 +61,8 @@ class BaseAssimilation(object):
             gpu: bool = False,
             pre_transform: Union[None, Iterable[BaseTransformer]] = None,
             post_transform: Union[None, Iterable[BaseTransformer]] = None,
-            weight_save_path: Union[None, str] = None
+            weight_save_path: Union[None, str] = None,
+            propagation_model: Union[Callable, None] = None
     ):
         self._dtype = torch.float32
         self.smoother = smoother
@@ -70,6 +71,7 @@ class BaseAssimilation(object):
         self.post_transform = post_transform
         self.dtype = torch.float64
         self.weight_save_path = weight_save_path
+        self.propagation_model = propagation_model
 
     def __str__(self):
         return 'BaseAssimilation'
@@ -300,6 +302,21 @@ class BaseAssimilation(object):
             chunks=chunks
         )
         return loaded_weights
+
+    def _get_model_weights(self, weights: xr.DataArray) -> xr.DataArray:
+        return weights
+
+    def propagate_model(
+            self,
+            weights: xr.DataArray,
+            state: xr.DataArray,
+            iter_num: int = 0
+    ) -> xr.DataArray:
+        model_weights = self._get_model_weights(weights)
+        model_state = self._apply_weights(state, model_weights)
+        _, pseudo_state = self.propagation_model(model_state, iter_num)
+        self._validate_state(pseudo_state)
+        return pseudo_state
 
     def _get_obs_space_variables(
             self,
