@@ -56,12 +56,12 @@ class LocalizedIEnKSTransform(IEnKSTransform, DomainLocalizedMixin):
         self.chunksize = chunksize
 
     def __str__(self):
-        return 'Localized IEnKSBundle(loc={0}, tau={1})'.format(
+        return 'Localized IEnKSTransform(loc={0}, tau={1})'.format(
             str(self.localization), str(self.tau.item())
         )
 
     def __repr__(self):
-        return 'LIEnKSBundle({0},{1})'.format(
+        return 'LIEnKSTransform({0},{1})'.format(
             repr(self.localization), repr(self.tau.item())
         )
 
