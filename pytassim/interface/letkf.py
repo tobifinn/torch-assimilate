@@ -78,10 +78,16 @@ class LETKF(DomainLocalizedMixin, ETKF):
             pre_transform: Union[None, Iterable[BaseTransformer]] = None,
             post_transform: Union[None, Iterable[BaseTransformer]] = None,
             chunksize: int = 10,
+            weight_save_path: Union[None, str] = None,
+            forward_model: Union[None, Callable] = None
     ):
-        super().__init__(inf_factor=inf_factor, smoother=smoother, gpu=gpu,
-                         pre_transform=pre_transform,
-                         post_transform=post_transform)
+        super().__init__(
+            inf_factor=inf_factor, smoother=smoother, gpu=gpu,
+            pre_transform=pre_transform,
+            post_transform=post_transform,
+            weight_save_path=weight_save_path,
+            forward_model=forward_model
+        )
         self.localization = localization
         self.chunksize = chunksize
 

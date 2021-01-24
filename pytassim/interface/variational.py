@@ -34,21 +34,22 @@ logger = logging.getLogger(__name__)
 class VarAssimilation(BaseAssimilation):
     def __init__(
             self,
-            model: Callable,
-            weight_save_path: Union[None, str] = None,
+            forward_model: Callable,
             max_iter: int = 10,
             smoother: bool = False,
             gpu: bool = False,
             pre_transform: Union[None, Iterable[BaseTransformer]] = None,
             post_transform: Union[None, Iterable[BaseTransformer]] = None,
+            weight_save_path: Union[None, str] = None,
     ):
         super().__init__(
             smoother=smoother,
             gpu=gpu,
             pre_transform=pre_transform,
-            post_transform=post_transform
+            post_transform=post_transform,
+            forward_model=forward_model,
+            weight_save_path=weight_save_path
         )
-        self.model = model
         self.max_iter = max_iter
         self.weight_save_path = weight_save_path
 

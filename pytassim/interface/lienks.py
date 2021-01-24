@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 class LocalizedIEnKSTransform(IEnKSTransform, DomainLocalizedMixin):
     def __init__(
             self,
-            model: Callable,
+            forward_model: Callable,
             localization: Union[None, BaseLocalization] = None,
             tau: int = 1.0,
             max_iter: int = 10,
@@ -40,15 +40,17 @@ class LocalizedIEnKSTransform(IEnKSTransform, DomainLocalizedMixin):
             pre_transform: Union[None, Iterable[BaseTransformer]] = None,
             post_transform: Union[None, Iterable[BaseTransformer]] = None,
             chunksize: int = 10,
+            weight_save_path: Union[None, str] = None
     ):
         super().__init__(
-            model=model,
+            forward_model=forward_model,
             tau=tau,
             max_iter=max_iter,
             smoother=smoother,
             gpu=gpu,
             pre_transform=pre_transform,
-            post_transform=post_transform
+            post_transform=post_transform,
+            weight_save_path=weight_save_path
         )
         self.localization = localization
         self.chunksize = chunksize
@@ -117,7 +119,7 @@ class LocalizedIEnKSBundle(IEnKSBundle, DomainLocalizedMixin):
 
     def __init__(
             self,
-            model: Callable,
+            forward_model: Callable,
             localization: Union[None, BaseLocalization] = None,
             tau: int = 1.0,
             epsilon: int = 1E-4,
@@ -127,16 +129,18 @@ class LocalizedIEnKSBundle(IEnKSBundle, DomainLocalizedMixin):
             pre_transform: Union[None, Iterable[BaseTransformer]] = None,
             post_transform: Union[None, Iterable[BaseTransformer]] = None,
             chunksize: int = 10,
+            weight_save_path: Union[None, str] = None
     ):
         super().__init__(
-            model=model,
+            forward_model=forward_model,
             tau=tau,
             epsilon=epsilon,
             max_iter=max_iter,
             smoother=smoother,
             gpu=gpu,
             pre_transform=pre_transform,
-            post_transform=post_transform
+            post_transform=post_transform,
+            weight_save_path=weight_save_path
         )
         self.localization = localization
         self.chunksize = chunksize

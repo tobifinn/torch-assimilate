@@ -12,7 +12,7 @@
 
 # System modules
 import logging
-from typing import Union, Iterable
+from typing import Union, Iterable, Callable
 
 # External modules
 import torch
@@ -73,7 +73,9 @@ class KETKF(ETKF):
             smoother: bool = False,
             gpu: bool = False,
             pre_transform: Union[None, Iterable[BaseTransformer]] = None,
-            post_transform: Union[None, Iterable[BaseTransformer]] = None
+            post_transform: Union[None, Iterable[BaseTransformer]] = None,
+            weight_save_path: Union[None, str] = None,
+            forward_model: Union[None, Callable] = None
     ):
         self._core_module = KETKFModule(kernel=kernel)
         super().__init__(
@@ -81,7 +83,9 @@ class KETKF(ETKF):
             smoother=smoother,
             gpu=gpu,
             pre_transform=pre_transform,
-            post_transform=post_transform
+            post_transform=post_transform,
+            weight_save_path=weight_save_path,
+            forward_model=forward_model
         )
         self.kernel = kernel
 

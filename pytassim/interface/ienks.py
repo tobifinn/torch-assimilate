@@ -31,21 +31,23 @@ logger = logging.getLogger(__name__)
 class IEnKSTransform(VarAssimilation):
     def __init__(
             self,
-            model: Callable,
+            forward_model: Callable,
             tau: int = 1.0,
             max_iter: int = 10,
             smoother: bool = False,
             gpu: bool = False,
             pre_transform: Union[None, Iterable[BaseTransformer]] = None,
             post_transform: Union[None, Iterable[BaseTransformer]] = None,
+            weight_save_path: Union[None, str] = None,
     ):
         super().__init__(
-            model=model,
+            forward_model=forward_model,
             max_iter=max_iter,
             smoother=smoother,
             gpu=gpu,
             pre_transform=pre_transform,
-            post_transform=post_transform
+            post_transform=post_transform,
+            weight_save_path=weight_save_path
         )
         self.tau = tau
 
@@ -95,7 +97,7 @@ class IEnKSTransform(VarAssimilation):
 class IEnKSBundle(IEnKSTransform):
     def __init__(
             self,
-            model: Callable,
+            forward_model: Callable,
             tau: int = 1.0,
             epsilon: int = 1E-4,
             max_iter: int = 10,
@@ -103,16 +105,18 @@ class IEnKSBundle(IEnKSTransform):
             gpu: bool = False,
             pre_transform: Union[None, Iterable[BaseTransformer]] = None,
             post_transform: Union[None, Iterable[BaseTransformer]] = None,
+            weight_save_path: Union[None, str] = None,
     ):
         self._core_module = IEnKSBundleModule()
         super().__init__(
-            model=model,
+            forward_model=forward_model,
             tau=tau,
             max_iter=max_iter,
             smoother=smoother,
             gpu=gpu,
             pre_transform=pre_transform,
-            post_transform=post_transform
+            post_transform=post_transform,
+            weight_save_path=weight_save_path
         )
         self.epsilon = epsilon
 
