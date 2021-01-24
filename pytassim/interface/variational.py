@@ -110,7 +110,7 @@ class VarAssimilation(BaseAssimilation):
             pseudo_state: Union[xr.DataArray, None],
             analysis_time: pd.Timestamp
     ) -> xr.DataArray:
-        weights = self.generate_prior_weights(state.indexes['ensemble'])
+        weights = self.generate_prior_weights(state.indexes['ensemble'].values)
         state = state.sel(time=[analysis_time])
         iter_num = 0
         while iter_num < self.max_iter:

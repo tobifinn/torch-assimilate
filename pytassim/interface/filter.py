@@ -136,7 +136,9 @@ class FilterAssimilation(BaseAssimilation):
             filtering mode is on, then the time axis is sliced to the
             analysis time.
         """
-        prior_weights = self.generate_prior_weights(state.indexes['ensemble'])
+        prior_weights = self.generate_prior_weights(
+            state.indexes['ensemble'].values
+        )
         pseudo_state = self.get_pseudo_state(
             pseudo_state=pseudo_state,
             state=state,
