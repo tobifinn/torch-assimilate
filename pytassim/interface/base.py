@@ -335,13 +335,14 @@ class BaseAssimilation(object):
             self,
             pseudo_state: Union[xr.DataArray, None],
             state: xr.DataArray,
-            weights: xr.DataArray
+            weights: xr.DataArray,
+            iter_num: int = 0
     ) -> xr.DataArray:
         if pseudo_state is None and self.forward_model is not None:
             pseudo_state = self.propagate_model(
                 weights=weights,
                 state=state,
-                iter_num=0
+                iter_num=iter_num
             )
         elif pseudo_state is None:
             pseudo_state = state

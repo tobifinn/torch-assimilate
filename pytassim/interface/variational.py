@@ -79,11 +79,13 @@ class VarAssimilation(BaseAssimilation):
             state: xr.DataArray,
             observations: Iterable[xr.Dataset],
             pseudo_state: Union[xr.DataArray, None],
+            iter_num: int = 0
     ) -> xr.DataArray:
         pseudo_state = self.get_pseudo_state(
             pseudo_state=pseudo_state,
             state=state,
-            weights=weights
+            weights=weights,
+            iter_num=iter_num
         )
         ens_obs, filtered_obs = self._apply_obs_operator(
             pseudo_state, observations
@@ -100,13 +102,19 @@ class VarAssimilation(BaseAssimilation):
     ) -> xr.DataArray:
         weights = self.generate_prior_weights(state.indexes['ensemble'])
         state = state.sel(time=[analysis_time])
-        n_iter = 0
-        while n_iter < self.max_iter:
-            weights = self._outer_step(weights, state, observations,
-                                       pseudo_state)
+        iter_num = 0
+        while iter_num < self.max_iter:
+            weights = self._outer_step(
+                weights=weights,
+                state=state,
+                observations=observations,
+                pseudo_state=pseudo_state,
+                iter_num=iter_num
+            )
+            weights = self.precompute_weights(weights)
             pseudo_state = None
-            n_iter += 1
+            iter_num += 1
         analysis_state = self._apply_weights(state, weights)
         if self.smoother:
-            analysis_state, _ = self.forward_model(analysis_state)
+            analysis_state, _ = self.forward_model(analysis_state, iter_num)
         return analysis_state
