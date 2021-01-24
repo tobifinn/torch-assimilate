@@ -172,6 +172,31 @@ class TestETKF(unittest.TestCase):
         ret_analysis = self.algorithm.assimilate(self.state, self.obs)
         xr.testing.assert_equal(right_analysis, ret_analysis)
 
+    def test_get_pseudo_obs_returns_pseudo_obs_if_given(self):
+        pseudo_obs = self.algorithm.get_pseudo_state(
+            pseudo_state=self.state+1,
+            state=self.state
+        )
+        xr.testing.assert_identical(pseudo_obs, self.state+1)
+
+    def test_get_pseudo_obs_propagates_model_if_no_pseudo_and_given_model(self):
+        self.algorithm.forward_model = MagicMock()
+        self.algorithm.forward_model.return_value = (self.state, self.state+5)
+        pseudo_obs = self.algorithm.get_pseudo_state(
+            pseudo_state=None,
+            state=self.state
+        )
+        xr.testing.assert_identical(pseudo_obs, self.state+5)
+        self.algorithm.forward_model.assert_called_once()
+
+    def test_get_pseudo_obs_sets_state_to_pseudo_if_no_pseudo_and_model(self):
+        self.algorithm.forward_model = None
+        pseudo_obs = self.algorithm.get_pseudo_state(
+            pseudo_state=None,
+            state=self.state+1
+        )
+        xr.testing.assert_identical(pseudo_obs, self.state+1)
+
 
 if __name__ == '__main__':
     unittest.main()
