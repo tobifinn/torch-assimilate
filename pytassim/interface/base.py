@@ -62,7 +62,7 @@ class BaseAssimilation(object):
             pre_transform: Union[None, Iterable[BaseTransformer]] = None,
             post_transform: Union[None, Iterable[BaseTransformer]] = None,
             weight_save_path: Union[None, str] = None,
-            propagation_model: Union[Callable, None] = None
+            forward_model: Union[Callable, None] = None
     ):
         self._dtype = torch.float32
         self.smoother = smoother
@@ -71,7 +71,7 @@ class BaseAssimilation(object):
         self.post_transform = post_transform
         self.dtype = torch.float64
         self.weight_save_path = weight_save_path
-        self.propagation_model = propagation_model
+        self.forward_model = forward_model
 
     def __str__(self):
         return 'BaseAssimilation'
@@ -327,7 +327,7 @@ class BaseAssimilation(object):
     ) -> xr.DataArray:
         model_weights = self._get_model_weights(weights)
         model_state = self._apply_weights(state, model_weights)
-        _, pseudo_state = self.propagation_model(model_state, iter_num)
+        _, pseudo_state = self.forward_model(model_state, iter_num)
         self._validate_state(pseudo_state)
         return pseudo_state
 

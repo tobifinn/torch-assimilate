@@ -482,7 +482,7 @@ class TestBaseAssimilation(unittest.TestCase):
         xr.testing.assert_identical(returned_weights, self.weights)
 
     def test_propagate_model_calls_get_model_weights(self):
-        self.algorithm.propagation_model = lambda state, iter_num: \
+        self.algorithm.forward_model = lambda state, iter_num: \
             (state+1, state)
         with patch(
                 'pytassim.interface.base.BaseAssimilation._get_model_weights',
@@ -494,7 +494,7 @@ class TestBaseAssimilation(unittest.TestCase):
         weight_patch.assert_called_once_with(self.weights)
 
     def test_propagate_model_applies_model_weights(self):
-        self.algorithm.propagation_model = lambda state, iter_num: \
+        self.algorithm.forward_model = lambda state, iter_num: \
             (state+1, state)
         analysis_state = self.algorithm._apply_weights(self.state, self.weights)
 
@@ -504,7 +504,7 @@ class TestBaseAssimilation(unittest.TestCase):
         xr.testing.assert_identical(returned_state, analysis_state)
 
     def test_propagate_model_propagates_model(self):
-        self.algorithm.propagation_model = lambda state, iter_num: \
+        self.algorithm.forward_model = lambda state, iter_num: \
             (state+1, state+2)
         analysis_state = self.algorithm._apply_weights(self.state, self.weights)
         propagated_state = analysis_state + 2
@@ -514,14 +514,14 @@ class TestBaseAssimilation(unittest.TestCase):
         xr.testing.assert_identical(returned_state, propagated_state)
 
     def test_propagate_model_tests_pseudo_state(self):
-        self.algorithm.propagation_model = lambda state, iter_num: \
+        self.algorithm.forward_model = lambda state, iter_num: \
             (state+1, state.values)
         with self.assertRaises(TypeError):
             _ = self.algorithm.propagate_model(
                 self.weights, self.state
             )
 
-        self.algorithm.propagation_model = lambda state, iter_num: \
+        self.algorithm.forward_model = lambda state, iter_num: \
             (state+1, state[0])
         with self.assertRaises(StateError):
             _ = self.algorithm.propagate_model(
@@ -533,14 +533,14 @@ class TestBaseAssimilation(unittest.TestCase):
                 'pytassim.interface.base.BaseAssimilation._apply_weights',
                 return_value=self.state
         ):
-            self.algorithm.propagation_model = MagicMock()
-            self.algorithm.propagation_model.return_value = (
+            self.algorithm.forward_model = MagicMock()
+            self.algorithm.forward_model.return_value = (
                 self.state, self.state+1
             )
             _ = self.algorithm.propagate_model(
                 self.weights, self.state, iter_num=5
             )
-            self.algorithm.propagation_model.assert_called_once_with(
+            self.algorithm.forward_model.assert_called_once_with(
                 self.state, 5
             )
 
