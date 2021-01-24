@@ -26,7 +26,7 @@ Created for torch-assimilate
 import unittest
 import logging
 import os
-from unittest.mock import patch, PropertyMock
+from unittest.mock import patch, PropertyMock, MagicMock
 import datetime
 
 # External modules
@@ -42,7 +42,7 @@ from pytassim.utilities.pandas import multiindex_to_frame, \
     dtindex_to_total_seconds
 from pytassim.state import StateError
 from pytassim.observation import ObservationError
-from pytassim.testing import dummy_obs_operator
+from pytassim.testing import dummy_obs_operator, generate_random_weights
 
 
 logging.basicConfig(level=logging.INFO)
@@ -64,6 +64,7 @@ class TestBaseAssimilation(unittest.TestCase):
         self.state = xr.open_dataarray(state_path)
         obs_path = os.path.join(DATA_PATH, 'test_single_obs.nc')
         self.obs = xr.open_dataset(obs_path)
+        self.weights = generate_random_weights(len(self.state['ensemble']))
 
     def test_dtype_returns_private_dtype(self):
         self.algorithm._dtype = torch.int
@@ -427,22 +428,12 @@ class TestBaseAssimilation(unittest.TestCase):
                 os.remove(self.algorithm.weight_save_path)
 
     def test_store_weights_returns_numpy_array_if_no_grid(self):
-        weights = self.rnd.binomial(n=1, p=0.5, size=(10, 10))
-        weights = weights / (weights.sum(axis=0, keepdims=True) + 1E-9)
-        weights = xr.DataArray(
-            weights,
-            coords={
-                'ensemble': self.state['ensemble'].values,
-                'ensemble_new': self.state['ensemble'].values,
-            },
-            dims=['ensemble', 'ensemble_new']
-        )
         self.algorithm.chunksize = 10
         self.algorithm.weight_save_path = '/tmp/test.nc'
         try:
-            loaded_weights = self.algorithm.store_weights(weights)
+            loaded_weights = self.algorithm.store_weights(self.weights)
             self.assertIsInstance(loaded_weights.data, np.ndarray)
-            xr.testing.assert_identical(loaded_weights, weights)
+            xr.testing.assert_identical(loaded_weights, self.weights)
         finally:
             if os.path.isfile(self.algorithm.weight_save_path):
                 os.remove(self.algorithm.weight_save_path)
@@ -472,6 +463,72 @@ class TestBaseAssimilation(unittest.TestCase):
             if os.path.isfile(self.algorithm.weight_save_path):
                 os.remove(self.algorithm.weight_save_path)
 
+    def test_get_model_weights_returns_weights(self):
+        returned_weights = self.algorithm._get_model_weights(self.weights)
+        xr.testing.assert_identical(returned_weights, self.weights)
+
+    def test_propagate_model_calls_get_model_weights(self):
+        self.algorithm.propagation_model = lambda state, iter_num: \
+            (state+1, state)
+        with patch(
+                'pytassim.interface.base.BaseAssimilation._get_model_weights',
+                return_value=self.weights
+        ) as weight_patch:
+            _ = self.algorithm.propagate_model(
+                self.weights, self.state
+            )
+        weight_patch.assert_called_once_with(self.weights)
+
+    def test_propagate_model_applies_model_weights(self):
+        self.algorithm.propagation_model = lambda state, iter_num: \
+            (state+1, state)
+        analysis_state = self.algorithm._apply_weights(self.state, self.weights)
+
+        returned_state = self.algorithm.propagate_model(
+            self.weights, self.state
+        )
+        xr.testing.assert_identical(returned_state, analysis_state)
+
+    def test_propagate_model_propagates_model(self):
+        self.algorithm.propagation_model = lambda state, iter_num: \
+            (state+1, state+2)
+        analysis_state = self.algorithm._apply_weights(self.state, self.weights)
+        propagated_state = analysis_state + 2
+        returned_state = self.algorithm.propagate_model(
+            self.weights, self.state
+        )
+        xr.testing.assert_identical(returned_state, propagated_state)
+
+    def test_propagate_model_tests_pseudo_state(self):
+        self.algorithm.propagation_model = lambda state, iter_num: \
+            (state+1, state.values)
+        with self.assertRaises(TypeError):
+            _ = self.algorithm.propagate_model(
+                self.weights, self.state
+            )
+
+        self.algorithm.propagation_model = lambda state, iter_num: \
+            (state+1, state[0])
+        with self.assertRaises(StateError):
+            _ = self.algorithm.propagate_model(
+                self.weights, self.state
+            )
+
+    def test_propagate_model_uses_iter_num(self):
+        with patch(
+                'pytassim.interface.base.BaseAssimilation._apply_weights',
+                return_value=self.state
+        ):
+            self.algorithm.propagation_model = MagicMock()
+            self.algorithm.propagation_model.return_value = (
+                self.state, self.state+1
+            )
+            _ = self.algorithm.propagate_model(
+                self.weights, self.state, iter_num=5
+            )
+            self.algorithm.propagation_model.assert_called_once_with(
+                self.state, 5
+            )
 
 if __name__ == '__main__':
     unittest.main()

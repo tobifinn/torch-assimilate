@@ -133,10 +133,6 @@ class TestIEnKSTransform(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.algorithm.tau = 1.5
 
-    def test_get_model_weights_returns_weights(self):
-        returned_weights = self.algorithm.get_model_weights(self.weights)
-        xr.testing.assert_identical(returned_weights, self.weights)
-
     def test_generate_prior_weights_returns_prior_weights(self):
         prior_weights = xr.DataArray(
             np.eye(10),
@@ -150,37 +146,6 @@ class TestIEnKSTransform(unittest.TestCase):
             prior_weights['ensemble'].values
         )
         xr.testing.assert_identical(ret_weights, prior_weights)
-
-    def test_propagate_model_applies_model_weights(self):
-        self.algorithm.model = lambda x: (x+1, x)
-        analysis_state = self.algorithm._apply_weights(self.state, self.weights)
-
-        returned_state = self.algorithm._propagate_model(
-            self.weights, self.state
-        )
-        xr.testing.assert_identical(returned_state, analysis_state)
-
-    def test_propagate_model_propagates_model(self):
-        self.algorithm.model = lambda x: (x+1, x+2)
-        analysis_state = self.algorithm._apply_weights(self.state, self.weights)
-        propagated_state = analysis_state + 2
-        returned_state = self.algorithm._propagate_model(
-            self.weights, self.state
-        )
-        xr.testing.assert_identical(returned_state, propagated_state)
-
-    def test_propagate_model_tests_pseudo_state(self):
-        self.algorithm.model = lambda x: (x+1, x.values)
-        with self.assertRaises(TypeError):
-            _ = self.algorithm._propagate_model(
-                self.weights, self.state
-            )
-
-        self.algorithm.model = lambda x: (x+1, x[0])
-        with self.assertRaises(StateError):
-            _ = self.algorithm._propagate_model(
-                self.weights, self.state
-            )
 
     def test_estimate_weights_returns_right_weights(self):
         ens_obs = self.obs.obs.operator(self.obs, self.state)
