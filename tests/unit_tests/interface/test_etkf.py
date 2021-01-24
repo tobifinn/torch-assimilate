@@ -175,7 +175,10 @@ class TestETKF(unittest.TestCase):
     def test_get_pseudo_obs_returns_pseudo_obs_if_given(self):
         pseudo_obs = self.algorithm.get_pseudo_state(
             pseudo_state=self.state+1,
-            state=self.state
+            state=self.state,
+            weights=self.algorithm.generate_prior_weights(
+                self.state['ensemble'].values
+            )
         )
         xr.testing.assert_identical(pseudo_obs, self.state+1)
 
@@ -184,7 +187,10 @@ class TestETKF(unittest.TestCase):
         self.algorithm.forward_model.return_value = (self.state, self.state+5)
         pseudo_obs = self.algorithm.get_pseudo_state(
             pseudo_state=None,
-            state=self.state
+            state=self.state,
+            weights=self.algorithm.generate_prior_weights(
+                self.state['ensemble'].values
+            )
         )
         xr.testing.assert_identical(pseudo_obs, self.state+5)
         self.algorithm.forward_model.assert_called_once()
@@ -193,7 +199,10 @@ class TestETKF(unittest.TestCase):
         self.algorithm.forward_model = None
         pseudo_obs = self.algorithm.get_pseudo_state(
             pseudo_state=None,
-            state=self.state+1
+            state=self.state+1,
+            weights=self.algorithm.generate_prior_weights(
+                self.state['ensemble'].values
+            )
         )
         xr.testing.assert_identical(pseudo_obs, self.state+1)
 
