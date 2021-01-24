@@ -313,6 +313,20 @@ class TestBaseAssimilation(unittest.TestCase):
         )
         xr.testing.assert_identical(sliced_state, ret_analysis)
 
+    def test_generate_prior_weights_returns_prior_weights(self):
+        prior_weights = xr.DataArray(
+            np.eye(10),
+            coords={
+                'ensemble': np.arange(10),
+                'ensemble_new': np.arange(10)
+            },
+            dims=['ensemble', 'ensemble_new']
+        )
+        ret_weights = self.algorithm.generate_prior_weights(
+            prior_weights['ensemble'].values
+        )
+        xr.testing.assert_identical(ret_weights, prior_weights)
+
     def test_apply_weights_applies_weights_along_ensemble(self):
         weights = self.rnd.binomial(n=1, p=0.5, size=(10, 10, 40))
         weights = weights / (weights.sum(axis=0, keepdims=True) + 1E-9)

@@ -63,10 +63,6 @@ class VarAssimilation(BaseAssimilation):
         return weights
 
     @abc.abstractmethod
-    def get_model_weights(self, weights: xr.DataArray) -> xr.DataArray:
-        pass
-
-    @abc.abstractmethod
     def estimate_weights(
             self,
             state: xr.DataArray,
@@ -75,30 +71,6 @@ class VarAssimilation(BaseAssimilation):
             ens_obs: List[xr.DataArray],
     ) -> xr.DataArray:
         pass
-
-    @staticmethod
-    def generate_prior_weights(ens_values: pd.Index) -> xr.DataArray:
-        prior_weights = np.eye(len(ens_values))
-        prior_weights = xr.DataArray(
-            prior_weights,
-            coords={
-                'ensemble': ens_values,
-                'ensemble_new': ens_values
-            },
-            dims=['ensemble', 'ensemble_new']
-        )
-        return prior_weights
-
-    def _propagate_model(
-            self,
-            weights: xr.DataArray,
-            state: xr.DataArray
-    ) -> xr.DataArray:
-        model_weights = self.get_model_weights(weights)
-        model_state = self._apply_weights(state, model_weights)
-        _, pseudo_state = self.model(model_state)
-        self._validate_state(pseudo_state)
-        return pseudo_state
 
     def _weights_stack_state_id(self, weights: xr.DataArray) -> xr.DataArray:
         if 'grid' in weights.dims:
@@ -115,7 +87,7 @@ class VarAssimilation(BaseAssimilation):
             pseudo_state: Union[xr.DataArray, None],
     ) -> xr.DataArray:
         if pseudo_state is None:
-            pseudo_state = self._propagate_model(weights, state)
+            pseudo_state = self.propagate_model(weights, state)
         ens_obs, filtered_obs = self._apply_obs_operator(
             pseudo_state, observations
         )

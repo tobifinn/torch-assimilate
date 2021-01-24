@@ -65,9 +65,6 @@ class IEnKSTransform(VarAssimilation):
     def tau(self, new_tau):
         self._core_module = IEnKSTransformModule(tau=new_tau)
 
-    def get_model_weights(self, weights: xr.DataArray) -> xr.DataArray:
-        return weights
-
     def estimate_weights(
             self,
             state: xr.DataArray,

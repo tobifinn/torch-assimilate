@@ -241,6 +241,19 @@ class BaseAssimilation(object):
         return stacked_observations
 
     @staticmethod
+    def generate_prior_weights(ens_values: pd.Index) -> xr.DataArray:
+        prior_weights = np.eye(len(ens_values))
+        prior_weights = xr.DataArray(
+            prior_weights,
+            coords={
+                'ensemble': ens_values,
+                'ensemble_new': ens_values
+            },
+            dims=['ensemble', 'ensemble_new']
+        )
+        return prior_weights
+
+    @staticmethod
     def _apply_weights(
             state: xr.DataArray,
             weights: xr.DataArray

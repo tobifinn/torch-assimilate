@@ -133,20 +133,6 @@ class TestIEnKSTransform(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.algorithm.tau = 1.5
 
-    def test_generate_prior_weights_returns_prior_weights(self):
-        prior_weights = xr.DataArray(
-            np.eye(10),
-            coords={
-                'ensemble': np.arange(10),
-                'ensemble_new': np.arange(10)
-            },
-            dims=['ensemble', 'ensemble_new']
-        )
-        ret_weights = self.algorithm.generate_prior_weights(
-            prior_weights['ensemble'].values
-        )
-        xr.testing.assert_identical(ret_weights, prior_weights)
-
     def test_estimate_weights_returns_right_weights(self):
         ens_obs = self.obs.obs.operator(self.obs, self.state)
         ens_mean = ens_obs.mean('ensemble')
