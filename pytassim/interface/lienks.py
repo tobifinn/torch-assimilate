@@ -85,6 +85,10 @@ class LocalizedIEnKSTransform(IEnKSTransform, DomainLocalizedMixin):
         logger.debug('State_id: {0}'.format(state_info))
         state_info = state_info.chunk({'grid': self.chunksize})
         logger.info('Chunked the state information')
+        if 'grid' in weights.dims:
+            weights['grid'] = state_info['grid']
+            logger.debug('Weight_grid: {0}'.format(weights['grid']))
+            logger.info('Removed grid information from weights')
 
         weights = xr.apply_ufunc(
             self.localized_module,
