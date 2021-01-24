@@ -43,6 +43,7 @@ from pytassim.observation import ObservationError
 from pytassim.transform import BaseTransformer
 from pytassim.utilities.pandas import dtindex_to_total_seconds
 from pytassim.utilities.xarray import save_netcdf, load_netcdf
+from .wrapper import wrapper_bridge
 
 
 logger = logging.getLogger(__name__)
@@ -96,16 +97,11 @@ class BaseAssimilation(object):
         wrapped_module : func
             This is the bridged module.
         """
-        def wrapped_module(*args):
-            torch_args = [
-                torch.from_numpy(arg).to(device=self.device, dtype=self.dtype)
-                for arg in args
-            ]
-            torch_weights = self.core_module(*torch_args)
-            torch_weights = torch_weights.cpu().detach()
-            weights = torch_weights.numpy().astype(args[0].dtype)
-            return weights
-        return wrapped_module
+        return wrapper_bridge(
+            core_module=self.core_module,
+            device=self.device,
+            dtype=self.dtype
+        )
 
     @property
     def dtype(self) -> torch.dtype:
