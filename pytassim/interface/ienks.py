@@ -67,7 +67,7 @@ class IEnKSTransform(VarAssimilation):
     def tau(self, new_tau):
         self._core_module = IEnKSTransformModule(tau=new_tau)
 
-    def estimate_weights(
+    def inner_loop(
             self,
             state: xr.DataArray,
             weights: xr.DataArray,

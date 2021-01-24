@@ -64,7 +64,7 @@ class VarAssimilation(BaseAssimilation):
         return weights
 
     @abc.abstractmethod
-    def estimate_weights(
+    def inner_loop(
             self,
             state: xr.DataArray,
             weights: xr.DataArray,
@@ -73,26 +73,22 @@ class VarAssimilation(BaseAssimilation):
     ) -> xr.DataArray:
         pass
 
-    def _weights_stack_state_id(self, weights: xr.DataArray) -> xr.DataArray:
-        if 'grid' in weights.dims:
-            weights = weights.state.stack_to_state_id()
-            weights['state_id'] = np.arange(len(weights['state_id']))
-            weights = weights.chunk({'state_id': self.chunksize})
-        return weights
-
-    def _update_step(
+    def _outer_step(
             self,
             weights: xr.DataArray,
             state: xr.DataArray,
             observations: Iterable[xr.Dataset],
             pseudo_state: Union[xr.DataArray, None],
     ) -> xr.DataArray:
-        if pseudo_state is None:
-            pseudo_state = self.propagate_model(weights, state)
+        pseudo_state = self.get_pseudo_state(
+            pseudo_state=pseudo_state,
+            state=state,
+            weights=weights
+        )
         ens_obs, filtered_obs = self._apply_obs_operator(
             pseudo_state, observations
         )
-        weights = self.estimate_weights(state, weights, filtered_obs, ens_obs)
+        weights = self.inner_loop(state, weights, filtered_obs, ens_obs)
         return weights
 
     def update_state(
@@ -106,11 +102,11 @@ class VarAssimilation(BaseAssimilation):
         state = state.sel(time=[analysis_time])
         n_iter = 0
         while n_iter < self.max_iter:
-            weights = self._update_step(weights, state, observations,
-                                        pseudo_state)
+            weights = self._outer_step(weights, state, observations,
+                                       pseudo_state)
             pseudo_state = None
             n_iter += 1
         analysis_state = self._apply_weights(state, weights)
         if self.smoother:
-            analysis_state, _ = self.model(analysis_state)
+            analysis_state, _ = self.forward_model(analysis_state)
         return analysis_state

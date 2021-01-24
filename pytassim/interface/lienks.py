@@ -65,7 +65,7 @@ class LocalizedIEnKSTransform(IEnKSTransform, DomainLocalizedMixin):
             repr(self.localization), repr(self.tau.item())
         )
 
-    def estimate_weights(
+    def inner_loop(
             self,
             state: xr.DataArray,
             weights: xr.DataArray,
@@ -115,7 +115,7 @@ class LocalizedIEnKSTransform(IEnKSTransform, DomainLocalizedMixin):
 
 
 class LocalizedIEnKSBundle(IEnKSBundle, DomainLocalizedMixin):
-    estimate_weights = LocalizedIEnKSTransform.estimate_weights
+    inner_loop = LocalizedIEnKSTransform.inner_loop
 
     def __init__(
             self,
