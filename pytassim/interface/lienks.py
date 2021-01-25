@@ -28,7 +28,7 @@ from pytassim.transform.base import BaseTransformer
 logger = logging.getLogger(__name__)
 
 
-class LocalizedIEnKSTransform(IEnKSTransform, DomainLocalizedMixin):
+class LocalizedIEnKSTransform(DomainLocalizedMixin, IEnKSTransform):
     def __init__(
             self,
             forward_model: Callable,
@@ -118,7 +118,7 @@ class LocalizedIEnKSTransform(IEnKSTransform, DomainLocalizedMixin):
         return weights
 
 
-class LocalizedIEnKSBundle(IEnKSBundle, DomainLocalizedMixin):
+class LocalizedIEnKSBundle(DomainLocalizedMixin, IEnKSBundle):
     inner_loop = LocalizedIEnKSTransform.inner_loop
 
     def __init__(
