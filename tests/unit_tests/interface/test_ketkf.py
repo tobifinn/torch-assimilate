@@ -181,6 +181,9 @@ class TestKETKF(unittest.TestCase):
                                                       None, ana_time)
         self.assertFalse(np.any(np.isnan(assimilated_state.values)))
 
+    def test_chunks_return_None(self):
+        self.assertIsNone(self.algorithm.chunks)
+
 
 if __name__ == '__main__':
     unittest.main()

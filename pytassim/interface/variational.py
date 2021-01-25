@@ -57,20 +57,23 @@ class VarAssimilation(BaseAssimilation):
         if isinstance(self.weight_save_path, str):
             if os.path.isfile(self.weight_save_path):
                 self.weight_save_path = '{0:s}_1'.format(self.weight_save_path)
-            loaded_weights = self.store_weights(weights)
+            _ = self.store_weights(weights)
             weights.close()
             if self.weight_save_path != old_weight_save_path:
                 os.replace(self.weight_save_path, old_weight_save_path)
+            self.weight_save_path = old_weight_save_path
+            loaded_weights = self.load_weights()
             logger.info('Stored and loaded the weights')
         else:
             self.weight_save_path = os.path.join(
                 '/tmp', next(tempfile._get_candidate_names())
             )
-            loaded_weights = self.store_weights(weights).load()
+            _ = self.store_weights(weights)
             weights.close()
+            loaded_weights = self.load_weights()
             os.remove(self.weight_save_path)
+            self.weight_save_path = old_weight_save_path
             logger.info('Stored and loaded the weights under a temporary path')
-        self.weight_save_path = old_weight_save_path
         return loaded_weights
 
     @abc.abstractmethod

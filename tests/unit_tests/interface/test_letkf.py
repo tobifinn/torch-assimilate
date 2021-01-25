@@ -31,6 +31,7 @@ import os
 import xarray as xr
 import numpy as np
 import pandas as pd
+import dask.array as da
 
 import torch
 
@@ -163,6 +164,37 @@ class TestLETKF(unittest.TestCase):
         assimilated_state = self.algorithm.assimilate(self.state, obs_tuple,
                                                       None, ana_time)
         self.assertFalse(np.any(np.isnan(assimilated_state.values)))
+
+    def test_chunks_return_chunksize(self):
+        self.assertDictEqual(
+            {'grid': self.algorithm.chunksize}, self.algorithm.chunks
+        )
+
+    def test_load_weights_returns_dask_array_if_grid_and_chunksize(self):
+        weights = np.random.binomial(n=1, p=0.5, size=(10, 10, 40))
+        weights = weights / (weights.sum(axis=0, keepdims=True) + 1E-9)
+        weights = xr.DataArray(
+            weights,
+            coords={
+                'ensemble': self.state['ensemble'].values,
+                'ensemble_new': self.state['ensemble'].values,
+                'grid': self.state.indexes['grid']
+            },
+            dims=['ensemble', 'ensemble_new', 'grid']
+        )
+        self.algorithm.chunksize = 20
+        self.algorithm.weight_save_path = '/tmp/test.nc'
+        self.algorithm.store_weights(weights)
+        try:
+            loaded_weights = self.algorithm.load_weights()
+            self.assertIsInstance(loaded_weights.data, da.Array)
+            self.assertTupleEqual(
+                loaded_weights.data.chunksize, (10, 10, 20)
+            )
+            xr.testing.assert_identical(loaded_weights, weights)
+        finally:
+            if os.path.isfile(self.algorithm.weight_save_path):
+                os.remove(self.algorithm.weight_save_path)
 
 
 if __name__ == '__main__':

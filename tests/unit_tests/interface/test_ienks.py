@@ -235,6 +235,9 @@ class TestIEnKSTransform(unittest.TestCase):
         )
         xr.testing.assert_allclose(ienks_analysis, etkf_analysis)
 
+    def test_chunks_return_None(self):
+        self.assertIsNone(self.algorithm.chunks)
+
 
 class TestIEnKSBundle(unittest.TestCase):
     def setUp(self):

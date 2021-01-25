@@ -12,7 +12,7 @@
 
 # System modules
 import logging
-from typing import Tuple
+from typing import Tuple, Dict
 
 # External modules
 import xarray as xr
@@ -29,6 +29,10 @@ logger = logging.getLogger(__name__)
 
 
 class DomainLocalizedMixin(object):
+    @property
+    def chunks(self) -> Dict[str, int]:
+        return dict(grid=self.chunksize)
+
     @property
     def localized_module(self):
         wrapped_module = wrapper_localization(

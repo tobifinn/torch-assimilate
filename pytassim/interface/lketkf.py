@@ -31,7 +31,7 @@ from ..transform.base import BaseTransformer
 logger = logging.getLogger(__name__)
 
 
-class LKETKF(KETKF, DomainLocalizedMixin):
+class LKETKF(DomainLocalizedMixin, KETKF):
     """
     This is a kernelised implementation of the
     `localized ensemble transform Kalman filter` :cite:`hunt_efficient_2007`.
