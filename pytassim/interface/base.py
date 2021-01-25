@@ -121,6 +121,10 @@ class BaseAssimilation(object):
     def device(self) -> torch.device:
         return torch.device("cuda" if self.gpu else "cpu")
 
+    @property
+    def chunks(self) -> None:
+        return None
+
     @staticmethod
     def _validate_state(state: xr.DataArray):
         if not isinstance(state, xr.DataArray):
