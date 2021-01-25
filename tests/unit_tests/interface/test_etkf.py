@@ -250,6 +250,58 @@ class TestETKF(unittest.TestCase):
     def test_chunks_return_None(self):
         self.assertIsNone(self.algorithm.chunks)
 
+    def test_weights_are_stored_if_store_path_is_specified(self):
+        self.algorithm.weight_save_path = None
+        weights = self.algorithm.generate_prior_weights(np.arange(10))
+        with patch(
+                'pytassim.interface.base.BaseAssimilation.'
+                'load_weights',
+                return_value=weights
+        ), patch(
+                'pytassim.interface.base.BaseAssimilation.store_weights',
+                return_value=None
+        ) as store_patch:
+            _ = self.algorithm.update_state(
+                state=self.state,
+                observations=(self.obs, ),
+                pseudo_state=self.state,
+                analysis_time=self.state.indexes['time'][0]
+            )
+            self.algorithm.weight_save_path = 'test.nc'
+            _ = self.algorithm.update_state(
+                state=self.state,
+                observations=(self.obs, ),
+                pseudo_state=self.state,
+                analysis_time=self.state.indexes['time'][0]
+            )
+        store_patch.assert_called_once()
+
+    def test_weights_are_loaded_if_store_path_is_specified(self):
+        self.algorithm.weight_save_path = None
+        weights = self.algorithm.generate_prior_weights(np.arange(10))
+        with patch(
+                'pytassim.interface.base.BaseAssimilation.'
+                'load_weights',
+                return_value=weights
+        ) as load_patch, patch(
+                'pytassim.interface.base.BaseAssimilation.store_weights',
+                return_value=None
+        ):
+            _ = self.algorithm.update_state(
+                state=self.state,
+                observations=(self.obs, ),
+                pseudo_state=self.state,
+                analysis_time=self.state.indexes['time'][0]
+            )
+            self.algorithm.weight_save_path = 'test.nc'
+            _ = self.algorithm.update_state(
+                state=self.state,
+                observations=(self.obs, ),
+                pseudo_state=self.state,
+                analysis_time=self.state.indexes['time'][0]
+            )
+        load_patch.assert_called_once()
+
 
 if __name__ == '__main__':
     unittest.main()

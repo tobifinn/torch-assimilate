@@ -158,7 +158,8 @@ class FilterAssimilation(BaseAssimilation):
         logger.info('Finished with weight estimation, starting with '
                     'application of weights')
         if self.weight_save_path is not None:
-            weights = self.store_weights(weights)
+            _ = self.store_weights(weights)
+            weights = self.load_weights()
             logger.info('Stored the weights')
         analysis = self._apply_weights(state, weights)
         return analysis
