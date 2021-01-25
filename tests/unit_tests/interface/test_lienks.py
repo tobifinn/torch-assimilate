@@ -31,6 +31,7 @@ import os
 import xarray as xr
 import numpy as np
 import pandas as pd
+import cloudpickle
 
 import torch
 import torch.jit
@@ -65,8 +66,8 @@ class TestLIEnKSTransform(unittest.TestCase):
         self.obs.obs.operator = dummy_obs_operator
         self.weights = generate_random_weights(len(self.state['ensemble']))
         self.algorithm = LocalizedIEnKSTransform(
-            lambda x: (self.state+1, self.state+2),
-
+            forward_model=lambda state, iter_num:
+            (self.state + 1, self.state + 2)
         )
 
     def tearDown(self):
@@ -76,6 +77,11 @@ class TestLIEnKSTransform(unittest.TestCase):
     def test_isinstance_of_domain_localized_ienks_transform(self):
         self.assertIsInstance(self.algorithm, IEnKSTransform)
         self.assertIsInstance(self.algorithm, DomainLocalizedMixin)
+
+    def test_localized_module_pickeable(self):
+        cloudpickle.dumps(self.algorithm.core_module)
+        cloudpickle.dumps(self.algorithm.module)
+        cloudpickle.dumps(self.algorithm.localized_module)
 
     def test_algorithm_works(self):
         ana_time = self.state.time[-1].values
@@ -123,13 +129,13 @@ class TestLIEnKSTransform(unittest.TestCase):
 
     def test_with_no_localization_equals_ienks(self):
         self.algorithm.localization = None
-        ienks = IEnKSTransform(model=self.algorithm.model,
+        ienks = IEnKSTransform(forward_model=self.algorithm.forward_model,
                                tau=self.algorithm.tau)
         ens_obs = self.obs.obs.operator(self.obs, self.state)
-        ienks_weights = ienks.estimate_weights(
+        ienks_weights = ienks.inner_loop(
             self.state.isel(time=[0]), self.weights, [self.obs], [ens_obs]
         )
-        lienks_weights = self.algorithm.estimate_weights(
+        lienks_weights = self.algorithm.inner_loop(
             self.state.isel(time=[0]), self.weights, [self.obs], [ens_obs]
         )
 
@@ -145,13 +151,13 @@ class TestLIEnKSTransform(unittest.TestCase):
             (10.,), dist_func=dist_func
         )
 
-        def linear_model(analysis):
-            state = xr.concat([analysis,] * 3, dim='time')
+        def linear_model(state, iter_num):
+            state = xr.concat([state,] * 3, dim='time')
             state['time'] = self.state['time'].values
             pseudo_state = state + 1
             return state, pseudo_state
         prior_state = self.state.isel(time=[0])
-        propagated_state, pseudo_state = linear_model(prior_state)
+        propagated_state, pseudo_state = linear_model(prior_state, 0)
 
         letkf = LETKF(
             localization=self.algorithm.localization,
@@ -164,12 +170,50 @@ class TestLIEnKSTransform(unittest.TestCase):
 
         self.algorithm.max_iter = 1
         self.algorithm.tau = 1.0
-        self.algorithm.model = linear_model
+        self.algorithm.forward_model = linear_model
         self.algorithm.smoother = True
         ienks_analysis = self.algorithm.assimilate(
             prior_state, self.obs, analysis_time=prior_state.time.values
         )
         xr.testing.assert_allclose(ienks_analysis, letkf_analysis)
+
+    def test_lienks_with_linear_equals_letkf_multiindex_multi_iter(self):
+        self.algorithm.weight_save_path = '/tmp/test.nc'
+        self.state['grid'] = pd.MultiIndex.from_product(
+            (np.arange(40), [0,]), names=['grid_point', 'height']
+        )
+
+        def dist_func(x, y):
+            diff = x[1] - y['obs_grid_1']
+            abs_diff = diff.abs().values
+            return abs_diff,
+        self.algorithm.localization = GaspariCohn(
+            (10.,), dist_func=dist_func
+        )
+
+        def model(state, iter_num):
+            state = xr.concat([
+                state,
+                np.sin(state),
+                np.cos(state)
+            ], dim='time')
+            state['time'] = self.state['time'].values
+            pseudo_state = state.compute() + 1
+            return state, pseudo_state
+        prior_state = self.state.isel(time=[0])
+
+        self.algorithm.max_iter = 10
+        self.algorithm.tau = 1.0
+        self.algorithm.forward_model = model
+        self.algorithm.smoother = True
+
+        logging.basicConfig(level=logging.DEBUG)
+        ienks_analysis = self.algorithm.assimilate(
+            prior_state, self.obs, analysis_time=prior_state.time.values
+        )
+        if os.path.isfile(self.algorithm.weight_save_path):
+            os.remove(self.algorithm.weight_save_path)
+
 
     def test_lienks_with_linear_equals_letkf_multiindex(self):
         self.state['grid'] = pd.MultiIndex.from_product(
@@ -184,13 +228,13 @@ class TestLIEnKSTransform(unittest.TestCase):
             (10.,), dist_func=dist_func
         )
 
-        def linear_model(analysis):
-            state = xr.concat([analysis,] * 3, dim='time')
+        def linear_model(state, iter_num):
+            state = xr.concat([state,] * 3, dim='time')
             state['time'] = self.state['time'].values
             pseudo_state = state + 1
             return state, pseudo_state
         prior_state = self.state.isel(time=[0])
-        propagated_state, pseudo_state = linear_model(prior_state)
+        propagated_state, pseudo_state = linear_model(prior_state, 0)
 
         letkf = LETKF(
             localization=self.algorithm.localization,
@@ -203,7 +247,7 @@ class TestLIEnKSTransform(unittest.TestCase):
 
         self.algorithm.max_iter = 1
         self.algorithm.tau = 1.0
-        self.algorithm.model = linear_model
+        self.algorithm.forward_model = linear_model
         self.algorithm.smoother = True
         ienks_analysis = self.algorithm.assimilate(
             prior_state, self.obs, analysis_time=prior_state.time.values
@@ -220,7 +264,8 @@ class TestLIEnKSBundle(unittest.TestCase):
         self.obs.obs.operator = dummy_obs_operator
         self.weights = generate_random_weights(len(self.state['ensemble']))
         self.algorithm = LocalizedIEnKSBundle(
-            lambda x: (self.state+1, self.state+2),
+            forward_model=lambda state, iter_num:
+                (self.state + 1, self.state + 2)
         )
 
     def tearDown(self):
@@ -278,14 +323,14 @@ class TestLIEnKSBundle(unittest.TestCase):
     def test_with_no_localization_equals_ienks(self):
         self.algorithm.localization = None
         ienks = IEnKSBundle(
-            model=self.algorithm.model, tau=self.algorithm.tau,
+            forward_model=self.algorithm.forward_model, tau=self.algorithm.tau,
             epsilon=self.algorithm.epsilon
         )
         ens_obs = self.obs.obs.operator(self.obs, self.state)
-        ienks_weights = ienks.estimate_weights(
+        ienks_weights = ienks.inner_loop(
             self.state.isel(time=[0]), self.weights, [self.obs], [ens_obs]
         )
-        lienks_weights = self.algorithm.estimate_weights(
+        lienks_weights = self.algorithm.inner_loop(
             self.state.isel(time=[0]), self.weights, [self.obs], [ens_obs]
         )
         lienks_weights = lienks_weights.mean('grid')
@@ -300,13 +345,13 @@ class TestLIEnKSBundle(unittest.TestCase):
             (10.,), dist_func=dist_func
         )
 
-        def linear_model(analysis):
-            state = xr.concat([analysis,] * 3, dim='time')
+        def linear_model(state, iter_num):
+            state = xr.concat([state,] * 3, dim='time')
             state['time'] = self.state['time'].values
             pseudo_state = state + 1
             return state, pseudo_state
         prior_state = self.state.isel(time=[0])
-        propagated_state, pseudo_state = linear_model(prior_state)
+        propagated_state, pseudo_state = linear_model(prior_state, 0)
 
         letkf = LETKF(
             localization=self.algorithm.localization,
@@ -320,7 +365,7 @@ class TestLIEnKSBundle(unittest.TestCase):
         self.algorithm.max_iter = 1
         self.algorithm.tau = 1.0
         self.algorithm.epsilon = 1.0
-        self.algorithm.model = linear_model
+        self.algorithm.forward_model = linear_model
         self.algorithm.smoother = True
         ienks_analysis = self.algorithm.assimilate(
             prior_state, self.obs, analysis_time=prior_state.time.values

@@ -172,6 +172,80 @@ class TestETKF(unittest.TestCase):
         ret_analysis = self.algorithm.assimilate(self.state, self.obs)
         xr.testing.assert_equal(right_analysis, ret_analysis)
 
+    def test_get_pseudo_obs_returns_pseudo_obs_if_given(self):
+        pseudo_obs = self.algorithm.get_pseudo_state(
+            pseudo_state=self.state+1,
+            state=self.state,
+            weights=self.algorithm.generate_prior_weights(
+                self.state['ensemble'].values
+            )
+        )
+        xr.testing.assert_identical(pseudo_obs, self.state+1)
+
+    def test_get_pseudo_obs_propagates_model_if_no_pseudo_and_given_model(self):
+        self.algorithm.forward_model = MagicMock()
+        self.algorithm.forward_model.return_value = (self.state, self.state+5)
+        pseudo_obs = self.algorithm.get_pseudo_state(
+            pseudo_state=None,
+            state=self.state,
+            weights=self.algorithm.generate_prior_weights(
+                self.state['ensemble'].values
+            )
+        )
+        xr.testing.assert_identical(pseudo_obs, self.state+5)
+        self.algorithm.forward_model.assert_called_once()
+
+    def test_get_pseudo_obs_sets_state_to_pseudo_if_no_pseudo_and_model(self):
+        self.algorithm.forward_model = None
+        pseudo_obs = self.algorithm.get_pseudo_state(
+            pseudo_state=None,
+            state=self.state+1,
+            weights=self.algorithm.generate_prior_weights(
+                self.state['ensemble'].values
+            )
+        )
+        xr.testing.assert_identical(pseudo_obs, self.state+1)
+
+    def test_update_state_calls_generate_prior_weights(self):
+        weights = self.algorithm.generate_prior_weights(np.arange(10))
+        with patch(
+                'pytassim.interface.base.BaseAssimilation.'
+                'generate_prior_weights',
+                return_value=weights
+        ) as prior_patch:
+            _ = self.algorithm.update_state(
+                state=self.state,
+                observations=(self.obs, ),
+                pseudo_state=self.state,
+                analysis_time=self.state.indexes['time'][0]
+            )
+        prior_patch.assert_called_once()
+        np.testing.assert_equal(
+            prior_patch.call_args[0][0],
+            self.state['ensemble'].values
+        )
+
+    def test_update_state_calls_get_pseudo_state(self):
+        weights = self.algorithm.generate_prior_weights(np.arange(10))
+        with patch(
+                'pytassim.interface.base.BaseAssimilation.'
+                'generate_prior_weights',
+                return_value=weights
+        ), patch(
+                'pytassim.interface.base.BaseAssimilation.get_pseudo_state',
+                return_value=self.state
+        ) as pseudo_patch:
+            _ = self.algorithm.update_state(
+                state=self.state,
+                observations=(self.obs, ),
+                pseudo_state=self.state,
+                analysis_time=self.state.indexes['time'][0]
+            )
+        pseudo_patch.assert_called_once_with(
+            pseudo_state=self.state,
+            state=self.state,
+            weights=weights
+        )
 
 if __name__ == '__main__':
     unittest.main()

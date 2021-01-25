@@ -22,6 +22,7 @@ import torch
 
 # Internal modules
 import pytassim.utilities.pandas as utils
+from .wrapper import wrapper_localization
 
 
 logger = logging.getLogger(__name__)
@@ -30,20 +31,11 @@ logger = logging.getLogger(__name__)
 class DomainLocalizedMixin(object):
     @property
     def localized_module(self):
-        def wrapper(grid_info, *args, obs_info=None, args_to_skip=None):
-            if self.localization is not None:
-                luse, lweights = self.localization.localize_obs(
-                    grid_info, obs_info
-                )
-                lweights = np.sqrt(lweights[luse])
-                if args_to_skip is None:
-                    args_to_skip = []
-                args = [
-                    arg if k in args_to_skip else arg[..., luse] * lweights
-                    for k, arg in enumerate(args)
-                ]
-            return self.module(*args)
-        return wrapper
+        wrapped_module = wrapper_localization(
+            module=self.module,
+            localization=self.localization
+        )
+        return wrapped_module
 
     @staticmethod
     def _extract_obs_information(observations: xr.DataArray) -> pd.DataFrame:

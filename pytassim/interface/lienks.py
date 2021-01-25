@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 class LocalizedIEnKSTransform(IEnKSTransform, DomainLocalizedMixin):
     def __init__(
             self,
-            model: Callable,
+            forward_model: Callable,
             localization: Union[None, BaseLocalization] = None,
             tau: int = 1.0,
             max_iter: int = 10,
@@ -40,30 +40,32 @@ class LocalizedIEnKSTransform(IEnKSTransform, DomainLocalizedMixin):
             pre_transform: Union[None, Iterable[BaseTransformer]] = None,
             post_transform: Union[None, Iterable[BaseTransformer]] = None,
             chunksize: int = 10,
+            weight_save_path: Union[None, str] = None
     ):
         super().__init__(
-            model=model,
+            forward_model=forward_model,
             tau=tau,
             max_iter=max_iter,
             smoother=smoother,
             gpu=gpu,
             pre_transform=pre_transform,
-            post_transform=post_transform
+            post_transform=post_transform,
+            weight_save_path=weight_save_path
         )
         self.localization = localization
         self.chunksize = chunksize
 
     def __str__(self):
-        return 'Localized IEnKSBundle(loc={0}, tau={1})'.format(
+        return 'Localized IEnKSTransform(loc={0}, tau={1})'.format(
             str(self.localization), str(self.tau.item())
         )
 
     def __repr__(self):
-        return 'LIEnKSBundle({0},{1})'.format(
+        return 'LIEnKSTransform({0},{1})'.format(
             repr(self.localization), repr(self.tau.item())
         )
 
-    def estimate_weights(
+    def inner_loop(
             self,
             state: xr.DataArray,
             weights: xr.DataArray,
@@ -83,6 +85,10 @@ class LocalizedIEnKSTransform(IEnKSTransform, DomainLocalizedMixin):
         logger.debug('State_id: {0}'.format(state_info))
         state_info = state_info.chunk({'grid': self.chunksize})
         logger.info('Chunked the state information')
+        if 'grid' in weights.dims:
+            weights['grid'] = state_info['grid']
+            logger.debug('Weight_grid: {0}'.format(weights['grid']))
+            logger.info('Removed grid information from weights')
 
         weights = xr.apply_ufunc(
             self.localized_module,
@@ -113,11 +119,11 @@ class LocalizedIEnKSTransform(IEnKSTransform, DomainLocalizedMixin):
 
 
 class LocalizedIEnKSBundle(IEnKSBundle, DomainLocalizedMixin):
-    estimate_weights = LocalizedIEnKSTransform.estimate_weights
+    inner_loop = LocalizedIEnKSTransform.inner_loop
 
     def __init__(
             self,
-            model: Callable,
+            forward_model: Callable,
             localization: Union[None, BaseLocalization] = None,
             tau: int = 1.0,
             epsilon: int = 1E-4,
@@ -127,16 +133,18 @@ class LocalizedIEnKSBundle(IEnKSBundle, DomainLocalizedMixin):
             pre_transform: Union[None, Iterable[BaseTransformer]] = None,
             post_transform: Union[None, Iterable[BaseTransformer]] = None,
             chunksize: int = 10,
+            weight_save_path: Union[None, str] = None
     ):
         super().__init__(
-            model=model,
+            forward_model=forward_model,
             tau=tau,
             epsilon=epsilon,
             max_iter=max_iter,
             smoother=smoother,
             gpu=gpu,
             pre_transform=pre_transform,
-            post_transform=post_transform
+            post_transform=post_transform,
+            weight_save_path=weight_save_path
         )
         self.localization = localization
         self.chunksize = chunksize

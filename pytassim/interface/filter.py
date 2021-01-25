@@ -41,7 +41,7 @@ class FilterAssimilation(BaseAssimilation):
             state: xr.DataArray,
             observations: Iterable[xr.Dataset],
             pseudo_state: xr.DataArray,
-    ) -> Tuple[xr.DataArray, xr.DataArray, Iterable[xr.Dataset]]:
+    ) -> Tuple[xr.DataArray, Iterable[xr.Dataset], xr.DataArray]:
         logger.info('Assimilation in filtering mode')
         state = state.sel(time=[analysis_time, ])
         pseudo_state = pseudo_state.sel(time=[analysis_time, ])
@@ -136,9 +136,14 @@ class FilterAssimilation(BaseAssimilation):
             filtering mode is on, then the time axis is sliced to the
             analysis time.
         """
-        if pseudo_state is None:
-            pseudo_state = state
-            logger.info('Set the pseudo state to the state')
+        prior_weights = self.generate_prior_weights(
+            state.indexes['ensemble'].values
+        )
+        pseudo_state = self.get_pseudo_state(
+            pseudo_state=pseudo_state,
+            state=state,
+            weights=prior_weights
+        )
         self._validate_state(pseudo_state)
 
         if not self.smoother:
@@ -152,5 +157,8 @@ class FilterAssimilation(BaseAssimilation):
         weights = self.estimate_weights(state, filtered_obs, ens_obs)
         logger.info('Finished with weight estimation, starting with '
                     'application of weights')
+        if self.weight_save_path is not None:
+            weights = self.store_weights(weights)
+            logger.info('Stored the weights')
         analysis = self._apply_weights(state, weights)
         return analysis

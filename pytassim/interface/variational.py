@@ -14,16 +14,15 @@
 import logging
 import abc
 from typing import Union, Iterable, Callable, List
+from copy import deepcopy
+import os
+import tempfile
 
 # External modules
 import xarray as xr
 import pandas as pd
-import torch
-import numpy as np
 
 # Internal modules
-from pytassim.state import StateError
-from pytassim.observation import ObservationError
 from pytassim.transform import BaseTransformer
 from .base import BaseAssimilation
 
@@ -34,40 +33,48 @@ logger = logging.getLogger(__name__)
 class VarAssimilation(BaseAssimilation):
     def __init__(
             self,
-            model: Callable,
-            weight_save_path: Union[None, str] = None,
+            forward_model: Callable,
             max_iter: int = 10,
             smoother: bool = False,
             gpu: bool = False,
             pre_transform: Union[None, Iterable[BaseTransformer]] = None,
             post_transform: Union[None, Iterable[BaseTransformer]] = None,
+            weight_save_path: Union[None, str] = None,
     ):
         super().__init__(
             smoother=smoother,
             gpu=gpu,
             pre_transform=pre_transform,
-            post_transform=post_transform
+            post_transform=post_transform,
+            forward_model=forward_model,
+            weight_save_path=weight_save_path
         )
-        self.model = model
         self.max_iter = max_iter
         self.weight_save_path = weight_save_path
 
     def precompute_weights(self, weights: xr.DataArray) -> xr.DataArray:
+        old_weight_save_path = deepcopy(self.weight_save_path)
         if isinstance(self.weight_save_path, str):
-            weights.to_netcdf(self.weight_save_path)
-            weights = xr.open_dataarray(
-                self.weight_save_path, chunks=weights.chunks
-            )
+            if os.path.isfile(self.weight_save_path):
+                self.weight_save_path = '{0:s}_1'.format(self.weight_save_path)
+            loaded_weights = self.store_weights(weights)
+            weights.close()
+            if self.weight_save_path != old_weight_save_path:
+                os.replace(self.weight_save_path, old_weight_save_path)
+            logger.info('Stored and loaded the weights')
         else:
-            weights = weights.load()
-        return weights
+            self.weight_save_path = os.path.join(
+                '/tmp', next(tempfile._get_candidate_names())
+            )
+            loaded_weights = self.store_weights(weights).load()
+            weights.close()
+            os.remove(self.weight_save_path)
+            logger.info('Stored and loaded the weights under a temporary path')
+        self.weight_save_path = old_weight_save_path
+        return loaded_weights
 
     @abc.abstractmethod
-    def get_model_weights(self, weights: xr.DataArray) -> xr.DataArray:
-        pass
-
-    @abc.abstractmethod
-    def estimate_weights(
+    def inner_loop(
             self,
             state: xr.DataArray,
             weights: xr.DataArray,
@@ -76,50 +83,24 @@ class VarAssimilation(BaseAssimilation):
     ) -> xr.DataArray:
         pass
 
-    @staticmethod
-    def generate_prior_weights(ens_values: pd.Index) -> xr.DataArray:
-        prior_weights = np.eye(len(ens_values))
-        prior_weights = xr.DataArray(
-            prior_weights,
-            coords={
-                'ensemble': ens_values,
-                'ensemble_new': ens_values
-            },
-            dims=['ensemble', 'ensemble_new']
-        )
-        return prior_weights
-
-    def _propagate_model(
-            self,
-            weights: xr.DataArray,
-            state: xr.DataArray
-    ) -> xr.DataArray:
-        model_weights = self.get_model_weights(weights)
-        model_state = self._apply_weights(state, model_weights)
-        _, pseudo_state = self.model(model_state)
-        self._validate_state(pseudo_state)
-        return pseudo_state
-
-    def _weights_stack_state_id(self, weights: xr.DataArray) -> xr.DataArray:
-        if 'grid' in weights.dims:
-            weights = weights.state.stack_to_state_id()
-            weights['state_id'] = np.arange(len(weights['state_id']))
-            weights = weights.chunk({'state_id': self.chunksize})
-        return weights
-
-    def _update_step(
+    def _outer_step(
             self,
             weights: xr.DataArray,
             state: xr.DataArray,
             observations: Iterable[xr.Dataset],
             pseudo_state: Union[xr.DataArray, None],
+            iter_num: int = 0
     ) -> xr.DataArray:
-        if pseudo_state is None:
-            pseudo_state = self._propagate_model(weights, state)
+        pseudo_state = self.get_pseudo_state(
+            pseudo_state=pseudo_state,
+            state=state,
+            weights=weights,
+            iter_num=iter_num
+        )
         ens_obs, filtered_obs = self._apply_obs_operator(
             pseudo_state, observations
         )
-        weights = self.estimate_weights(state, weights, filtered_obs, ens_obs)
+        weights = self.inner_loop(state, weights, filtered_obs, ens_obs)
         return weights
 
     def update_state(
@@ -129,15 +110,23 @@ class VarAssimilation(BaseAssimilation):
             pseudo_state: Union[xr.DataArray, None],
             analysis_time: pd.Timestamp
     ) -> xr.DataArray:
-        weights = self.generate_prior_weights(state.indexes['ensemble'])
+        weights = self.generate_prior_weights(state.indexes['ensemble'].values)
         state = state.sel(time=[analysis_time])
-        n_iter = 0
-        while n_iter < self.max_iter:
-            weights = self._update_step(weights, state, observations,
-                                        pseudo_state)
+        iter_num = 0
+        while iter_num < self.max_iter:
+            logger.info('Starting with iteration #{0:d}'.format(iter_num))
+            weights = self._outer_step(
+                weights=weights,
+                state=state,
+                observations=observations,
+                pseudo_state=pseudo_state,
+                iter_num=iter_num
+            )
+            weights = self.precompute_weights(weights)
             pseudo_state = None
-            n_iter += 1
+            logger.info('Finished with iteration #{0:d}'.format(iter_num))
+            iter_num += 1
         analysis_state = self._apply_weights(state, weights)
         if self.smoother:
-            analysis_state, _ = self.model(analysis_state)
+            analysis_state, _ = self.forward_model(analysis_state, iter_num)
         return analysis_state

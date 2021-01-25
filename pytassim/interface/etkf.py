@@ -13,7 +13,7 @@
 # System modules
 import logging
 import abc
-from typing import Union, Iterable, List
+from typing import Union, Iterable, List, Callable
 
 # External modules
 import xarray as xr
@@ -69,11 +69,15 @@ class ETKF(FilterAssimilation):
             smoother: bool = False,
             gpu: bool = False,
             pre_transform: Union[None, Iterable[BaseTransformer]] = None,
-            post_transform: Union[None, Iterable[BaseTransformer]] = None
+            post_transform: Union[None, Iterable[BaseTransformer]] = None,
+            weight_save_path: Union[None, str] = None,
+            forward_model: Union[None, Callable] = None
     ):
         super().__init__(smoother=smoother, gpu=gpu,
                          pre_transform=pre_transform,
-                         post_transform=post_transform)
+                         post_transform=post_transform,
+                         weight_save_path=weight_save_path,
+                         forward_model=forward_model)
         self.inf_factor = inf_factor
 
     def __str__(self):

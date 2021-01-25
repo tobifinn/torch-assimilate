@@ -29,7 +29,7 @@ import abc
 import warnings
 import time
 import datetime
-from typing import Union, Iterable, Tuple, Any, List
+from typing import Union, Iterable, Tuple, Any, List, Callable
 
 # External modules
 import xarray as xr
@@ -43,6 +43,7 @@ from pytassim.observation import ObservationError
 from pytassim.transform import BaseTransformer
 from pytassim.utilities.pandas import dtindex_to_total_seconds
 from pytassim.utilities.xarray import save_netcdf, load_netcdf
+from .wrapper import wrapper_bridge
 
 
 logger = logging.getLogger(__name__)
@@ -61,7 +62,8 @@ class BaseAssimilation(object):
             gpu: bool = False,
             pre_transform: Union[None, Iterable[BaseTransformer]] = None,
             post_transform: Union[None, Iterable[BaseTransformer]] = None,
-            weight_save_path: Union[None, str] = None
+            weight_save_path: Union[None, str] = None,
+            forward_model: Union[Callable, None] = None
     ):
         self._dtype = torch.float32
         self.smoother = smoother
@@ -70,6 +72,7 @@ class BaseAssimilation(object):
         self.post_transform = post_transform
         self.dtype = torch.float64
         self.weight_save_path = weight_save_path
+        self.forward_model = forward_model
 
     def __str__(self):
         return 'BaseAssimilation'
@@ -94,16 +97,11 @@ class BaseAssimilation(object):
         wrapped_module : func
             This is the bridged module.
         """
-        def wrapped_module(*args):
-            torch_args = [
-                torch.from_numpy(arg).to(device=self.device, dtype=self.dtype)
-                for arg in args
-            ]
-            torch_weights = self.core_module(*torch_args)
-            torch_weights = torch_weights.cpu().detach()
-            weights = torch_weights.numpy().astype(args[0].dtype)
-            return weights
-        return wrapped_module
+        return wrapper_bridge(
+            core_module=self.core_module,
+            device=self.device,
+            dtype=self.dtype
+        )
 
     @property
     def dtype(self) -> torch.dtype:
@@ -239,10 +237,27 @@ class BaseAssimilation(object):
         return stacked_observations
 
     @staticmethod
+    def generate_prior_weights(ens_values: np.ndarray) -> xr.DataArray:
+        prior_weights = np.eye(len(ens_values))
+        prior_weights = xr.DataArray(
+            prior_weights,
+            coords={
+                'ensemble': ens_values,
+                'ensemble_new': ens_values
+            },
+            dims=['ensemble', 'ensemble_new']
+        )
+        return prior_weights
+
+    @staticmethod
     def _apply_weights(
             state: xr.DataArray,
             weights: xr.DataArray
     ) -> xr.DataArray:
+        if 'grid' in weights.dims:
+            weights = weights.assign_coords(
+                grid=state['grid']
+            )
         logger.debug('State: {0}'.format(state))
         logger.debug('Weights: {0}'.format(weights))
         state_mean, state_perts = state.state.split_mean_perts(dim='ensemble')
@@ -300,6 +315,38 @@ class BaseAssimilation(object):
             chunks=chunks
         )
         return loaded_weights
+
+    def _get_model_weights(self, weights: xr.DataArray) -> xr.DataArray:
+        return weights
+
+    def propagate_model(
+            self,
+            weights: xr.DataArray,
+            state: xr.DataArray,
+            iter_num: int = 0
+    ) -> xr.DataArray:
+        model_weights = self._get_model_weights(weights)
+        model_state = self._apply_weights(state, model_weights)
+        _, pseudo_state = self.forward_model(model_state, iter_num)
+        self._validate_state(pseudo_state)
+        return pseudo_state
+
+    def get_pseudo_state(
+            self,
+            pseudo_state: Union[xr.DataArray, None],
+            state: xr.DataArray,
+            weights: xr.DataArray,
+            iter_num: int = 0
+    ) -> xr.DataArray:
+        if pseudo_state is None and self.forward_model is not None:
+            pseudo_state = self.propagate_model(
+                weights=weights,
+                state=state,
+                iter_num=iter_num
+            )
+        elif pseudo_state is None:
+            pseudo_state = state
+        return pseudo_state
 
     def _get_obs_space_variables(
             self,
