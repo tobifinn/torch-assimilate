@@ -78,7 +78,7 @@ def replace_grid(
     """
     rename_dict = {k: v for k, v in remap_dict.items()
                    if k in ds.coords}
-    ds = ds.drop_sel(list(rename_dict.keys()))
+    ds = ds.reset_index(list(rename_dict.keys()), drop=True)
     ds = ds.rename(rename_dict)
     return ds
 
