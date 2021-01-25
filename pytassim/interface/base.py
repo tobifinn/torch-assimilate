@@ -280,43 +280,47 @@ class BaseAssimilation(object):
     def store_weights(
             self,
             weights: xr.DataArray
-    ) -> xr.DataArray:
+    ) -> Union[bytes, "Delayed", None]:
         """
         This method triggers the computation and storage of given weights
         under set `weight_save_path`.
         During the storage process, the multidimensional indexes witihn the
-        weights are stored as single dimensional index and reloaded as
-        multidimensional index.
-        After the weights are stored, they are reloaded as xarray.DataArray.
-        If `chunksize` is set and `grid` is within the dimensions of given
-        weights, the returned data array is chunked along the grid dimension.
+        weights are stored as single dimensional index.
 
         Parameters
         ----------
         weights : xarray.DataArray
             These weights will be stored under set weight_save_path.
-
-        Returns
-        -------
-        loaded_weights : xarray.DataArray
-            The reloaded ensemble weights from set weight path.
-            If `chunksize` is set and `grid` is within the dimensions of given
-            weights, the underlying data will be a dask.array.Array and
-            chunked along the grid dimension, else it will be numpy.ndarray.
         """
-        _ = save_netcdf(
+        saved_netcdf = save_netcdf(
             dataset_to_save=weights,
             save_path=self.weight_save_path,
             compute=True
         )
-        if 'grid' in weights.dims and hasattr(self, 'chunksize'):
-            chunks = {'grid': self.chunksize}
-        else:
-            chunks = None
+        return saved_netcdf
+
+    def load_weights(self) -> xr.DataArray:
+        """
+        This method loads the weights as DataArray from set `weight_save_path`.
+        Single-dimensional coordinates are automatically transformed into
+        multi-dimensional dimensions if they have a `multidim_levels`
+        attributed.
+        The data will be chunked as specified by the `chunks` property of
+        this assimilation.
+
+        Returns
+        -------
+        loaded_weights : xarray.DataArray
+            The loaded weights from set weight save path.
+            If the `chunks` of this assimilation are none, the underlying data
+            will be a numpy.ndarray.
+            If `chunks` for this assimilation are specified, the underlying
+            data will be chunked into a dask.array.Array.
+        """
         loaded_weights = load_netcdf(
             load_path=self.weight_save_path,
             array=True,
-            chunks=chunks
+            chunks=self.chunks
         )
         return loaded_weights
 
