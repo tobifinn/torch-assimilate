@@ -164,6 +164,11 @@ class TestLETKF(unittest.TestCase):
                                                       None, ana_time)
         self.assertFalse(np.any(np.isnan(assimilated_state.values)))
 
+    def test_chunks_return_chunksize(self):
+        self.assertDictEqual(
+            {'grid': self.algorithm.chunksize}, self.algorithm.chunks
+        )
+
 
 if __name__ == '__main__':
     unittest.main()

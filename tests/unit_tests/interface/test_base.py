@@ -544,5 +544,9 @@ class TestBaseAssimilation(unittest.TestCase):
                 self.state, 5
             )
 
+    def test_chunks_return_None(self):
+        self.assertIsNone(self.algorithm.chunks)
+
+
 if __name__ == '__main__':
     unittest.main()

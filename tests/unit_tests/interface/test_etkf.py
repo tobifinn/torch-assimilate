@@ -247,5 +247,9 @@ class TestETKF(unittest.TestCase):
             weights=weights
         )
 
+    def test_chunks_return_None(self):
+        self.assertIsNone(self.algorithm.chunks)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -214,7 +214,6 @@ class TestLIEnKSTransform(unittest.TestCase):
         if os.path.isfile(self.algorithm.weight_save_path):
             os.remove(self.algorithm.weight_save_path)
 
-
     def test_lienks_with_linear_equals_letkf_multiindex(self):
         self.state['grid'] = pd.MultiIndex.from_product(
             (np.arange(40), [0,]), names=['grid_point', 'height']
@@ -253,6 +252,11 @@ class TestLIEnKSTransform(unittest.TestCase):
             prior_state, self.obs, analysis_time=prior_state.time.values
         )
         xr.testing.assert_allclose(ienks_analysis, letkf_analysis)
+
+    def test_chunks_return_chunksize(self):
+        self.assertDictEqual(
+            {'grid': self.algorithm.chunksize}, self.algorithm.chunks
+        )
 
 
 class TestLIEnKSBundle(unittest.TestCase):
