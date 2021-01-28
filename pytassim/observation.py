@@ -269,6 +269,7 @@ class Observation(object):
     def _corr_normalize(self, value):
         normalized = xr.dot(value, self._corr_chol_inverse, dims='obs_grid_1')
         normalized = normalized.rename({'obs_grid_2': 'obs_grid_1'})
+        normalized = normalized.assign_coords(obs_grid_1=value['obs_grid_1'])
         return normalized
 
     def _uncorr_normalize(self, value):

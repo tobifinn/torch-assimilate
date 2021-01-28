@@ -31,6 +31,7 @@ import types
 # External modules
 import numpy as np
 import xarray as xr
+import pandas as pd
 
 # Internal modules
 from pytassim.observation import Observation
@@ -274,6 +275,23 @@ class TestObsSubset(unittest.TestCase):
         ret_obs = self.obs_ds.obs.mul_rcinv(self.obs_ds['observations'])
         xr.testing.assert_equal(ret_obs, normalized_obs)
 
+    def test_corr_normalize_sets_obs_grid_1_as_new_obs_grid(self):
+        self.obs_ds['obs_grid_2'] = np.arange(100, 140)
+        ret_obs = self.obs_ds.obs.mul_rcinv(self.obs_ds['observations'])
+        xr.testing.assert_identical(
+            ret_obs['obs_grid_1'], self.obs_ds['obs_grid_1']
+        )
+
+    def test_corr_normalize_works_for_multiindex(self):
+        self.obs_ds['obs_grid_1'] = pd.MultiIndex.from_product(
+            [self.obs_ds.indexes['obs_grid_1'], [0, ]],
+            names=['level', 'height']
+        )
+        ret_obs = self.obs_ds.obs.mul_rcinv(self.obs_ds['observations'])
+        xr.testing.assert_identical(
+            ret_obs['obs_grid_1'], self.obs_ds['obs_grid_1']
+        )
+
     def test_uncorr_normalize(self):
         cov_values = np.diagonal(self.obs_ds['covariance'])
         self.obs_ds['covariance'] = self.obs_ds['covariance'].isel(obs_grid_2=0)
@@ -282,6 +300,16 @@ class TestObsSubset(unittest.TestCase):
         normalized_obs = self.obs_ds['observations'] * chol_inv
         ret_obs = self.obs_ds.obs.mul_rcinv(self.obs_ds['observations'])
         xr.testing.assert_equal(ret_obs, normalized_obs)
+
+    def test_uncorr_normalize_works_for_multiindex(self):
+        self.obs_ds['obs_grid_1'] = pd.MultiIndex.from_product(
+            [self.obs_ds.indexes['obs_grid_1'], [0, ]],
+            names=['level', 'height']
+        )
+        ret_obs = self.obs_ds.obs.mul_rcinv(self.obs_ds['observations'])
+        xr.testing.assert_identical(
+            ret_obs['obs_grid_1'], self.obs_ds['obs_grid_1']
+        )
 
 
 if __name__ == '__main__':
