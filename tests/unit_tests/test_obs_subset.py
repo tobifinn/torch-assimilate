@@ -311,6 +311,18 @@ class TestObsSubset(unittest.TestCase):
             ret_obs['obs_grid_1'], self.obs_ds['obs_grid_1']
         )
 
+    def test_mul_rcinv_tests_if_obs_grid_1_available(self):
+        obs_values = self.obs_ds['observations'].rename({'obs_grid_1': 'grid'})
+        with self.assertRaises(KeyError):
+            self.obs_ds.obs.mul_rcinv(obs_values)
+
+    def test_mul_rcinv_tests_obs_grid_1(self):
+        obs_values = self.obs_ds['observations'].assign_coords(
+            obs_grid_1=np.arange(100, 140)
+        )
+        with self.assertRaises(ValueError):
+            self.obs_ds.obs.mul_rcinv(obs_values)
+
 
 if __name__ == '__main__':
     unittest.main()

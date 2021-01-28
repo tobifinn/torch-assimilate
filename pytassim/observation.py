@@ -276,7 +276,21 @@ class Observation(object):
         normalized = value * self._uncorr_chol_inverse
         return normalized
 
+    def _check_value_dims(self, value):
+        try:
+            same_coord = self.ds['obs_grid_1'].to_index().equals(
+                    value['obs_grid_1'].to_index()
+            )
+            if not same_coord:
+                raise ValueError(
+                    'Given observation values should have the same '
+                    '`obs_grid_1` coordinate as these observations!'
+                )
+        except KeyError:
+            raise KeyError('Given value has no `obs_grid_1` dimension!')
+
     def mul_rcinv(self, value):
+        self._check_value_dims(value)
         if self.correlated:
             return self._corr_normalize(value)
         else:
