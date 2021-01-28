@@ -99,12 +99,6 @@ class TestObsSubset(unittest.TestCase):
         obs_ds = obs_ds.isel(obs_grid_1=slice(0, 2))
         self.assertFalse(obs_ds.obs._valid_cov_corr)
 
-    def test_valid_cov_checks_grid_dim_values(self):
-        self.assertTrue(self.obs_ds.obs._valid_cov_corr)
-        obs_ds = self.obs_ds.copy()
-        obs_ds['obs_grid_2'] = obs_ds['obs_grid_2'] + 10
-        self.assertFalse(obs_ds.obs._valid_cov_corr)
-
     def test_valid_cov_uncorr_checks_dim_order(self):
         self.assertFalse(self.obs_ds.obs._valid_cov_uncorr)
         self.obs_ds['covariance'] = xr.DataArray(
@@ -141,6 +135,12 @@ class TestObsSubset(unittest.TestCase):
         self.obs_ds['covariance'] = self.obs_ds['covariance'].transpose(
             'obs_grid_1', 'obs_grid_2', 'time'
         )
+        self.assertFalse(self.obs_ds.obs._valid_cov_corr)
+
+    def test_valid_cov_corr_checks_only_if_len_of_obs_grid_2(self):
+        self.obs_ds['obs_grid_2'] = np.arange(1, 41)
+        self.assertTrue(self.obs_ds.obs._valid_cov_corr)
+        self.obs_ds = self.obs_ds.isel(obs_grid_2=slice(None, 10))
         self.assertFalse(self.obs_ds.obs._valid_cov_corr)
 
     def test_correlated_property_checks_if_obs_grid_2_available(self):

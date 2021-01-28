@@ -200,14 +200,7 @@ class Observation(object):
         checked_dims = dim_order == self.ds['covariance'].dims
         checked_shape = valid_shape == self.ds['covariance'].shape
 
-        try:
-            checked_coord_values = self.ds['obs_grid_1'].to_index().equals(
-                self.ds['obs_grid_2'].to_index()
-            )
-        except KeyError:
-            checked_coord_values = False
-
-        valid_cov = checked_dims and checked_shape and checked_coord_values
+        valid_cov = checked_dims and checked_shape
         return valid_cov
 
     @property
