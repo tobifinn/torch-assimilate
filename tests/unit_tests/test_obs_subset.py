@@ -31,6 +31,7 @@ import types
 # External modules
 import numpy as np
 import xarray as xr
+import pandas as pd
 
 # Internal modules
 from pytassim.observation import Observation
@@ -99,12 +100,6 @@ class TestObsSubset(unittest.TestCase):
         obs_ds = obs_ds.isel(obs_grid_1=slice(0, 2))
         self.assertFalse(obs_ds.obs._valid_cov_corr)
 
-    def test_valid_cov_checks_grid_dim_values(self):
-        self.assertTrue(self.obs_ds.obs._valid_cov_corr)
-        obs_ds = self.obs_ds.copy()
-        obs_ds['obs_grid_2'] = obs_ds['obs_grid_2'] + 10
-        self.assertFalse(obs_ds.obs._valid_cov_corr)
-
     def test_valid_cov_uncorr_checks_dim_order(self):
         self.assertFalse(self.obs_ds.obs._valid_cov_uncorr)
         self.obs_ds['covariance'] = xr.DataArray(
@@ -141,6 +136,12 @@ class TestObsSubset(unittest.TestCase):
         self.obs_ds['covariance'] = self.obs_ds['covariance'].transpose(
             'obs_grid_1', 'obs_grid_2', 'time'
         )
+        self.assertFalse(self.obs_ds.obs._valid_cov_corr)
+
+    def test_valid_cov_corr_checks_only_if_len_of_obs_grid_2(self):
+        self.obs_ds['obs_grid_2'] = np.arange(1, 41)
+        self.assertTrue(self.obs_ds.obs._valid_cov_corr)
+        self.obs_ds = self.obs_ds.isel(obs_grid_2=slice(None, 10))
         self.assertFalse(self.obs_ds.obs._valid_cov_corr)
 
     def test_correlated_property_checks_if_obs_grid_2_available(self):
@@ -274,6 +275,23 @@ class TestObsSubset(unittest.TestCase):
         ret_obs = self.obs_ds.obs.mul_rcinv(self.obs_ds['observations'])
         xr.testing.assert_equal(ret_obs, normalized_obs)
 
+    def test_corr_normalize_sets_obs_grid_1_as_new_obs_grid(self):
+        self.obs_ds['obs_grid_2'] = np.arange(100, 140)
+        ret_obs = self.obs_ds.obs.mul_rcinv(self.obs_ds['observations'])
+        xr.testing.assert_identical(
+            ret_obs['obs_grid_1'], self.obs_ds['obs_grid_1']
+        )
+
+    def test_corr_normalize_works_for_multiindex(self):
+        self.obs_ds['obs_grid_1'] = pd.MultiIndex.from_product(
+            [self.obs_ds.indexes['obs_grid_1'], [0, ]],
+            names=['level', 'height']
+        )
+        ret_obs = self.obs_ds.obs.mul_rcinv(self.obs_ds['observations'])
+        xr.testing.assert_identical(
+            ret_obs['obs_grid_1'], self.obs_ds['obs_grid_1']
+        )
+
     def test_uncorr_normalize(self):
         cov_values = np.diagonal(self.obs_ds['covariance'])
         self.obs_ds['covariance'] = self.obs_ds['covariance'].isel(obs_grid_2=0)
@@ -282,6 +300,28 @@ class TestObsSubset(unittest.TestCase):
         normalized_obs = self.obs_ds['observations'] * chol_inv
         ret_obs = self.obs_ds.obs.mul_rcinv(self.obs_ds['observations'])
         xr.testing.assert_equal(ret_obs, normalized_obs)
+
+    def test_uncorr_normalize_works_for_multiindex(self):
+        self.obs_ds['obs_grid_1'] = pd.MultiIndex.from_product(
+            [self.obs_ds.indexes['obs_grid_1'], [0, ]],
+            names=['level', 'height']
+        )
+        ret_obs = self.obs_ds.obs.mul_rcinv(self.obs_ds['observations'])
+        xr.testing.assert_identical(
+            ret_obs['obs_grid_1'], self.obs_ds['obs_grid_1']
+        )
+
+    def test_mul_rcinv_tests_if_obs_grid_1_available(self):
+        obs_values = self.obs_ds['observations'].rename({'obs_grid_1': 'grid'})
+        with self.assertRaises(KeyError):
+            self.obs_ds.obs.mul_rcinv(obs_values)
+
+    def test_mul_rcinv_tests_obs_grid_1(self):
+        obs_values = self.obs_ds['observations'].assign_coords(
+            obs_grid_1=np.arange(100, 140)
+        )
+        with self.assertRaises(ValueError):
+            self.obs_ds.obs.mul_rcinv(obs_values)
 
 
 if __name__ == '__main__':

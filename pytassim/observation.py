@@ -200,14 +200,7 @@ class Observation(object):
         checked_dims = dim_order == self.ds['covariance'].dims
         checked_shape = valid_shape == self.ds['covariance'].shape
 
-        try:
-            checked_coord_values = self.ds['obs_grid_1'].to_index().equals(
-                self.ds['obs_grid_2'].to_index()
-            )
-        except KeyError:
-            checked_coord_values = False
-
-        valid_cov = checked_dims and checked_shape and checked_coord_values
+        valid_cov = checked_dims and checked_shape
         return valid_cov
 
     @property
@@ -276,13 +269,28 @@ class Observation(object):
     def _corr_normalize(self, value):
         normalized = xr.dot(value, self._corr_chol_inverse, dims='obs_grid_1')
         normalized = normalized.rename({'obs_grid_2': 'obs_grid_1'})
+        normalized = normalized.assign_coords(obs_grid_1=value['obs_grid_1'])
         return normalized
 
     def _uncorr_normalize(self, value):
         normalized = value * self._uncorr_chol_inverse
         return normalized
 
+    def _check_value_dims(self, value):
+        try:
+            same_coord = self.ds['obs_grid_1'].to_index().equals(
+                    value['obs_grid_1'].to_index()
+            )
+            if not same_coord:
+                raise ValueError(
+                    'Given observation values should have the same '
+                    '`obs_grid_1` coordinate as these observations!'
+                )
+        except KeyError:
+            raise KeyError('Given value has no `obs_grid_1` dimension!')
+
     def mul_rcinv(self, value):
+        self._check_value_dims(value)
         if self.correlated:
             return self._corr_normalize(value)
         else:
