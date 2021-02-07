@@ -335,8 +335,16 @@ class TestIEnKSBundle(unittest.TestCase):
             weight_mean['ensemble'].values
         )
         epsilon_weights = weight_mean + 1E-2 * prior_weights
-        returned_weights = self.algorithm.get_model_weights(self.weights)
+        returned_weights = self.algorithm._get_model_weights(self.weights)
         xr.testing.assert_identical(returned_weights, epsilon_weights)
+
+    def test_get_model_weights_called_by_propagate_model(self):
+        with patch('pytassim.interface.ienks.IEnKSBundle._get_model_weights',
+                   return_value=self.weights) as model_weights_patch:
+            self.algorithm.propagate_model(
+                self.weights, self.state, iter_num=0
+            )
+        model_weights_patch.assert_called_once_with(self.weights)
 
     def test_ienks_with_linear_max_iter_1_equals_etkf(self):
         def linear_model(state, iter_num):
