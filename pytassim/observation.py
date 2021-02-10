@@ -261,9 +261,7 @@ class Observation(object):
                 cov_chol_inv.append(curr_chol_inv)
             cov_chol_inv = xr.concat(cov_chol_inv, dim='time')
         else:
-            chol_decomp = np.linalg.cholesky(self.ds['covariance'].data)
-            cov_chol_inv = np.linalg.inv(chol_decomp)
-            cov_chol_inv = self.ds['covariance'].copy(data=cov_chol_inv)
+            cov_chol_inv = self._single_corr_chol_inv(self.ds['covariance'])
         return cov_chol_inv
 
     def _corr_normalize(self, value):
