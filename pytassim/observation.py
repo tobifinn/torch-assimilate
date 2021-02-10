@@ -246,7 +246,7 @@ class Observation(object):
 
     @staticmethod
     def _single_corr_chol_inv(array: xr.DataArray) -> xr.DataArray:
-        chol = np.linalg.cholesky(array.data)
+        chol = np.linalg.cholesky(array.data).T
         chol_inv = np.linalg.inv(chol)
         chol_inv = array.copy(data=chol_inv)
         return chol_inv
