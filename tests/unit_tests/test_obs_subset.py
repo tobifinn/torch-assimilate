@@ -224,9 +224,31 @@ class TestObsSubset(unittest.TestCase):
         np.testing.assert_array_equal(ret_chol_inv, self.obs_ds.obs._r_cinv)
 
     def test_corr_chol_inverse_returns_squarerrot(self):
-        chol_inv = np.linalg.inv(np.linalg.cholesky(self.obs_ds['covariance']))
+        chol_inv = np.linalg.inv(
+            np.linalg.cholesky(self.obs_ds['covariance']).T
+        )
         ret_chol_inv = self.obs_ds.obs._corr_chol_inverse
         np.testing.assert_array_equal(ret_chol_inv, chol_inv)
+
+    def test_corr_chol_inverse_works(self):
+        curr_state = self.state.sel(var_name='x').isel(time=0)
+        curr_perts = curr_state-curr_state.mean('ensemble')
+        curr_perts = curr_perts.rename({'grid': 'obs_grid_1'})
+        random_cov = np.random.normal(size=(40, 2))
+        random_cov = random_cov-random_cov.mean(axis=1, keepdims=True)
+        random_cov = random_cov @ random_cov.T + np.eye(40) * 0.01
+        self.obs_ds['covariance'] = self.obs_ds['covariance'].copy(
+            data=random_cov
+        )
+        correct_cov = curr_perts.values @ np.linalg.inv(random_cov) @ \
+                      curr_perts.values.T
+        normed_perts = self.obs_ds.obs.mul_rcinv(curr_perts)
+        ret_cov = xr.dot(
+            normed_perts,
+            normed_perts.rename({'ensemble': 'ensemble_1'}),
+            dims='obs_grid_1'
+        )
+        np.testing.assert_allclose(ret_cov.values, correct_cov, rtol=1E-10)
 
     def test_corr_chol_inverse_works_with_dask_array(self):
         chol_inv = np.linalg.inv(np.linalg.cholesky(self.obs_ds['covariance']))
