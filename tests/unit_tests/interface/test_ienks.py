@@ -38,6 +38,7 @@ import torch
 import torch.jit
 import torch.nn
 import torch.sparse
+import torch.autograd
 
 import scipy.linalg
 import scipy.linalg.blas
@@ -345,6 +346,64 @@ class TestIEnKSBundle(unittest.TestCase):
                 self.weights, self.state, iter_num=0
             )
         model_weights_patch.assert_called_once_with(self.weights)
+
+    def test_propagate_model_returns_same_as_boc14_algo_2_line_6(self):
+        curr_state = self.state.isel(time=[0])
+        ens_perts = curr_state-curr_state.mean('ensemble')
+        epsilon_ensemble = curr_state.mean('ensemble') + 0.01 * ens_perts
+        epsilon_ensemble = epsilon_ensemble.transpose(*curr_state.dims)
+        self.algorithm.forward_model = lambda x, iter_num: (x, x)
+        self.algorithm.epsilon = 0.01
+        weights = self.algorithm.generate_prior_weights(
+            ens_perts['ensemble'].values
+        )
+        ret_ensemble = self.algorithm.propagate_model(weights, curr_state)
+        xr.testing.assert_allclose(
+            epsilon_ensemble, ret_ensemble,
+            rtol=1E-10, atol=1E-12
+        )
+
+    def test_gradient_test_bundle(self):
+        def quadratic_model(state, iter_num):
+            return state, (state*0.5)**2
+        self.algorithm.epsilon = 1E-7
+        self.algorithm.forward_model = quadratic_model
+        curr_state = self.state.isel(var_name=[0], time=[0])
+        pseudo_state = self.algorithm.propagate_model(self.weights, curr_state)
+        pseudo_state = pseudo_state-pseudo_state.mean('ensemble')
+        torch_pseudo = torch.from_numpy(pseudo_state.values).view(10, 40)
+        torch_weights = torch.from_numpy(self.weights.values)
+        _, w_perts_inv, _ = self.algorithm.core_module._decompose_weights(
+            torch_weights, 10
+        )
+        bundle_dh_dw = self.algorithm.core_module._get_dh_dw(
+            torch_pseudo, w_perts_inv
+        )
+
+        torch_weights_mean = torch.nn.Parameter(
+            torch_weights.mean(dim=1, keepdim=True),
+            requires_grad=True
+        )
+
+        torch_state = torch.from_numpy(curr_state.values).view(10, 40)
+        torch_state_mean = torch_state.mean(dim=0, keepdim=True)
+        torch_state_perts = torch_state - torch_state_mean
+        torch_analysis = torch_state_mean + torch.einsum(
+            'ig,ij->jg', torch_state_perts, torch_weights_mean
+        )
+        torch_propagated = quadratic_model(torch_analysis, 0)[1][0]
+        torch_dh_dw = torch.cat([
+            torch.autograd.grad(
+                grid_point, torch_weights_mean,
+                retain_graph=True
+            )[0]
+            for grid_point in torch_propagated
+        ], dim=-1)
+
+        torch.testing.assert_allclose(
+            bundle_dh_dw, torch_dh_dw,
+            rtol=1E-5, atol=1E-7
+        )
 
     def test_ienks_with_linear_max_iter_1_equals_etkf(self):
         def linear_model(state, iter_num):
