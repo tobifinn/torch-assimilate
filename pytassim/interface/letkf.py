@@ -118,7 +118,10 @@ class LETKF(DomainLocalizedMixin, ETKF):
         grid_index, state_info = self._extract_state_information(state)
         logger.info('Extracted grid information about the state id')
         logger.debug('State_id: {0}'.format(state_info))
-        state_info = state_info.chunk({'grid': self.chunksize})
+        state_info = state_info.chunk({'grid': self.chunksize, "id_names": -1})
+        ens_obs_perts = ens_obs_perts.chunk({'ensemble': -1, "obs_id": -1})
+        innovations = innovations.chunk({"obs_id": -1})
+
         logger.info('Chunked the state information')
 
         weights = xr.apply_ufunc(
