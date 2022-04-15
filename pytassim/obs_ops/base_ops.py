@@ -67,8 +67,9 @@ class BaseOperator(object):
             **kwargs: Dict[str, Any]
     ) -> xr.DataArray:
         pseudo_obs = self.obs_op(input_vals, *args, **kwargs)
-        pseudo_obs = pseudo_obs.rename(grid='obs_grid_1')
+        pseudo_obs = pseudo_obs.sel(time=obs_ds.time.values)
         pseudo_obs['time'] = obs_ds.time.values
+        pseudo_obs = pseudo_obs.rename(grid='obs_grid_1')
         pseudo_obs['obs_grid_1'] = obs_ds.indexes['obs_grid_1']
         return pseudo_obs
 
