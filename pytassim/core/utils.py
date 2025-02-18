@@ -54,7 +54,7 @@ def evd(
         The inverted eigenvalues of the nearest positive semidefinit matrix
         to the given tensor.
     """
-    evals, evects = torch.symeig(tensor, eigenvectors=True, upper=False)
+    evals, evects = torch.linalg.eigh(tensor)
     evals = evals.clamp(min=0)
     evals = evals + reg_value
     evals_inv = 1 / evals
