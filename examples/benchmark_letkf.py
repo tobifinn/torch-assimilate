@@ -32,11 +32,11 @@ import argparse
 # External modules
 import xarray as xr
 import numpy as np
-import torch
+import dask
 
 # Internal modules
 import pytassim
-from pytassim.assimilation import LETKFUncorr
+from pytassim.interface import LETKF
 from pytassim.localization import GaspariCohn
 from pytassim.obs_ops.base_ops import BaseOperator
 
@@ -65,25 +65,17 @@ parser.add_argument(
     help='Localization radius in grid points',
     type=int, default=20
 )
-
-
-def main(len_grid=10000, nr_obs=1000, ens_size=50, loc_radius=20):
-    back_state = get_state_data(len_grid, ens_size)
-    obs_state = get_obs_data(len_grid, nr_obs)
-    obs_operator = IdentityOperator(len_grid=len_grid, nr_obs=nr_obs)
-    obs_state.obs.operator = obs_operator.get_obs_method
-
-    localization = GaspariCohn(length_scale=loc_radius, dist_func=distance_func)
-    letkf = LETKFUncorr(localization=localization, inf_factor=1.1)
-    start_time = time.time()
-    _ = letkf.assimilate(back_state, obs_state)
-    logger.info(
-        'Assimilation duration: {0:.2f} s'.format(time.time() - start_time)
-    )
+parser.add_argument(
+    '-w', '--num_workers',
+    help='Number of parallel workers in dask',
+    type=int, default=1
+)
 
 
 def distance_func(x_grid, y_grid):
-    dist = np.abs(x_grid-y_grid)
+    # Dimensions (time, grid)
+    # Select only grid information for distance estimation
+    dist = np.abs(x_grid[1]-y_grid["obs_grid_1"].values)
     return dist
 
 
@@ -122,17 +114,24 @@ def get_state_data(len_grid=10000, ens_size=50):
     return state_array
 
 
-def get_obs_data(len_grid=10000, nr_obs=1000):
-    grid_range = np.linspace(start=0, stop=len_grid, num=nr_obs, endpoint=False)
-    data = rnd.normal(size=(1, nr_obs))
-    obs_data = xr.DataArray(
-        data=data,
+def get_truth(len_grid=10000):
+    truth = xr.DataArray(
+        rnd.normal(size=(1, len_grid)),
         coords={
             'time': [datetime.datetime(1992, 12, 25, 8), ],
-            'obs_grid_1': grid_range
+            'grid': np.arange(len_grid)
         },
-        dims=['time', 'obs_grid_1']
+        dims=['time', 'grid']
     )
+    return truth
+
+
+def get_obs_data(truth: xr.DataArray, nr_obs=1000):
+    grid_range = np.linspace(
+        start=0, stop=len(truth["grid"]), num=nr_obs, endpoint=False
+    )
+    obs_data = truth.sel(grid=grid_range)
+    obs_data = obs_data.rename({"grid": "obs_grid_1"})
     obs_cov = xr.DataArray(
         data=[1, ] * nr_obs,
         coords={
@@ -149,7 +148,35 @@ def get_obs_data(len_grid=10000, nr_obs=1000):
     return observations
 
 
+def main(
+        len_grid=10000, nr_obs=1000, ens_size=50, loc_radius=20, num_workers=1
+):
+    truth = get_truth(len_grid)
+    back_state = get_state_data(len_grid, ens_size)
+    obs_state = get_obs_data(truth, nr_obs)
+    obs_operator = IdentityOperator(len_grid=len_grid, nr_obs=nr_obs)
+    obs_state.obs.operator = obs_operator
+
+    localization = GaspariCohn(length_scale=loc_radius, dist_func=distance_func)
+    letkf = LETKF(localization=localization, inf_factor=1.1)
+    start_time = time.time()
+    with dask.config.set(num_workers=num_workers): 
+        analysis = letkf.assimilate(back_state, obs_state)
+        analysis = analysis.compute()
+    logger.info(
+        'Assimilation duration: {0:.2f} s'.format(time.time() - start_time)
+    )
+    
+    bg_rmse = np.sqrt(((back_state.mean("ensemble")-truth)**2).mean())
+    logger.info("Background RMSE: {0:.4f}".format(bg_rmse))
+    ana_rmse = np.sqrt(((analysis.mean("ensemble")-truth)**2).mean())
+    logger.info("Analysis RMSE: {0:.4f}".format(ana_rmse))
+
+
 if __name__ == '__main__':
     args = parser.parse_args()
-    main(len_grid=args.len_grid, nr_obs=args.nr_obs, ens_size=args.ens_size,
-         loc_radius=args.loc_radius)
+    logging.basicConfig(level=logging.INFO)
+    main(
+        len_grid=args.len_grid, nr_obs=args.nr_obs, ens_size=args.ens_size,
+        loc_radius=args.loc_radius, num_workers=args.num_workers
+    )
