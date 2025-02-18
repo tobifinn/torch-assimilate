@@ -218,7 +218,8 @@ class ModelState(object):
                 dim_index_frame = pd.concat(
                     [dim_index_frame, col_frame], axis=1
                 )
-            stacked[dim] = pd.MultiIndex.from_frame(dim_index_frame)
+            new_index = pd.MultiIndex.from_frame(dim_index_frame)
+            stacked = stacked.assign_coords({dim: new_index})
         return stacked
 
     def stack_to_state_id(self) -> xr.DataArray:

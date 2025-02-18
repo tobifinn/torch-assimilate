@@ -235,7 +235,8 @@ class BaseAssimilation(object):
         stacked_observations = xr.concat(stacked_observations, dim='obs_id')
         unused_coords = [
             coord_name for coord_name in stacked_observations.coords.keys()
-            if coord_name not in stacked_observations.dims
+            if (coord_name not in stacked_observations.dims) and
+            (coord_name not in stacked_observations.indexes)
         ]
         stacked_observations = stacked_observations.drop_vars(unused_coords)
         return stacked_observations
