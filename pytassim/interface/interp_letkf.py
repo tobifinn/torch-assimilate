@@ -86,11 +86,13 @@ class WeightInterpLETKF(LETKF):
             interp_weights = interp(s_coords.values)
         interp_weights = xr.DataArray(
             interp_weights,
-            dims=["grid", "ensemble", "ensemble_new"],
+            dims=("grid", "ensemble", "ensemble_new"),
             coords={
-                "grid": state.indexes["grid"],
-                "ensemble": weights.indexes["ensemble"]
+                "grid": state.indexes["grid"]
             }
+        )
+        interp_weights = interp_weights.assign_coords(
+            {k: v for k, v in weights.coords.items() if k != "grid"}
         )
         return interp_weights
     
@@ -99,5 +101,7 @@ class WeightInterpLETKF(LETKF):
             state: xr.DataArray,
             weights: xr.DataArray
     ) -> xr.DataArray:
-        interp_weights = self._interpolate_weights(state, weights)
-        return super()._apply_weights(state, interp_weights)
+        if self.weight_grid is not None:
+            # If weights grid has been used
+            weights = self._interpolate_weights(state, weights)
+        return super()._apply_weights(state, weights)
