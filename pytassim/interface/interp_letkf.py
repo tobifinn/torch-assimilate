@@ -73,6 +73,7 @@ class WeightInterpLETKF(LETKF):
                 rescale=True,
             )
             interp_weights = interp(s_coords.to_frame(index=False).values)
+            s_coords = xr.Coordinates.from_pandas_multiindex(s_coords, "grid")
         else:
             # 1D values
             interp = interp1d(
@@ -88,12 +89,13 @@ class WeightInterpLETKF(LETKF):
             interp_weights,
             dims=("grid", "ensemble", "ensemble_new"),
             coords={
-                "grid": state.indexes["grid"]
+                "grid": s_coords
             }
         )
-        interp_weights = interp_weights.assign_coords(
-            {k: v for k, v in weights.coords.items() if k != "grid"}
-        )
+        interp_weights = interp_weights.assign_coords({
+            k: v for k, v in weights.coords.items()
+            if k in ["ensemble", "ensemble_new"]
+        })
         return interp_weights
     
     def _apply_weights(
