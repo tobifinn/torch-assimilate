@@ -4,3 +4,4 @@ from .ketkf import KETKF
 from .lketkf import LKETKF
 from .ienks import IEnKSTransform, IEnKSBundle
 from .lienks import LocalizedIEnKSTransform, LocalizedIEnKSBundle
+from .interp_letkf import WeightInterpLETKF
