@@ -28,11 +28,13 @@ import logging
 import datetime
 import time
 import argparse
+from typing import Tuple, Any, Dict
 
 # External modules
 import xarray as xr
 import numpy as np
 import dask
+import pandas as pd
 
 # Internal modules
 import pytassim
@@ -53,16 +55,17 @@ parser.add_argument(
 )
 parser.add_argument(
     '-l', '--len_grid',
-    help='Length of state grid', type=int, default=10000
+    help='Length of state grid (for each dimension)',
+    type=int, default=100
 )
 parser.add_argument(
     '-n', '--nr_obs',
-    help='Number of observations (should be less/equal than state grid length)',
+    help='Number of observations',
     type=int, default=1000
 )
 parser.add_argument(
     '-r', '--loc_radius',
-    help='Localization radius in grid points',
+    help='Localization radius',
     type=int, default=20
 )
 parser.add_argument(
@@ -73,53 +76,80 @@ parser.add_argument(
 
 
 def distance_func(x_grid, y_grid):
-    # Dimensions (time, grid)
-    # Select only grid information for distance estimation
-    dist = np.abs(x_grid[1]-y_grid["obs_grid_1"].values)
+    # Columns are time, x, y
+    dist = np.sqrt(
+        (y_grid["x"]- x_grid[1])**2
+        + (y_grid["y"] - x_grid[2])**2
+    )
     return dist
 
 
-class IdentityOperator(BaseOperator):
-    def __init__(self, len_grid, nr_obs):
-        super().__init__(len_grid=len_grid)
-        self.nr_obs = nr_obs
+class NearestOperator(object):
+    def __call__(
+            self,
+            obs_ds: xr.Dataset,
+            input_vals: xr.DataArray,
+            *args: Tuple[Any],
+            **kwargs: Dict[str, Any]
+    ) -> xr.DataArray:
+        obs_grid_idx = []
+        for x, y in obs_ds.indexes["obs_grid_1"]:
+            dist_x = input_vals.x.values - x
+            dist_y = input_vals.y.values - y
+            nearest_idx = np.argmin(dist_x**2+dist_y**2)
+            obs_grid_idx.append(nearest_idx)
+        pseudo_obs = input_vals.sel(var_name="vel").isel(grid=obs_grid_idx)
+        pseudo_obs = pseudo_obs.rename({"grid": "obs_grid_1"})
+        pseudo_obs = pseudo_obs.reset_index("obs_grid_1", drop=True)
+        pseudo_obs = pseudo_obs.assign_coords(obs_grid_1=obs_ds.obs_grid_1)
+        return pseudo_obs       
 
-    @property
-    def obs_grid(self):
-        return np.linspace(start=0, stop=self.len_grid, num=self.nr_obs,
-                           endpoint=False)
 
-    def obs_op(self, in_array, *args, **kwargs):
-        if 'var_name' in in_array.dims:
-            in_array = in_array.sel(var_name='x')
-        obs_state = in_array.sel(grid=self.obs_grid, method='nearest')
-        return obs_state
-
-
-def get_state_data(len_grid=10000, ens_size=50):
-    grid_range = np.arange(len_grid)
+def get_state_data(len_grid=100, ens_size=50):
+    # Create 2D grid
+    x_grid = np.arange(len_grid)
+    y_grid = np.arange(len_grid)
+    grid_1, grid_2 = np.meshgrid(x_grid, y_grid)
+    
+    # Create MultiIndex
+    grid_index = pd.MultiIndex.from_arrays(
+        [grid_1.ravel(), grid_2.ravel()], 
+        names=['x', 'y']
+    )
+    
     ens_range = np.arange(ens_size)
-
-    data = rnd.normal(size=(1, 1, ens_size, len_grid))
+    
+    data = rnd.normal(size=(1, 1, ens_size, len_grid*len_grid))
     state_array = xr.DataArray(
         data=data,
         coords={
-            'var_name': ['x', ],
-            'time': [datetime.datetime(1992, 12, 25, 8), ],
+            'var_name': ['vel',],
+            'time': [datetime.datetime(1992, 12, 25, 8),],
             'ensemble': ens_range,
-            'grid': grid_range
+            'grid': grid_index
         },
         dims=['var_name', 'time', 'ensemble', 'grid']
     )
     return state_array
 
 
-def get_truth(len_grid=10000):
+def get_truth(len_grid=100):
+    # Create 2D grid
+    x_grid = np.arange(len_grid)
+    y_grid = np.arange(len_grid)
+    grid_1, grid_2 = np.meshgrid(x_grid, y_grid)
+    
+    # Create MultiIndex
+    grid_index = pd.MultiIndex.from_arrays(
+        [grid_1.ravel(), grid_2.ravel()], 
+        names=['x', 'y']
+    )
+
     truth = xr.DataArray(
-        rnd.normal(size=(1, len_grid)),
+        rnd.normal(size=(1, len_grid*len_grid)),
         coords={
-            'time': [datetime.datetime(1992, 12, 25, 8), ],
-            'grid': np.arange(len_grid)
+            'time': [datetime.datetime(1992, 12, 25, 8),],
+            'grid': grid_index
         },
         dims=['time', 'grid']
     )
@@ -127,18 +157,15 @@ def get_truth(len_grid=10000):
 
 
 def get_obs_data(truth: xr.DataArray, nr_obs=1000):
-    grid_range = np.linspace(
-        start=0, stop=len(truth["grid"]), num=nr_obs, endpoint=False
-    )
-    obs_data = truth.sel(grid=grid_range)
+    # For 2D observations, we'll select random points
+    total_points = len(truth.grid)
+    indices = rnd.choice(total_points, size=min(nr_obs, total_points), replace=False)
+    obs_data = truth.isel(grid=indices)
     obs_data = obs_data.rename({"grid": "obs_grid_1"})
-    obs_cov = xr.DataArray(
-        data=[1, ] * nr_obs,
-        coords={
-            'obs_grid_1': grid_range
-        },
-        dims=['obs_grid_1']
-    )
+
+    # Create observation covariance
+    obs_cov = xr.ones_like(obs_data)
+    
     observations = xr.Dataset(
         {
             'observations': obs_data,
@@ -149,23 +176,33 @@ def get_obs_data(truth: xr.DataArray, nr_obs=1000):
 
 
 def main(
-        len_grid=10000, nr_obs=1000, ens_size=50, loc_radius=20, num_workers=1
+        len_grid=100, nr_obs=1000, ens_size=50, loc_radius=20, num_workers=1
 ):
     truth = get_truth(len_grid)
     back_state = get_state_data(len_grid, ens_size)
+    
+    # Create 2D weight grid
+    x_weights = back_state.indexes["grid"].get_level_values("x")[::1]
+    y_weights = back_state.indexes["grid"].get_level_values("y")[::1]
+    weight_grid_index = pd.MultiIndex.from_arrays(
+        [x_weights, y_weights], 
+        names=['x', 'y']
+    )
+    
     weight_grid = xr.Dataset(
         coords={
             "time": back_state.indexes["time"],
-            "grid": back_state.indexes["grid"][::20]
+            "grid": weight_grid_index
         }
     )
+    
     obs_state = get_obs_data(truth, nr_obs)
-    obs_operator = IdentityOperator(len_grid=len_grid, nr_obs=nr_obs)
+    obs_operator = NearestOperator()
     obs_state.obs.operator = obs_operator
 
     localization = GaspariCohn(length_scale=loc_radius, dist_func=distance_func)
     letkf = WeightInterpLETKF(
-        localization=localization, inf_factor=1.1, weight_grid=weight_grid
+        localization=localization, inf_factor=1.1, weight_grid=None
     )
     start_time = time.time()
     with dask.config.set(num_workers=num_workers): 
